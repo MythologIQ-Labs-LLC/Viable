@@ -8,7 +8,7 @@ When documents conflict, use this order:
 
 1. accepted Architecture Decision Records;
 2. Product Requirements Document;
-3. platform architectural design;
+3. platform and domain architectural designs;
 4. current implementation state;
 5. product and experience roadmaps;
 6. product operating-model and supporting design documents;
@@ -21,14 +21,15 @@ Issues and pull requests may implement or propose changes, but they may not sile
 
 For a new session or contributor, read:
 
-1. [Session context handoff](handoff/session-context-2026-07-15.md)
+1. [Current session handoff](handoff/CURRENT.md)
 2. [Product Requirements Document](product/PRD.md)
 3. [ICP discovery and validation](product/icp-discovery-and-validation.md)
 4. [Architecture Decision Records](adr/README.md)
 5. [Platform architectural design](architecture/viable-platform.md)
-6. [Current state](status/current-state.md)
-7. [Initial build sequence](roadmap/initial-build-sequence.md)
-8. [Open decisions](decisions/open-decisions.md)
+6. [ICP domain architectural design](architecture/icp-domain.md)
+7. [Current state](status/current-state.md)
+8. [Initial build sequence](roadmap/initial-build-sequence.md)
+9. [Open decisions](decisions/open-decisions.md)
 
 Supporting review records:
 
@@ -37,7 +38,8 @@ Supporting review records:
 
 ## Handoff and terminology
 
-- [Session context handoff](handoff/session-context-2026-07-15.md)
+- [Current session handoff](handoff/CURRENT.md)
+- [Detailed session capture, 2026-07-15](handoff/session-context-2026-07-15.md)
 - [Canonical glossary](GLOSSARY.md)
 
 ## Product
@@ -52,6 +54,7 @@ Supporting review records:
 ## Architecture
 
 - [Platform architectural design](architecture/viable-platform.md)
+- [ICP domain architectural design](architecture/icp-domain.md)
 - [ADR index](adr/README.md)
 - [ADR template](adr/TEMPLATE.md)
 
@@ -107,4 +110,4 @@ Documentation must distinguish:
 
 A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, and user documentation that it affects.
 
-The session handoff should be refreshed when a major product boundary, issue sequence, migration posture, or open decision changes materially.
+The current handoff should be refreshed when a major product boundary, accepted decision, issue sequence, migration posture, or open decision changes materially.
