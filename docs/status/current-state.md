@@ -10,12 +10,13 @@
 | Architecture | `docs/architecture/viable-platform.md` |
 | ADRs | `docs/adr/README.md` |
 | Verification report | `docs/reviews/documentation-verification-2026-07-15.md` |
+| Verification closure | `docs/reviews/documentation-verification-closure-2026-07-15.md` |
 
 ## Summary
 
 Viable is currently in the product-definition and repository-foundation stage.
 
-The formal PRD, accepted foundational ADRs, marketability operating model, full platform architectural design, product roadmap, experience design roadmap, open-source repository growth model, ViMax integration assessment, initial build sequence, and documentation verification are present.
+The formal PRD, accepted foundational ADRs, marketability operating model, full platform architectural design, product roadmap, experience design roadmap, open-source repository growth model, ViMax integration assessment, initial build sequence, documentation verification, and roadmap-to-issue traceability are present.
 
 The sanitized Event Radar product-code migration is not yet complete. No claim should imply that the full event application, desktop shell, social research runtime, outreach workflow, publishing adapters, video generation, lead management, or analytics system is operational in this repository until the corresponding code and validation exist here.
 
@@ -36,8 +37,9 @@ The sanitized Event Radar product-code migration is not yet complete. No claim s
 - ViMax integration assessment;
 - research, content, and outreach safety boundaries;
 - documentation index and authority order;
-- documentation verification and traceability report;
+- documentation verification, closure, and traceability reports;
 - fail-closed sanitized source-migration issue;
+- implementation issues for all six initial build slices;
 - MythologIQ Labs proprietary license.
 
 ### Foundational accepted decisions
@@ -48,6 +50,18 @@ The sanitized Event Radar product-code migration is not yet complete. No claim s
 - evidence provenance and explicit partial failure;
 - named human approval for externally consequential action;
 - marketability-loop authority with Event Intelligence as a bounded subsystem.
+
+### Initial build issue coverage
+
+| Slice | Issue |
+|---|---|
+| Sanitized event foundation and migration | #1 |
+| Product Truth and Marketability Assessment | #2 |
+| Public Repository Growth and Launch | #3 |
+| ViMax production-package prototype | #4 |
+| Signals Inbox with event and repository evidence | #5 |
+| Campaign Brief and Canonical Asset | #6 |
+| Calendar, Manual Activation, Outcome Capture, and Learning | #7 |
 
 ## In migration
 
@@ -103,16 +117,17 @@ All platform capabilities, pricing, permissions, scopes, and review requirements
 
 ## Documentation conformance
 
-The documentation baseline now passes structural review for:
+The documentation baseline passes structural review for:
 
 - formal product requirements;
 - durable architecture decisions;
 - full product architecture;
 - outcome-based roadmap sequencing;
 - experience design coverage;
+- issue traceability for the six initial build slices;
 - honest implementation-state separation.
 
-Remaining traceability gaps are primarily in the implementation backlog. Dedicated issues are still needed for the Signals slice, Campaign and Canonical Asset slice, and Calendar, Manual Activation, and Outcome Capture slice.
+Remaining work concerns product decisions, schemas, implementation, validation, operations, security, privacy, packaging, and usability evidence rather than missing baseline documentation structure.
 
 ## Immediate next milestones
 
@@ -120,12 +135,12 @@ Remaining traceability gaps are primarily in the implementation backlog. Dedicat
 2. Complete the sanitized Event Radar code migration under issue #1.
 3. Restore independent CI and package validation in Viable.
 4. Rebrand the native desktop and installer identity.
-5. Implement the Product Truth and Marketability Assessment vertical slice under issue #2.
-6. Create and implement the Signals Inbox vertical-slice issue.
-7. Create and implement the Campaign Brief and Canonical Asset vertical-slice issue.
-8. Implement the Public Repository Growth and Launch vertical slice under issue #3.
+5. Implement Product Truth and Marketability Assessment under issue #2.
+6. Implement Signals Inbox under issue #5.
+7. Implement Campaign Brief and Canonical Asset under issue #6.
+8. Implement Public Repository Growth and Launch under issue #3.
 9. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
-10. Implement manual activation, outcome capture, retrospective, and learning before direct publishing adapters.
+10. Implement Calendar, Manual Activation, Outcome Capture, and Learning under issue #7 before direct publishing adapters.
 
 ## Release posture
 
