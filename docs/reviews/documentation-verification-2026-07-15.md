@@ -3,7 +3,7 @@
 - Review date: 2026-07-15
 - Review scope: PRD, ADRs, architectural design, product roadmap, experience roadmap, current state, README, documentation index, initial build sequence, and active implementation issues
 - Review branch: `agent/documentation-baseline-review`
-- Result: Baseline corrected; follow-up traceability work remains
+- Result: Baseline corrected; follow-up traceability closed
 
 ## 1. Executive assessment
 
@@ -23,7 +23,7 @@ This review corrects those gaps and verifies the roadmap against the new PRD and
 |---|---|---|---|
 | Product definition | Strong scope and operating model, but no formal PRD | Added `docs/product/PRD.md` | Pass |
 | Requirements traceability | Requirements were prose-only | Added stable PRD requirement IDs and traceability sections | Pass with backlog gaps |
-| ADR governance | No ADR directory or decision index | Added ADR index and six accepted foundational ADRs | Pass |
+| ADR governance | No ADR directory or decision index | Added ADR index and seven accepted foundational ADRs | Pass |
 | Architectural design | Stale and too narrow for current product scope | Replaced with complete platform architectural design | Pass |
 | Product roadmap | Detailed outcome-based phases 0 through 10 | Verified against PRD domains and architecture | Pass |
 | Experience roadmap | Detailed navigation, journeys, states, and patterns | Verified against PRD user and accessibility requirements | Pass |
@@ -76,7 +76,8 @@ The following accepted ADRs now exist:
 3. product truth and claims ledger authority;
 4. evidence provenance and explicit partial failure;
 5. human approval for externally consequential action;
-6. marketability-loop authority and event-intelligence boundary.
+6. marketability-loop authority and event-intelligence boundary;
+7. canonical ICP-hypothesis and validation authority in Product Core.
 
 ### Verification result
 
@@ -146,7 +147,7 @@ The product roadmap is appropriately outcome-based and does not invent dates wit
 It correctly sequences:
 
 1. sanitized foundation and independent CI;
-2. product truth and marketability assessment;
+2. product truth, ICP discovery and validation, and marketability assessment;
 3. signal intelligence;
 4. positioning and campaigns;
 5. content and creative production;
@@ -171,7 +172,7 @@ The roadmap consistently preserves:
 
 The initial build sequence correctly reduces the larger roadmap into complete vertical slices:
 
-1. product truth and assessment;
+1. product truth, ICP discovery and validation, and marketability assessment;
 2. signals with events and public repositories;
 3. campaign brief and canonical asset;
 4. repository growth and launch room;
@@ -222,6 +223,7 @@ Pass as a target experience. Usability evidence remains pending implementation a
 | PRD capability | Roadmap | Primary experience | ADRs | Current issue coverage |
 |---|---|---|---|---|
 | Product truth and claims | Phase 1, Slice 1 | Home, Product | ADR-0001, ADR-0003 | Issue #2 |
+| ICP discovery and validation | Phase 1, Slice 1 | Home, Product | ADR-0001, ADR-0003, ADR-0004, ADR-0007 | Issue #2 |
 | Marketability assessment | Phase 1, Slice 1 | Home, Product | ADR-0003, ADR-0004 | Issue #2 |
 | Evidence and signals | Phase 2, Slice 2 | Market, Signals | ADR-0002, ADR-0004, ADR-0006 | Issue #1 partially; dedicated issue missing |
 | Event intelligence | Phase 0 and 2, Slice 2 | Signals, Calendar | ADR-0002, ADR-0004, ADR-0006 | Issue #1 |
@@ -250,7 +252,7 @@ A material product or architecture change must update the relevant authority doc
 
 ## 10. Remaining documentation actions
 
-### Required before Slice 1 implementation merges
+### Actions identified before Slice 1 implementation
 
 - link the formal PRD and ADR index from the Platinum README;
 - add requirement IDs to issue #2 acceptance criteria or implementation plan;
@@ -269,7 +271,22 @@ A material product or architecture change must update the relevant authority doc
 - external integration feasibility records for capabilities included in the release;
 - user, operator, troubleshooting, and release documentation.
 
-## 11. Final verdict
+## 11. Post-review ICP authority correction
+
+A final exact-branch review found that ICP authority was complete in the PRD, ADR-0007, and the dedicated ICP domain architecture but was not explicit enough in the parent platform architecture and issue #2 traceability.
+
+The closure correction:
+
+- adds ICP discovery and validation to the canonical platform marketability loop;
+- names canonical ICP hypotheses, revisions, validation, disqualifiers, and history as Product Core responsibilities;
+- adds ICP identities to the platform canonical-identity list;
+- adds the downstream-mutation prohibition to the platform invariants;
+- links ADR-0007 from the platform architecture;
+- adds PRD-ICP-001 through PRD-ICP-008 and ADR-0007 to issue #2 traceability.
+
+These corrections clarify existing accepted authority. They do not claim runtime implementation or validation.
+
+## 12. Final verdict
 
 The documentation set is now structurally suitable for disciplined implementation once this review branch is merged.
 
