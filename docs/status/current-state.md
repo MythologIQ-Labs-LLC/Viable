@@ -1,31 +1,83 @@
 # Viable Current State
 
+## Document control
+
+| Field | Value |
+|---|---|
+| Status | Authoritative implementation-status record |
+| Last reviewed | 2026-07-15 |
+| Product requirements | `docs/product/PRD.md` |
+| ICP product authority | `docs/product/icp-discovery-and-validation.md` |
+| Architecture | `docs/architecture/viable-platform.md` |
+| ICP domain architecture | `docs/architecture/icp-domain.md` |
+| ADRs | `docs/adr/README.md` |
+| Open decisions | `docs/decisions/open-decisions.md` |
+| Session handoff | `docs/handoff/session-context-2026-07-15.md` |
+| Verification report | `docs/reviews/documentation-verification-2026-07-15.md` |
+| Verification closure | `docs/reviews/documentation-verification-closure-2026-07-15.md` |
+
 ## Summary
 
-Viable is currently in product-definition and repository-foundation stage.
+Viable is currently in the product-definition and repository-foundation stage.
 
-The product vision, marketability operating model, platform architecture, product roadmap, experience design roadmap, open-source repository growth model, and ViMax integration assessment are documented.
+The formal PRD, accepted foundational ADRs, ICP discovery and validation specification, marketability operating model, platform architectural design, ICP domain design, product roadmap, experience design roadmap, open-source repository growth model, ViMax integration assessment, initial build sequence, ownership and provenance policy, glossary, open-decision register, session handoff, documentation verification, and roadmap-to-issue traceability are present on the active documentation branch.
 
-The sanitized Event Radar product-code migration is not yet complete. No claim should imply that the full event application, desktop shell, social research runtime, outreach workflow, publishing adapters, video generation, lead management, or analytics system is operational in this repository until the corresponding code and validation exist here.
+The sanitized Event Radar product-code migration is not yet complete. No claim should imply that the full event application, desktop shell, ICP workflow, marketability assessment, social research runtime, outreach workflow, publishing adapters, video generation, lead management, or analytics system is operational in this repository until the corresponding code and validation exist here.
 
 ## Implemented in this repository
 
+### Product and architecture documentation
+
 - Platinum-grade product README foundation;
-- MythologIQ Labs proprietary license;
+- formal Product Requirements Document with requirement IDs, MVP, quality attributes, metrics, and release gates;
+- explicit ICP discovery and validation product specification;
 - product scope;
 - marketability operating model;
-- platform architecture;
+- accepted foundational ADR set and ADR template;
+- complete platform architectural design;
+- ICP domain architectural design;
 - phased product roadmap;
 - experience design roadmap;
+- initial build sequence;
 - open-source repository growth model;
 - ViMax integration assessment;
-- documentation index;
-- fail-closed sanitized source-migration issue.
+- research, content, and outreach safety boundaries;
+- product provenance and ownership policy;
+- canonical domain glossary;
+- open decisions register;
+- durable session-context handoff;
+- documentation index and authority order;
+- documentation verification, closure, and traceability reports;
+- fail-closed sanitized source-migration issue;
+- implementation issues for all six initial build slices;
+- MythologIQ Labs proprietary license.
+
+### Foundational accepted decisions
+
+- local-first workspace authority;
+- provider-neutral capability adapters;
+- product truth and claims-ledger authority;
+- evidence provenance and explicit partial failure;
+- named human approval for externally consequential action;
+- marketability-loop authority with Event Intelligence as a bounded subsystem;
+- ICP hypotheses and validation belong to Product Core and cannot be silently rewritten by downstream contexts.
+
+### Initial build issue coverage
+
+| Slice | Issue |
+|---|---|
+| Sanitized event foundation and migration | #1 |
+| Product Truth, ICP Discovery, and Marketability Assessment | #2 |
+| Signals Inbox with event and repository evidence | #5 |
+| Campaign Brief and Canonical Asset | #6 |
+| Public Repository Growth and Launch | #3 |
+| ViMax production-package prototype | #4 |
+| Calendar, Manual Activation, Outcome Capture, and Learning | #7 |
 
 ## In migration
 
 - reusable product-generic event discovery code;
-- generic provider adapters;
+- generic event-provider adapters;
 - local event normalization and scoring;
 - native desktop foundation;
 - generic tests and schemas;
@@ -33,23 +85,30 @@ The sanitized Event Radar product-code migration is not yet complete. No claim s
 
 The migration must exclude external organization content, branding, governance, licensing statements, destinations, accounts, prompts, logs, reports, confidential fixtures, and all secret-bearing material.
 
+Imported event code must enter through the Event Intelligence bounded context and shared evidence contracts. It must not redefine the top-level Viable product model.
+
 ## Designed but not implemented
 
-- product truth workspace;
+- product workspace;
+- product truth and claims-ledger runtime;
+- ICP hypothesis, comparison, selection, validation, revision, and impact-analysis workflow;
 - marketability assessment;
-- claims and proof ledger;
 - market and research inbox;
 - social and search source adapters;
 - public repository assessment and launch room;
 - campaign planning;
+- canonical assets and channel variants;
 - content and creative studio;
 - website, SEO, AEO, and conversion analysis;
+- approval and external-action state machine;
 - approved social publishing;
 - lead and organization records;
 - sales enablement;
 - video production workflow and ViMax adapter;
-- measurement, attribution, experiments, and learning ledger;
-- complete Viable desktop navigation and user experience.
+- measurement, attribution, experiments, ICP confidence feedback, and learning ledger;
+- complete Viable desktop navigation and user experience;
+- local worker management;
+- hosted synchronization or multi-user collaboration.
 
 ## External integration status
 
@@ -57,29 +116,51 @@ The migration must exclude external organization content, branding, governance, 
 |---|---|
 | Event sources | Product-generic code pending sanitized migration |
 | GitHub public repository analysis | Designed; not implemented |
-| LinkedIn | Assessment and adapter not implemented |
-| Facebook and Instagram | Assessment and adapters not implemented |
-| X | Assessment and adapter not implemented |
-| TikTok and YouTube | Assessment and adapters not implemented |
+| LinkedIn | Feasibility and adapter not implemented |
+| Facebook and Instagram | Feasibility and adapters not implemented |
+| X | Feasibility and adapter not implemented |
+| TikTok and YouTube | Feasibility and adapters not implemented |
 | Website CMS | Not implemented |
 | Search Console and analytics | Not implemented |
 | CRM and lead capture | Not implemented |
 | ViMax | Candidate assessed; adapter not implemented |
 
-All platform capabilities, pricing, permissions, scopes, and review requirements must be verified again when implementation begins.
+All platform capabilities, pricing, permissions, scopes, review requirements, and data-handling terms must be verified again when implementation begins.
+
+## Documentation conformance
+
+The documentation baseline passes structural review for:
+
+- formal product requirements;
+- first-class ICP discovery and validation requirements;
+- durable architecture decisions;
+- full product architecture;
+- ICP domain authority and lifecycle;
+- outcome-based roadmap sequencing;
+- experience design coverage;
+- issue traceability for the six initial build slices;
+- ownership and source-migration boundaries;
+- explicit unresolved-decision tracking;
+- safe session restart context;
+- honest implementation-state separation.
+
+Remaining work concerns product decisions, schemas, implementation, validation, operations, security, privacy, packaging, user research, ICP validation evidence, and usability evidence rather than missing baseline documentation structure.
 
 ## Immediate next milestones
 
-1. Complete the sanitized Event Radar code migration under issue #1.
-2. Restore independent CI and package validation in Viable.
-3. Rebrand the native desktop and installer identity.
-4. Implement the product truth model and marketability assessment vertical slice.
-5. Implement a research inbox with event and public repository signals.
-6. Implement campaign brief and canonical asset records.
-7. Add the first usable desktop navigation for Product, Signals, Campaigns, Studio, and Settings.
+1. Review and merge the documentation-baseline pull request.
+2. Complete the sanitized Event Radar code migration under issue #1.
+3. Restore independent CI and package validation in Viable.
+4. Rebrand the native desktop and installer identity.
+5. Implement Product Truth, ICP Discovery, and Marketability Assessment under issue #2.
+6. Implement Signals Inbox under issue #5.
+7. Implement Campaign Brief and Canonical Asset under issue #6.
+8. Implement Public Repository Growth and Launch under issue #3.
+9. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
+10. Implement Calendar, Manual Activation, Outcome Capture, and Learning under issue #7 before direct publishing adapters.
 
 ## Release posture
 
 Viable is not ready for an end-user product release.
 
-The repository may be used for product design, architecture, implementation planning, and controlled development. A public or commercial release requires working code, tests, security review, sanitized assets, documentation, installer validation, and unfamiliar-user acceptance testing.
+The repository may be used for product design, architecture, implementation planning, and controlled development. A public or commercial release requires working code, deterministic and native validation, security and privacy review, sanitized assets, tested backup and restore, user and operator documentation, installer validation, validated ICP workflow behavior, and unfamiliar-user acceptance testing.
