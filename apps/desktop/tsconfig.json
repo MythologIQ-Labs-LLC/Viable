@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "web/generated",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  "include": [
+    "ui/**/*.ts",
+    "../../src/product-core/domain/**/*.ts",
+    "../../src/product-core/ports/**/*.ts",
+    "../../src/product-core/services/**/*.ts"
+  ],
+  "exclude": ["web/generated"]
+}
