@@ -2,28 +2,49 @@
 
 This directory is the authoritative documentation set for Viable.
 
+## Documentation authority
+
+When documents conflict, use this order:
+
+1. accepted Architecture Decision Records;
+2. Product Requirements Document;
+3. platform architectural design;
+4. current implementation state;
+5. product and experience roadmaps;
+6. product operating-model and supporting design documents;
+7. README summaries;
+8. issues and pull requests for scoped implementation work.
+
+Issues and pull requests may implement or propose changes, but they may not silently redefine product or architectural authority.
+
 ## Start here
 
-- [Marketability operating model](product/marketability-operating-model.md)
+- [Product Requirements Document](product/PRD.md)
+- [Architecture Decision Records](adr/README.md)
+- [Platform architectural design](architecture/viable-platform.md)
+- [Current state](status/current-state.md)
 - [Product roadmap](roadmap/product-roadmap.md)
 - [Experience design roadmap](roadmap/design-roadmap.md)
-- [Platform architecture](architecture/viable-platform.md)
-- [Current state](status/current-state.md)
+- [Documentation verification](reviews/documentation-verification-2026-07-15.md)
 
 ## Product
 
+- [Product Requirements Document](product/PRD.md)
 - [Product scope](product/product-scope.md)
 - [Marketability operating model](product/marketability-operating-model.md)
 - [Open-source repository growth](product/open-source-repository-growth.md)
+
+## Architecture
+
+- [Platform architectural design](architecture/viable-platform.md)
+- [ADR index](adr/README.md)
+- [ADR template](adr/TEMPLATE.md)
 
 ## Roadmap
 
 - [Product roadmap](roadmap/product-roadmap.md)
 - [Experience design roadmap](roadmap/design-roadmap.md)
-
-## Architecture
-
-- [Viable platform architecture](architecture/viable-platform.md)
+- [Initial build sequence](roadmap/initial-build-sequence.md)
 
 ## Integrations
 
@@ -33,19 +54,24 @@ This directory is the authoritative documentation set for Viable.
 
 - [Research, content, and outreach safety](governance/research-and-outreach-safety.md)
 
-## Status
+## Status and reviews
 
 - [Current state](status/current-state.md)
+- [Documentation verification, 2026-07-15](reviews/documentation-verification-2026-07-15.md)
 
-## Migration
+## Source migration
 
-- GitHub issue #1 is the authority for the sanitized Event Radar product-code migration.
-- No external organization content, credentials, account identifiers, destinations, prompts, logs, reports, or confidential fixtures may be imported.
+- GitHub issue #1 is the implementation authority for the sanitized Event Radar product-code migration.
+- No external organization content, credentials, account identifiers, destinations, prompts, logs, reports, confidential fixtures, or secret-bearing material may be imported.
+- Imported event functionality must respect ADR-0006 and remain a bounded subsystem inside the wider marketability architecture.
 
 ## Documentation expectations
 
 Documentation must distinguish:
 
+- required product behavior;
+- accepted architecture decisions;
+- designed architecture;
 - implemented behavior;
 - validated behavior;
 - planned behavior;
@@ -54,4 +80,4 @@ Documentation must distinguish:
 - known limitations;
 - decisions that require current revalidation.
 
-The README, current-state document, architecture, product model, and roadmap must remain synchronized as implementation changes.
+A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, and user documentation that it affects.
