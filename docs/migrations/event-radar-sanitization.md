@@ -16,6 +16,7 @@ Authority: the source license identifies MythologIQ Labs, LLC as the Event Radar
 - partial-failure-aware orchestration
 - local atomic persistence
 - ICS calendar ingestion
+- native Viable desktop shell with MythologIQ identity
 
 The implementation is a clean-room Viable bounded context. It does not copy organization content, accounts, credentials, destinations, private fixtures, or operational records.
 
@@ -38,4 +39,4 @@ The implementation is a clean-room Viable bounded context. It does not copy orga
 
 ## Validation
 
-The branch validation target runs a tracked-file secret scan, strict TypeScript checking, and automated tests. This record becomes validated only after independent GitHub CI passes on the pull request.
+The branch validation target runs a tracked-file secret scan, strict TypeScript checking, automated tests, Rust formatting, native tests, and a release-mode desktop build. Installer bundling remains a separate release gate. This record becomes validated only after independent GitHub CI passes on the pull request.
