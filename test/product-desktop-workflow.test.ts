@@ -25,7 +25,8 @@ test("desktop workflow loads the compiled Product Core application", async () =>
 });
 
 test("desktop workflow visibly represents required state and authority boundaries", async () => {
-  const app = await read("apps/desktop/ui/app.ts");
+  const [app, html] = await Promise.all([read("apps/desktop/ui/app.ts"), read("apps/desktop/web/index.html")]);
+  const surface = `${html}\n${app}`;
   for (const marker of [
     "Loading local workspace",
     "Empty state",
@@ -37,7 +38,7 @@ test("desktop workflow visibly represents required state and authority boundarie
     "Selection is intentionally blocked",
     "No unexplained composite score",
     "Named selector",
-  ]) assert.match(app, new RegExp(marker));
+  ]) assert.match(surface, new RegExp(marker));
 });
 
 test("desktop styles preserve keyboard, text-scale, reduced-motion, and non-color status support", async () => {
