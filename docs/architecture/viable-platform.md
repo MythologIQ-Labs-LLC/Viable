@@ -15,7 +15,7 @@ This document describes the intended architecture. The current-state document re
 
 ## 1. Purpose
 
-Viable is a local-first marketability operating system that connects product truth, market evidence, campaigns, content, website readiness, public repository growth, approved distribution, leads, sales support, and measurable learning.
+Viable is a local-first marketability operating system that connects product truth, canonical ICP hypotheses, market evidence, campaigns, content, website readiness, public repository growth, approved distribution, leads, sales support, and measurable learning.
 
 The architecture must support the complete marketability loop:
 
