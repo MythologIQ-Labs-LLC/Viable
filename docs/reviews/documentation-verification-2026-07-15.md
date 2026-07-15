@@ -22,15 +22,15 @@ This review corrects those gaps and verifies the roadmap against the new PRD and
 | Area | Before review | Review action | Result |
 |---|---|---|---|
 | Product definition | Strong scope and operating model, but no formal PRD | Added `docs/product/PRD.md` | Pass |
-| Requirements traceability | Requirements were prose-only | Added stable PRD requirement IDs and traceability sections | Pass with backlog gaps |
+| Requirements traceability | Requirements were prose-only | Added stable PRD requirement IDs and traceability sections | Pass |
 | ADR governance | No ADR directory or decision index | Added ADR index and seven accepted foundational ADRs | Pass |
 | Architectural design | Stale and too narrow for current product scope | Replaced with complete platform architectural design | Pass |
 | Product roadmap | Detailed outcome-based phases 0 through 10 | Verified against PRD domains and architecture | Pass |
 | Experience roadmap | Detailed navigation, journeys, states, and patterns | Verified against PRD user and accessibility requirements | Pass |
 | Initial build sequence | Coherent vertical slices | Verified dependencies and release gates | Pass |
 | Current state | Honest separation of designed and implemented behavior | Updated documentation inventory | Pass |
-| README | Platinum product positioning and accurate maturity language | Documentation links require PRD and ADR visibility | Follow-up |
-| Implementation backlog | Issues exist for migration, product truth, repository growth, and ViMax | Missing issues for signals, canonical assets, and activation loop | Follow-up |
+| README | Platinum product positioning and accurate maturity language | Added PRD, ADR, ICP, architecture, roadmap, status, and handoff visibility | Pass |
+| Implementation backlog | Issues existed for migration, product truth, repository growth, and ViMax | Added issues #5, #6, and #7 for signals, canonical assets, and the activation loop | Pass |
 
 ## 3. PRD verification
 
@@ -179,11 +179,9 @@ The initial build sequence correctly reduces the larger roadmap into complete ve
 5. video production package and ViMax prototype;
 6. calendar, manual activation, outcome capture, and retrospective.
 
-### Roadmap gaps
+### Roadmap findings
 
-- Slice 2 does not yet have a dedicated implementation issue.
-- Slice 3 does not yet have a dedicated implementation issue.
-- Slice 6 does not yet have a dedicated implementation issue.
+- Dedicated implementation issues now cover all six initial build slices.
 - Phase dependencies are documented in prose but not represented as a machine-readable dependency graph.
 - Effort, staffing, and release-window estimates are intentionally absent and must be added only when capacity is known.
 - Product pricing, packaging, and distribution strategy remain open product decisions.
@@ -191,7 +189,7 @@ The initial build sequence correctly reduces the larger roadmap into complete ve
 
 ### Verification result
 
-Pass. The roadmap is strategically coherent and correctly ordered. Backlog traceability is incomplete but does not invalidate the roadmap.
+Pass. The roadmap is strategically coherent, correctly ordered, and traceable across all six initial build slices.
 
 ## 7. Experience-design verification
 
@@ -225,15 +223,15 @@ Pass as a target experience. Usability evidence remains pending implementation a
 | Product truth and claims | Phase 1, Slice 1 | Home, Product | ADR-0001, ADR-0003 | Issue #2 |
 | ICP discovery and validation | Phase 1, Slice 1 | Home, Product | ADR-0001, ADR-0003, ADR-0004, ADR-0007 | Issue #2 |
 | Marketability assessment | Phase 1, Slice 1 | Home, Product | ADR-0003, ADR-0004 | Issue #2 |
-| Evidence and signals | Phase 2, Slice 2 | Market, Signals | ADR-0002, ADR-0004, ADR-0006 | Issue #1 partially; dedicated issue missing |
+| Evidence and signals | Phase 2, Slice 2 | Market, Signals | ADR-0002, ADR-0004, ADR-0006 | Issues #1 and #5 |
 | Event intelligence | Phase 0 and 2, Slice 2 | Signals, Calendar | ADR-0002, ADR-0004, ADR-0006 | Issue #1 |
-| Campaigns and canonical assets | Phases 3 and 4, Slice 3 | Campaigns, Studio | ADR-0003, ADR-0005 | Dedicated issue missing |
+| Campaigns and canonical assets | Phases 3 and 4, Slice 3 | Campaigns, Studio | ADR-0003, ADR-0005 | Issue #6 |
 | Website, SEO, AEO, conversion | Phase 5 | Product, Studio, Analytics | ADR-0002, ADR-0003, ADR-0004 | Dedicated issue missing |
 | Public repository growth | Phases 2, 3, 4, 9; Slice 4 | Product, Signals, Campaigns, Analytics | ADR-0002, ADR-0004 | Issue #3 |
-| Approved distribution | Phase 6, Slice 6 | Calendar, Integrations | ADR-0002, ADR-0004, ADR-0005 | Dedicated issue missing |
+| Approved distribution | Phase 6, Slice 6 | Calendar, Integrations | ADR-0002, ADR-0004, ADR-0005 | Issue #7 |
 | Leads and sales | Phase 7 | Leads, Sales | ADR-0001, ADR-0002, ADR-0004, ADR-0005 | Dedicated issue missing |
 | Video production | Phase 8, Slice 5 | Studio, Calendar | ADR-0002, ADR-0003, ADR-0005 | Issue #4 |
-| Measurement and learning | Phase 9, Slice 6 | Analytics | ADR-0001, ADR-0004 | Dedicated issue missing |
+| Measurement and learning | Phase 9, Slice 6 | Analytics | ADR-0001, ADR-0004 | Issue #7 |
 
 ## 9. Documentation authority order
 
@@ -252,13 +250,17 @@ A material product or architecture change must update the relevant authority doc
 
 ## 10. Remaining documentation actions
 
-### Actions identified before Slice 1 implementation
+### Resolved in this branch
 
-- link the formal PRD and ADR index from the Platinum README;
-- add requirement IDs to issue #2 acceptance criteria or implementation plan;
-- define initial persistent entity schemas and migrations;
-- create an ADR template;
-- establish a lightweight documentation-validation check for broken internal links and required authority files.
+- linked the formal PRD, ICP specification, ADR index, architecture, roadmap, status, and handoff from the Platinum README;
+- added stable requirement and ADR traceability to issue #2;
+- created the ADR template;
+- created implementation issues for all six initial build slices.
+
+### Required before the relevant implementation merges
+
+- define initial persistent entity schemas and migrations before domain persistence is implemented;
+- establish a lightweight documentation-validation check for broken internal links and required authority files before Slice 1 merges.
 
 ### Required before MVP release
 
