@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["deb"],
+    "icon": ["icons/icon.png"],
     "publisher": "MythologIQ Labs, LLC",
     "category": "DeveloperTool",
     "shortDescription": "Local-first marketability operating system"
