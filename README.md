@@ -3,191 +3,285 @@
 
 # Viable
 
-### Local-first opportunity intelligence for events, social signals, and human-approved outreach
+### A local-first marketability operating system for products, public repositories, content, demand, and sales
 
-[![Status: Active foundation](https://img.shields.io/badge/Status-active_foundation-2ea043)](#current-status)
-[![Desktop: Tauri 2](https://img.shields.io/badge/Desktop-Tauri_2-24c8db)](apps/desktop/README.md)
-[![Runtime: Node 22](https://img.shields.io/badge/Runtime-Node_22-43853d)](package.json)
+[![Status: Product foundation](https://img.shields.io/badge/Status-product_foundation-2ea043)](#current-state)
 [![Approach: Local first](https://img.shields.io/badge/Approach-local_first-8957e5)](#product-principles)
 [![Outreach: Approval required](https://img.shields.io/badge/Outreach-human_approval_required-b42335)](docs/governance/research-and-outreach-safety.md)
+[![Roadmap: Defined](https://img.shields.io/badge/Roadmap-product_%2B_design_defined-0b7285)](docs/roadmap/product-roadmap.md)
 [![License: Proprietary](https://img.shields.io/badge/License-proprietary_all_rights_reserved-b42335)](LICENSE)
 
 </div>
 
 > [!IMPORTANT]
-> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. It expands the Event Radar product foundation into a broader opportunity-intelligence platform for events, social research, prospects, and governed outreach.
+> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. It expands the Event Radar product foundation into a broader system for determining whether a product is ready to market, identifying the right opportunities, creating evidence-backed campaigns and assets, coordinating approved distribution, supporting sales, and learning from outcomes.
 
-Viable helps a person or small team identify worthwhile opportunities, understand the surrounding conversation, prepare relevant outreach, and retain enough context to act deliberately.
+Viable is designed for founders, product leads, marketers, maintainers, sellers, and small teams who need one coherent operating environment rather than a collection of disconnected social schedulers, spreadsheets, analytics tabs, content generators, event feeds, CRM notes, and half-finished drafts.
 
-Viable is not designed to become a bulk messaging engine, autonomous social persona, surveillance system, or compliance control plane. Research may be automated within explicit source and privacy boundaries. External outreach remains a human decision.
+Viable does not promise virality, search rankings, GitHub Trending, automatic sales, or perfect attribution. It helps users improve the things they can control and preserves the evidence needed to understand the result.
 
-## Why Viable exists
-
-Events, social conversations, prospects, and outreach are usually scattered across browser tabs, spreadsheets, saved posts, calendar feeds, and half-finished drafts. The result is predictable: opportunities disappear, context decays, and outreach becomes either generic or never sent.
-
-Viable creates one local workflow:
+## The marketability loop
 
 ```text
-Discover opportunities
-  -> normalize evidence
-  -> rank relevance
-  -> connect events and social signals
-  -> identify people or organizations
-  -> prepare outreach drafts
-  -> require human review
-  -> record the outcome
+Assess the product
+  -> understand the market
+  -> choose positioning and offers
+  -> create useful assets
+  -> distribute with approval
+  -> capture and qualify demand
+  -> support sales conversations
+  -> measure outcomes
+  -> improve the product and message
 ```
 
-## Product scope
+Event monitoring is one opportunity-signal capability inside this loop. It is not the center of the product.
 
-### Event intelligence
+## What Viable covers
 
-The Event Radar foundation includes:
+### Product truth and marketability assessment
 
-- public Luma city and public-calendar discovery;
-- Meetup Pro network ingestion;
-- Eventbrite organization-event ingestion;
-- local and remote ICS feeds;
-- recurring-event normalization and occurrence projection;
-- deterministic scoring with optional local model-assisted scoring;
-- local SQLite history, reports, calendars, collections, and schedules;
-- optional approved report publication;
-- native Tauri desktop packaging and guided setup.
+Viable is designed to maintain the product record that all downstream work uses:
 
-### Social research
+- capabilities and limitations;
+- audiences, buyers, users, influencers, and disqualifiers;
+- problems, outcomes, triggers, and objections;
+- positioning, categories, alternatives, and differentiation;
+- pricing, packaging, offers, and calls to action;
+- approved, unverified, outdated, conflicting, prohibited, and retired claims;
+- proof, demonstrations, benchmarks, testimonials, and source evidence;
+- brand voice, terminology, visual rules, and accessibility expectations;
+- transparent marketability dimensions with evidence, confidence, gaps, owners, and next actions.
 
-The Viable social-research foundation includes:
+### Market and opportunity intelligence
 
-- provider-neutral social-source contracts;
-- normalized social signals with author, publication, tags, URL, provenance, and optional engagement metrics;
-- bounded public-feed retrieval;
-- cross-source canonical-URL deduplication;
-- include and exclude term ranking;
-- partial-failure reporting so one unavailable source does not erase successful research;
-- repeatable local research runs.
+Viable can gather or import supported evidence from:
 
-Platform-specific adapters will be added only where supported access, privacy, and terms permit. Viable will not rely on undocumented private endpoints, copied browser sessions, or embedded credentials.
+- public events and calendars;
+- public social and community signals;
+- search queries and search performance;
+- websites, documentation, release notes, pricing pages, and newsletters;
+- public repositories, packages, releases, discussions, and contributor activity;
+- competitor and category changes;
+- customer interviews, support themes, sales notes, reviews, and imported research;
+- industry news, standards, policy changes, and partnership opportunities.
 
-### Outreach
+Signals are normalized into topics, questions, objections, people, organizations, competitors, opportunities, campaigns, and recommended actions with visible provenance and failure state.
 
-The outreach foundation includes:
+### Positioning and campaigns
 
-- local outreach drafts for email and social channels;
-- evidence references connecting a draft to an event, social signal, or manual note;
-- explicit `draft`, `approved`, `rejected`, and `sent` states;
-- named human approval before a draft can be marked sent;
-- rollback-safe local persistence;
-- no automatic sender in the base implementation.
+Campaign planning includes:
 
-Future delivery integrations must preserve the approval boundary, destination identity, rate limits, provider terms, and durable delivery evidence.
+- ICPs and personas;
+- jobs, pains, desired outcomes, and buying triggers;
+- alternative and competitor analysis;
+- message hierarchy and value proposition;
+- campaign objective, audience, offer, proof, call to action, and success measures;
+- launch, evergreen, event-driven, account-focused, partnership, and nurture campaigns;
+- channel strategy based on audience fit rather than platform popularity;
+- asset matrices, dependencies, reviews, and retrospectives.
+
+### Content and creative studio
+
+Viable is planned to support coordinated asset families rather than copying one paragraph into every platform:
+
+- website and landing-page copy;
+- blogs, articles, guides, FAQs, comparisons, and case studies;
+- LinkedIn, Facebook, Instagram, X, Threads, Bluesky, and Mastodon variants;
+- newsletters, lifecycle email, sales email, and direct-message drafts;
+- one-pagers, battlecards, pitch decks, demo scripts, proposals, and launch kits;
+- image briefs, carousels, diagrams, thumbnails, and ad concepts;
+- short-video briefs, hooks, scripts, shot lists, storyboards, captions, voiceover, edit plans, and platform variants;
+- claim, evidence, brand, accessibility, rights, review, and approval state.
+
+### Website, SEO, AEO, and conversion
+
+The website workstream covers:
+
+- content and page-purpose inventory;
+- crawlability, indexability, metadata, canonical URLs, sitemaps, structured data, mobile usability, performance, HTTPS, and accessibility;
+- keyword, question, topic-cluster, and content-gap planning;
+- page briefs and copy review for clarity, proof, differentiation, and calls to action;
+- internal linking and refresh recommendations;
+- answer-engine readiness through clear facts, direct answers, consistent entities, authorship, evidence, and citations;
+- landing pages, forms, bookings, trials, newsletters, demos, and conversion paths;
+- UTM rules, experiments, and result tracking.
+
+Viable can improve search readiness. It cannot guarantee search placement.
+
+### Public repository growth
+
+A public repository is both a product surface and a distribution channel.
+
+Viable's repository-growth model covers:
+
+- problem clarity, differentiation, trust, time to value, and adoption readiness;
+- repository name, description, homepage, topics, social preview, README, demo, quick start, and documentation;
+- LICENSE, SECURITY, CONTRIBUTING, support, community health, issue templates, and contributor paths;
+- release cadence, release assets, notes, changelog, packages, and upgrade guidance;
+- launch rooms coordinating releases, content, communities, maintainer coverage, and live triage;
+- views, visitors, referrals, popular content, clones, downloads, stars, watches, forks, issues, discussions, contributors, dependents, integrations, and commercial inquiries;
+- empirical growth and launch learning without fake stars, spam, reciprocal-star rings, or promises of GitHub Trending.
+
+See [Open-source repository growth](docs/product/open-source-repository-growth.md).
+
+### Distribution and publishing
+
+Approved canonical assets can eventually be adapted, exported, scheduled, or published through supported adapters.
+
+The Viable core owns:
+
+- campaign intent;
+- canonical assets and channel variants;
+- claims and evidence;
+- review and approval;
+- scheduling intent;
+- destination identity;
+- disclosure requirements;
+- delivery and failure evidence.
+
+Platform adapters own authorization, formatting constraints, API calls, rate-limit handling, and provider responses. No adapter can approve its own content.
+
+### Leads and sales enablement
+
+Viable is planned to connect qualified attention to organized human follow-up through:
+
+- forms, bookings, subscriptions, event contacts, referrals, and manual lead capture;
+- source, consent, campaign, medium, content, and attribution records;
+- people, organizations, opportunities, relationships, qualification, owners, and next actions;
+- suppression, unsubscribe, do-not-contact, retention, and deletion controls;
+- account briefs, discovery preparation, objection handling, proof selection, demos, follow-up, proposals, mutual action plans, and outcome capture;
+- optional CRM synchronization without turning Viable into an accidental general-purpose CRM.
+
+### Measurement and learning
+
+Viable's measurement model connects campaigns, assets, channels, audiences, offers, experiments, leads, opportunities, and product changes.
+
+It is designed to track:
+
+- reach, impressions, engagement, clicks, visits, and conversions;
+- qualified leads, meetings, opportunities, revenue, retention, cost, and effort where available;
+- repository traffic, adoption, community, and contribution signals;
+- attribution with an explicit model and uncertainty;
+- content decay, experiments, retrospectives, and recommendations;
+- a learning ledger recording evidence, decisions, changes, and outcomes.
+
+## Video production and ViMax
+
+Viable's video system is designed around an approved production package:
+
+```text
+Campaign brief
+  -> approved script and claims
+  -> storyboard and asset rights
+  -> selected production tool
+  -> generation or editing
+  -> render review
+  -> platform variants
+  -> approval
+  -> calendar and delivery
+```
+
+[ViMax](https://github.com/HKUDS/ViMax) is being evaluated as an optional agentic video-orchestration adapter. It can coordinate script, storyboard, reference-image, image-generation, consistency, video-generation, and assembly stages, but it will not own Viable's campaign, claims, rights, credentials, approvals, or publishing state.
+
+The first integration step is a manual production-package export. A local worker or remote execution path comes later only after credential isolation, provider cost disclosure, rights, cancellation, artifact manifests, packaging, and recovery are proven.
+
+See [ViMax video generation assessment](docs/integrations/vimax-video-generation.md).
 
 ## Product principles
 
-1. **Local first.** Core history, preferences, reports, drafts, and approvals belong to the user’s installation.
-2. **Evidence before action.** Recommendations and outreach drafts retain the facts that caused them to exist.
-3. **Human-approved outreach.** Research can accelerate judgment. It cannot replace consent and accountability.
-4. **Provider-neutral core.** Events, social signals, prospects, and drafts are product concepts, not extensions of one platform’s API.
-5. **Supported access only.** Public interfaces and authorized APIs are preferred over fragile private endpoints or copied sessions.
-6. **Partial failure is visible.** One broken source must not masquerade as an empty market.
-7. **Simple normal use.** Ordinary setup should not require JSON editing, cron expressions, invented identifiers, or developer tools.
-8. **No compliance inflation.** Viable may follow sensible security practices without pretending to be a SOC 2 control system.
+1. **Local first.** Core product records, evidence, drafts, approvals, leads, and learning belong to the user's workspace.
+2. **Evidence before action.** Recommendations and generated work retain the facts that caused them to exist.
+3. **Product truth before content volume.** Viable should never scale an unsupported claim.
+4. **Human-approved external action.** Research can accelerate judgment. It cannot replace consent and accountability.
+5. **Provider-neutral core.** Platforms and tools are adapters, not the product model.
+6. **Supported access only.** Public or explicitly authorized interfaces are preferred over undocumented private endpoints or copied sessions.
+7. **Partial failure is visible.** One broken source or destination must not masquerade as an empty market or successful delivery.
+8. **Canonical first, channel second.** Users approve the underlying message before its platform variants.
+9. **Simple normal use.** Ordinary work should not require JSON editing, cron expressions, invented identifiers, or developer tools.
+10. **No compliance inflation.** Viable may follow sensible security practices without pretending to be a SOC 2 control system.
+11. **No fake growth.** Viable will not automate deceptive engagement, spam, false testimonials, fake stars, or manufactured adoption.
+12. **Measure useful outcomes.** Activity is evidence, not success by itself.
 
-## Architecture
+## Platform architecture
 
 ```text
-Native Viable desktop
-  -> guided local setup
-  -> opportunity workspace
-       -> event research
-       -> social research
-       -> prospects and organizations
-       -> outreach drafts and approvals
-  -> provider-neutral ports
-       -> Luma / Meetup / Eventbrite / ICS
-       -> public feeds and authorized social APIs
-       -> optional approved delivery adapters
-  -> local persistence
-       -> SQLite event and report history
-       -> local outreach draft store
-       -> OS credential vault
-  -> optional outputs
-       -> JSON reports
-       -> reviewed summaries
-       -> reviewed outreach delivery
+Native Viable workspace
+  -> Product truth and marketability assessment
+  -> Market and signal research
+       -> events
+       -> social and communities
+       -> search and websites
+       -> public repositories
+       -> competitors and customer evidence
+  -> Campaign strategy
+  -> Content and creative studio
+       -> website and SEO
+       -> social and email
+       -> sales enablement
+       -> image and short video
+  -> Human review and approval
+  -> Calendar, exports, and optional adapters
+  -> Leads and sales support
+  -> Measurement and learning ledger
 ```
 
 Durable architecture is documented in [Viable platform architecture](docs/architecture/viable-platform.md).
 
-## Current status
+## Current state
 
-| Area | Status | Notes |
-|---|---|---|
-| Viable product identity | Established | MythologIQ ownership and proprietary license |
-| Platinum README | Established | Product front door and authoritative positioning |
-| Event Radar source migration | In progress | Only sanitized, product-generic code and documentation will be imported |
-| Event intelligence design | Mature source available | Event Radar foundation |
-| Social signal domain | In progress | Provider-neutral types and provenance |
-| Social research ranking | In progress | Include, exclude, deduplication, freshness, and partial failures |
-| Outreach draft lifecycle | In progress | Draft, approve, reject, and mark-sent states |
-| Automatic outreach delivery | Not implemented by design | Requires explicit adapter and preserved human approval |
-| Social desktop experience | Planned next | Research inbox, saved searches, signal detail, and prospect linking |
-| Prospect and organization graph | Planned next | Evidence-backed identities and relationships |
-| Public installer release | Not yet published | Product identity and package validation required |
+Viable is currently in product-definition and repository-foundation stage.
 
-The authoritative status document is [docs/status/current-state.md](docs/status/current-state.md).
+| Area | Status |
+|---|---|
+| Product identity and positioning | Established |
+| Platinum README | Established and expanded to the full marketability product |
+| Marketability operating model | Documented |
+| Product roadmap | Documented |
+| Experience design roadmap | Documented |
+| Public repository growth model | Documented |
+| ViMax integration | Assessed; not implemented |
+| Sanitized Event Radar code migration | In progress under issue #1 |
+| Independent runtime and native desktop | Not yet operational in this repository |
+| Product truth and assessment | Designed; not implemented |
+| Market and signals workspace | Designed; not implemented |
+| Campaign and Studio workspace | Designed; not implemented |
+| Website, search, and conversion analysis | Designed; not implemented |
+| Publishing adapters | Not implemented |
+| Lead and sales workspace | Designed; not implemented |
+| Measurement and attribution | Designed; not implemented |
+| End-user installer | Not ready |
 
-## Development direction
+The authoritative status document is [Current state](docs/status/current-state.md). It deliberately distinguishes implemented, migrating, designed, and external capabilities.
 
-Once the source migration is complete, development will use Node.js 22 or newer, npm 10 or newer, Rust 1.88 or newer, and the Tauri 2 prerequisites.
+## Immediate build path
 
-Expected validation baseline:
+1. Complete the sanitized Event Radar product-code migration.
+2. Restore independent TypeScript, Node, Rust, desktop, and package validation.
+3. Replace application identity, package metadata, icons, and installers with Viable assets.
+4. Implement the Product Truth and Marketability Assessment vertical slice.
+5. Implement the Signals inbox with event and public-repository evidence first.
+6. Implement campaign briefs, claims, evidence, and canonical assets.
+7. Implement the first usable Product, Signals, Campaigns, Studio, Integrations, and Settings navigation.
+8. Add manual export workflows before external publishing or generation automation.
 
-```bash
-npm ci
-npm run check
-npm test
-npm run viable:health
-npm run desktop:check
-```
+See the complete [Product roadmap](docs/roadmap/product-roadmap.md) and [Experience design roadmap](docs/roadmap/design-roadmap.md).
 
 ## Security, privacy, and migration boundaries
 
 Viable must not contain:
 
-- organization-specific branding or governance content from another repository;
-- real API keys, OAuth tokens, webhooks, passwords, cookies, session profiles, or credential references tied to a real account;
-- real Slack channels, workspace identifiers, email addresses, account IDs, destination IDs, or production URLs;
-- exported prompts, logs, reports, fixtures, or test data containing confidential operational information;
-- provider tokens in plaintext configuration, reports, diagnostics, backups, prompts, command arguments, or logs;
+- external organization branding, governance, accounts, destinations, prompts, logs, reports, confidential fixtures, or licensing claims;
+- real API keys, OAuth tokens, webhooks, passwords, cookies, session profiles, or account-bound credential references;
 - private social content without explicit authorization;
+- executable instructions derived from imported provider content;
+- unsupported product claims or invented proof;
 - automatic outreach based solely on a score;
-- executable instructions derived from imported provider content.
+- deceptive engagement, impersonation, or fake adoption;
+- generated media without rights, consent, review, and disclosure controls.
 
-All imported material must pass:
+Credentials belong in an operating-system vault or equivalent scoped secret store. They must not enter repository files, prompts, reports, screenshots, logs, diagnostics, video manifests, or export packages.
 
-1. secret scanning;
-2. organization-name and account-reference scanning;
-3. configuration and fixture review;
-4. documentation review;
-5. package-identity review;
-6. deterministic tests before merge.
-
-See [Research and outreach safety](docs/governance/research-and-outreach-safety.md).
-
-## Roadmap
-
-The next product milestones are:
-
-1. Complete a sanitized Event Radar source migration into Viable.
-2. Rebrand the native desktop, package identifiers, icons, and installer assets.
-3. Add first-class Social Research and Outreach navigation.
-4. Add saved social searches, research inboxes, tagging, collections, and signal-to-event linking.
-5. Add prospect and organization records with evidence-backed deduplication.
-6. Add outreach templates, review queues, personalization constraints, and local outcome tracking.
-7. Add authorized platform adapters beginning with stable public or user-authorized access.
-8. Produce reviewed MythologIQ-owned installers and clean-machine setup tests.
-
-See [product roadmap](docs/roadmap/product-roadmap.md).
+See [Research, content, and outreach safety](docs/governance/research-and-outreach-safety.md).
 
 ## License
 
@@ -198,8 +292,12 @@ This repository is proprietary and is not open source. Private evaluation does n
 ## Documentation
 
 - [Documentation index](docs/README.md)
-- [Viable platform architecture](docs/architecture/viable-platform.md)
 - [Product scope](docs/product/product-scope.md)
-- [Current state](docs/status/current-state.md)
+- [Marketability operating model](docs/product/marketability-operating-model.md)
+- [Open-source repository growth](docs/product/open-source-repository-growth.md)
+- [Platform architecture](docs/architecture/viable-platform.md)
 - [Product roadmap](docs/roadmap/product-roadmap.md)
-- [Research and outreach safety](docs/governance/research-and-outreach-safety.md)
+- [Experience design roadmap](docs/roadmap/design-roadmap.md)
+- [ViMax video generation assessment](docs/integrations/vimax-video-generation.md)
+- [Research, content, and outreach safety](docs/governance/research-and-outreach-safety.md)
+- [Current state](docs/status/current-state.md)
