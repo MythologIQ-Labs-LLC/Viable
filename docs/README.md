@@ -26,6 +26,7 @@ Issues and pull requests may implement or propose changes, but they may not sile
 - [Product roadmap](roadmap/product-roadmap.md)
 - [Experience design roadmap](roadmap/design-roadmap.md)
 - [Documentation verification](reviews/documentation-verification-2026-07-15.md)
+- [Documentation verification closure](reviews/documentation-verification-closure-2026-07-15.md)
 
 ## Product
 
@@ -58,6 +59,7 @@ Issues and pull requests may implement or propose changes, but they may not sile
 
 - [Current state](status/current-state.md)
 - [Documentation verification, 2026-07-15](reviews/documentation-verification-2026-07-15.md)
+- [Documentation verification closure, 2026-07-15](reviews/documentation-verification-closure-2026-07-15.md)
 
 ## Source migration
 
