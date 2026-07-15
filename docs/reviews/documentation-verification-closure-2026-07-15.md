@@ -10,14 +10,14 @@ The initial review identified missing implementation issues for three roadmap sl
 
 | Initial build slice | Issue |
 |---|---|
-| Slice 1: Product Truth and Marketability Assessment | #2 |
+| Slice 1: Product Truth, ICP Discovery, and Marketability Assessment | #2 |
 | Slice 2: Signals Inbox with event and public repository evidence | #5 |
 | Slice 3: Campaign Brief and Canonical Asset | #6 |
 | Slice 4: Public Repository Growth and Launch | #3 |
 | Slice 5: Video Production Package and ViMax prototype | #4 |
 | Slice 6: Calendar, Manual Activation, Outcome Capture, and Learning | #7 |
 
-Issues #5, #6, and #7 include PRD requirement IDs, ADR constraints, architecture boundaries, hard prohibitions, accessibility gates, documentation synchronization, deterministic-test expectations, and unfamiliar-user acceptance.
+Issues #2, #5, #6, and #7 include PRD requirement IDs, ADR constraints, architecture boundaries, hard prohibitions, accessibility gates, documentation synchronization, deterministic-test expectations, and unfamiliar-user acceptance.
 
 An ADR template was also added at `docs/adr/TEMPLATE.md`.
 
@@ -27,10 +27,23 @@ The documentation authority chain is now complete:
 
 1. accepted ADRs define durable product and architecture decisions;
 2. the PRD defines required outcomes, MVP scope, quality attributes, metrics, and release gates;
-3. the architectural design defines contexts, data authority, deployment, trust, persistence, integrations, failures, and recovery;
+3. the architectural design defines contexts, Product Core authority for canonical ICP hypotheses, data authority, deployment, trust, persistence, integrations, failures, and recovery;
 4. current state defines what is actually implemented and validated;
 5. the roadmaps define sequence, exit criteria, and target experience;
 6. issues define scoped implementation work with requirements and decision traceability.
+
+## ICP traceability correction
+
+The final branch review found that the dedicated ICP authority was correct but incompletely repeated in the parent platform architecture and issue #2 traceability. The closure now verifies:
+
+- the canonical marketability loop explicitly includes ICP discovery and validation;
+- Product Core explicitly owns canonical ICP hypotheses and their revision history;
+- downstream signals, campaigns, relationships, sales, and analytics cannot silently rewrite the ICP;
+- platform identities and invariants include the ICP domain;
+- ADR-0007 is linked from the platform architecture and issue #2;
+- issue #2 traces PRD-ICP-001 through PRD-ICP-008.
+
+This was a documentation-authority correction. ICP runtime behavior remains unimplemented and unvalidated.
 
 ## Remaining planned work, not documentation defects
 
