@@ -263,7 +263,7 @@ Durable architecture is documented in:
 
 ## Current state
 
-Viable is currently in product-definition and repository-foundation stage.
+Viable is currently in initial implementation-foundation stage.
 
 | Area | Status |
 |---|---|
@@ -277,12 +277,12 @@ Viable is currently in product-definition and repository-foundation stage.
 | Current restart handoff | Documented |
 | Product provenance and source-migration boundary | Documented |
 | Glossary and open decisions | Documented |
-| Sanitized Event Radar code migration | In progress under issue #1 |
-| Independent runtime and native desktop | Not yet operational in this repository |
+| Sanitized Event Radar capability migration | Initial bounded migration implemented and validated |
+| Independent runtime and native desktop | Foundation operational and validated |
 | Product truth, ICP, and assessment | Designed; not implemented |
 | Signals, campaigns, Studio, leads, sales, and analytics | Designed; not implemented |
 | Publishing and generation adapters | Not implemented |
-| End-user installer | Not ready |
+| Installer | Internal Debian package validated; end-user release not ready |
 
 The authoritative implementation-status record is [Current state](docs/status/current-state.md).
 
