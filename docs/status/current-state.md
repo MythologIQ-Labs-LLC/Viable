@@ -18,11 +18,11 @@
 
 ## Summary
 
-Viable is currently in the initial implementation-foundation stage.
+Viable is currently in the first internal product-slice stage.
 
-The formal product and architecture baseline is established on `main`. The first sanitized Event Intelligence runtime and independent native Viable shell are implemented and independently validated.
+The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, and native Viable shell are established. Product workspace, product-truth revision, evidence review, canonical ICP hypothesis comparison and selection, explained marketability assessment, and owned readiness actions are implemented.
 
-The initial sanitized Event Radar capability migration is complete. It includes a bounded Event Intelligence core, one public ICS adapter, local persistence, deterministic scoring, an independent Viable desktop shell, and Linux package validation. No claim should imply that the Product Core ICP workflow, complete event application, additional source adapters, full desktop experience, outreach, publishing, video generation, lead management, sales, or analytics systems are operational until their code and validation exist here.
+PR #11 connects those canonical services to the Home and Product desktop workflow and passes automated Node, TypeScript, Rust, release-build, and Debian package validation. Hands-on assistive-technology review and unfamiliar-founder acceptance remain open. No claim should imply that Signals, campaigns, assets, outreach, publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
 
 ## Implemented in this repository
 
@@ -85,7 +85,13 @@ The initial sanitized Event Radar capability migration is complete. It includes 
 - named human approval primitive;
 - enforced Product Core ICP mutation boundary;
 - independent Tauri 2 desktop shell with Viable identity;
-- strict TypeScript, Node, Rust, desktop, secret-scan, and Debian package validation.
+- strict TypeScript, Node, Rust, desktop, secret-scan, and Debian package validation;
+- local Product Core workspace and product-truth revisions;
+- claims and evidence review with generated-suggestion separation;
+- canonical ICP hypotheses, roles, dimensions, disqualifiers, contradictions, comparison, review, selection, revision history, and validation experiments;
+- explained marketability findings and owned readiness actions;
+- Home and Product desktop workflow with loading, empty, local/offline, stale, contradiction, error, and recovery states;
+- keyboard-focus, semantic, scalable-text, reduced-motion, responsive, and non-color status contracts.
 
 The migration excluded external organization content, branding, governance, destinations, accounts, prompts, logs, reports, confidential fixtures, and secret-bearing material. Source-repository names remain only where required for migration provenance and exclusion evidence.
 
@@ -93,10 +99,6 @@ Event Intelligence enters through its bounded context and shared evidence contra
 
 ## Designed but not implemented
 
-- product workspace;
-- product truth and claims-ledger runtime;
-- ICP hypothesis, comparison, selection, validation, revision, and impact-analysis workflow;
-- marketability assessment;
 - market and research inbox;
 - social and search source adapters;
 - public repository assessment and launch room;
@@ -110,7 +112,6 @@ Event Intelligence enters through its bounded context and shared evidence contra
 - sales enablement;
 - video production workflow and ViMax adapter;
 - measurement, attribution, experiments, ICP confidence feedback, and learning ledger;
-- complete Viable desktop navigation and user experience;
 - local worker management;
 - hosted synchronization or multi-user collaboration.
 
@@ -152,7 +153,7 @@ Remaining work concerns product decisions, schemas, implementation, validation, 
 
 ## Immediate next milestones
 
-1. Implement Product Truth, ICP Discovery, and Marketability Assessment under issue #2.
+1. Complete hands-on accessibility and unfamiliar-founder acceptance for issue #2, then remediate any evidenced gaps.
 2. Implement Signals Inbox under issue #5.
 3. Implement Campaign Brief and Canonical Asset under issue #6.
 4. Implement Public Repository Growth and Launch under issue #3.
@@ -164,4 +165,4 @@ Remaining work concerns product decisions, schemas, implementation, validation, 
 
 Viable is not ready for an end-user product release.
 
-The repository may be used for product design, architecture, implementation planning, and controlled development. A public or commercial release requires working code, deterministic and native validation, security and privacy review, sanitized assets, tested backup and restore, user and operator documentation, installer validation, validated ICP workflow behavior, and unfamiliar-user acceptance testing.
+The repository may be used for product design, architecture, implementation planning, and controlled development. A public or commercial release requires working code, deterministic and native validation, security and privacy review, sanitized assets, tested backup and restore, user and operator documentation, installer validation, validated ICP workflow behavior, hands-on accessibility review, and unfamiliar-user acceptance testing.
