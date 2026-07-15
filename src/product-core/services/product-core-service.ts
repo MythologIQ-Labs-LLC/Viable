@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { MarketabilityAssessment, ReadinessAction, ReadinessFinding } from "../domain/assessment.js";
 import type { ProductClaim } from "../domain/claim.js";
 import { isReviewedEvidence, type EvidenceRecord } from "../domain/evidence.js";
@@ -14,7 +13,7 @@ export class ProductCoreService {
   constructor(
     private readonly store: ProductWorkspaceStore,
     private readonly clock: Clock = () => new Date(),
-    private readonly createId: IdFactory = randomUUID,
+    private readonly createId: IdFactory = () => globalThis.crypto.randomUUID(),
   ) {}
 
   async createWorkspace(input: Readonly<{ identity: ProductIdentity; createdBy: string }>): Promise<ProductWorkspace> {
