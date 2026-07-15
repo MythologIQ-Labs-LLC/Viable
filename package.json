@@ -1,0 +1,23 @@
+{
+  "name": "@mythologiq/viable",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/test/**/*.test.js",
+    "desktop:check": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --locked",
+    "desktop:bundle": "tauri build --config apps/desktop/src-tauri/tauri.conf.json --bundles deb",
+    "security:scan": "node scripts/scan-secrets.mjs",
+    "validate": "npm run security:scan && npm run check && npm test"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}

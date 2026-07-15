@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Viable",
+  "version": "0.1.0",
+  "identifier": "com.mythologiq.viable",
+  "build": {
+    "frontendDist": "../web"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Viable",
+        "width": 1240,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 640,
+        "center": true,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb"],
+    "icon": ["icons/icon.png"],
+    "publisher": "MythologIQ Labs, LLC",
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first marketability operating system"
+  }
+}

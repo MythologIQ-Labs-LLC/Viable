@@ -18,11 +18,11 @@
 
 ## Summary
 
-Viable is currently in the product-definition and repository-foundation stage.
+Viable is currently in the initial implementation-foundation stage.
 
-The formal PRD, accepted foundational ADRs, ICP discovery and validation specification, marketability operating model, platform architectural design, ICP domain design, product roadmap, experience design roadmap, open-source repository growth model, ViMax integration assessment, initial build sequence, ownership and provenance policy, glossary, open-decision register, session handoff, documentation verification, and roadmap-to-issue traceability are present on the active documentation branch.
+The formal product and architecture baseline is established on `main`. The first sanitized Event Intelligence runtime and independent native Viable shell are implemented and independently validated.
 
-The sanitized Event Radar product-code migration is not yet complete. No claim should imply that the full event application, desktop shell, ICP workflow, marketability assessment, social research runtime, outreach workflow, publishing adapters, video generation, lead management, or analytics system is operational in this repository until the corresponding code and validation exist here.
+The initial sanitized Event Radar capability migration is complete. It includes a bounded Event Intelligence core, one public ICS adapter, local persistence, deterministic scoring, an independent Viable desktop shell, and Linux package validation. No claim should imply that the Product Core ICP workflow, complete event application, additional source adapters, full desktop experience, outreach, publishing, video generation, lead management, sales, or analytics systems are operational until their code and validation exist here.
 
 ## Implemented in this repository
 
@@ -74,18 +74,22 @@ The sanitized Event Radar product-code migration is not yet complete. No claim s
 | ViMax production-package prototype | #4 |
 | Calendar, Manual Activation, Outcome Capture, and Learning | #7 |
 
-## In migration
+## Implemented runtime foundation
 
-- reusable product-generic event discovery code;
-- generic event-provider adapters;
-- local event normalization and scoring;
-- native desktop foundation;
-- generic tests and schemas;
-- installer and package validation.
+- product-generic event candidates with provenance;
+- explicit source outcomes that distinguish verified empty from failure;
+- public ICS event-source adapter;
+- deterministic scoring with recorded reasons;
+- partial-failure-aware collection and deduplication;
+- local atomic JSON persistence;
+- named human approval primitive;
+- enforced Product Core ICP mutation boundary;
+- independent Tauri 2 desktop shell with Viable identity;
+- strict TypeScript, Node, Rust, desktop, secret-scan, and Debian package validation.
 
-The migration must exclude external organization content, branding, governance, licensing statements, destinations, accounts, prompts, logs, reports, confidential fixtures, and all secret-bearing material.
+The migration excluded external organization content, branding, governance, destinations, accounts, prompts, logs, reports, confidential fixtures, and secret-bearing material. Source-repository names remain only where required for migration provenance and exclusion evidence.
 
-Imported event code must enter through the Event Intelligence bounded context and shared evidence contracts. It must not redefine the top-level Viable product model.
+Event Intelligence enters through its bounded context and shared evidence contracts. It does not redefine the top-level Viable product model or mutate canonical ICP state.
 
 ## Designed but not implemented
 
@@ -114,7 +118,7 @@ Imported event code must enter through the Event Intelligence bounded context an
 
 | Integration area | Status |
 |---|---|
-| Event sources | Product-generic code pending sanitized migration |
+| Event sources | Public ICS implemented and validated; additional adapters not implemented |
 | GitHub public repository analysis | Designed; not implemented |
 | LinkedIn | Feasibility and adapter not implemented |
 | Facebook and Instagram | Feasibility and adapters not implemented |
@@ -148,16 +152,13 @@ Remaining work concerns product decisions, schemas, implementation, validation, 
 
 ## Immediate next milestones
 
-1. Review and merge the documentation-baseline pull request.
-2. Complete the sanitized Event Radar code migration under issue #1.
-3. Restore independent CI and package validation in Viable.
-4. Rebrand the native desktop and installer identity.
-5. Implement Product Truth, ICP Discovery, and Marketability Assessment under issue #2.
-6. Implement Signals Inbox under issue #5.
-7. Implement Campaign Brief and Canonical Asset under issue #6.
-8. Implement Public Repository Growth and Launch under issue #3.
-9. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
-10. Implement Calendar, Manual Activation, Outcome Capture, and Learning under issue #7 before direct publishing adapters.
+1. Implement Product Truth, ICP Discovery, and Marketability Assessment under issue #2.
+2. Implement Signals Inbox under issue #5.
+3. Implement Campaign Brief and Canonical Asset under issue #6.
+4. Implement Public Repository Growth and Launch under issue #3.
+5. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
+6. Implement Calendar, Manual Activation, Outcome Capture, and Learning under issue #7 before direct publishing adapters.
+7. Add signing and cross-platform installer validation before end-user release.
 
 ## Release posture
 
