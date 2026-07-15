@@ -39,4 +39,4 @@ The implementation is a clean-room Viable bounded context. It does not copy orga
 
 ## Validation
 
-The branch validation target runs a tracked-file secret scan, strict TypeScript checking, automated tests, Rust formatting, native tests, and a release-mode desktop build. Installer bundling remains a separate release gate. This record becomes validated only after independent GitHub CI passes on the pull request.
+The branch validation target runs a tracked-file secret scan, strict TypeScript checking, automated tests, Rust formatting, native tests, a release-mode desktop build, Debian installer creation, and package metadata inspection. Signing and cross-platform installer validation remain release gates. This record becomes validated only after independent GitHub CI passes on the pull request.

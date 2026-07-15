@@ -24,6 +24,10 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": ["deb"],
+    "publisher": "MythologIQ Labs, LLC",
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first marketability operating system"
   }
 }

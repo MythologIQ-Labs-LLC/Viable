@@ -26,6 +26,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -40,4 +44,11 @@ jobs:
             libwebkit2gtk-4.1-dev
       - run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
       - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
-      - run: cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --release
+      - run: npm ci
+      - run: npm run desktop:bundle
+      - name: Validate Debian package
+        run: |
+          package="$(find apps/desktop/src-tauri/target/release/bundle/deb -name '*.deb' -type f -print -quit)"
+          test -n "$package"
+          dpkg-deb --info "$package"
+          dpkg-deb --contents "$package"
