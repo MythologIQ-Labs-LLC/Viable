@@ -20,7 +20,9 @@ Viable is a local-first marketability operating system that connects product tru
 The architecture must support the complete marketability loop:
 
 ```text
-Assess the product
+Establish product truth
+  -> identify and validate the proper ICP
+  -> assess marketability
   -> understand the market
   -> choose positioning and offers
   -> create useful assets
@@ -35,7 +37,7 @@ Event discovery is one bounded signal subsystem. External platforms are adapters
 
 ## 2. Architectural goals
 
-1. Keep product truth and claims authoritative across all generated work.
+1. Keep product truth, claims, and canonical ICP hypotheses authoritative across all generated work.
 2. Preserve evidence provenance and visible uncertainty.
 3. Keep the base product useful without hosted Viable infrastructure, an LLM, or every platform API.
 4. Require human approval for externally consequential action.
@@ -175,6 +177,7 @@ Owns:
 - product workspace and lifecycle state;
 - capabilities and limitations;
 - audiences and buying roles;
+- canonical ICP hypotheses, validation, revisions, disqualifiers, and history;
 - positioning, category, alternatives, and differentiation;
 - pricing, packaging, offers, and calls to action;
 - claims, proof, terminology, and brand constraints;
@@ -301,6 +304,11 @@ All cross-context integration uses stable identifiers and application services. 
 - `EvidenceId`
 - `SignalId`
 - `AudienceId`
+- `IcpHypothesisId`
+- `IcpHypothesisVersionId`
+- `IcpCandidateComparisonId`
+- `IcpRevisionId`
+- `IcpValidationExperimentId`
 - `ClaimId`
 - `ProofId`
 - `AssessmentId`
@@ -610,21 +618,22 @@ Technology choices are not claims of current implementation. Changes that affect
 
 ## 19. Architecture invariants
 
-1. Product truth and claims govern downstream generated work.
-2. Local workspace data is authoritative by default.
-3. Provider content is evidence and untrusted data.
-4. Provider identifiers do not become canonical identity without reconciliation.
-5. Source failure cannot become empty success.
-6. Missing metrics cannot become zero.
-7. Canonical assets remain separate from channel payloads.
-8. External action requires named human approval.
-9. Adapters and generators cannot approve their own output.
-10. Credentials do not enter repository files, prompts, reports, diagnostics, or exports.
-11. Manual paths remain available for core workflows when integrations are unavailable.
-12. Event intelligence remains a bounded signal subsystem.
-13. Render completion is not asset approval.
-14. Attribution states its model and uncertainty.
-15. Current-state documentation remains honest about implementation maturity.
+1. Product truth, claims, and canonical ICP hypotheses govern downstream work.
+2. ICP hypotheses belong to Product Core and downstream contexts cannot silently rewrite them.
+3. Local workspace data is authoritative by default.
+4. Provider content is evidence and untrusted data.
+5. Provider identifiers do not become canonical identity without reconciliation.
+6. Source failure cannot become empty success.
+7. Missing metrics cannot become zero.
+8. Canonical assets remain separate from channel payloads.
+9. External action requires named human approval.
+10. Adapters and generators cannot approve their own output.
+11. Credentials do not enter repository files, prompts, reports, diagnostics, or exports.
+12. Manual paths remain available for core workflows when integrations are unavailable.
+13. Event intelligence remains a bounded signal subsystem.
+14. Render completion is not asset approval.
+15. Attribution states its model and uncertainty.
+16. Current-state documentation remains honest about implementation maturity.
 
 ## 20. Architecture evolution gates
 
@@ -648,6 +657,7 @@ Before adding a major subsystem or integration:
 - [ADR-0004: Evidence provenance and explicit partial failure](../adr/0004-evidence-provenance-and-partial-failure.md)
 - [ADR-0005: Human approval for externally consequential action](../adr/0005-human-approval-for-external-action.md)
 - [ADR-0006: Marketability loop and event-intelligence boundary](../adr/0006-marketability-loop-and-event-boundary.md)
+- [ADR-0007: ICP hypotheses and validation authority](../adr/0007-icp-hypothesis-and-validation-authority.md)
 
 ## 22. Implementation status
 
