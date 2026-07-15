@@ -19,21 +19,35 @@ Issues and pull requests may implement or propose changes, but they may not sile
 
 ## Start here
 
-- [Product Requirements Document](product/PRD.md)
-- [Architecture Decision Records](adr/README.md)
-- [Platform architectural design](architecture/viable-platform.md)
-- [Current state](status/current-state.md)
-- [Product roadmap](roadmap/product-roadmap.md)
-- [Experience design roadmap](roadmap/design-roadmap.md)
+For a new session or contributor, read:
+
+1. [Session context handoff](handoff/session-context-2026-07-15.md)
+2. [Product Requirements Document](product/PRD.md)
+3. [ICP discovery and validation](product/icp-discovery-and-validation.md)
+4. [Architecture Decision Records](adr/README.md)
+5. [Platform architectural design](architecture/viable-platform.md)
+6. [Current state](status/current-state.md)
+7. [Initial build sequence](roadmap/initial-build-sequence.md)
+8. [Open decisions](decisions/open-decisions.md)
+
+Supporting review records:
+
 - [Documentation verification](reviews/documentation-verification-2026-07-15.md)
 - [Documentation verification closure](reviews/documentation-verification-closure-2026-07-15.md)
+
+## Handoff and terminology
+
+- [Session context handoff](handoff/session-context-2026-07-15.md)
+- [Canonical glossary](GLOSSARY.md)
 
 ## Product
 
 - [Product Requirements Document](product/PRD.md)
 - [Product scope](product/product-scope.md)
+- [ICP discovery and validation](product/icp-discovery-and-validation.md)
 - [Marketability operating model](product/marketability-operating-model.md)
 - [Open-source repository growth](product/open-source-repository-growth.md)
+- [Product provenance and ownership](product/provenance-and-ownership.md)
 
 ## Architecture
 
@@ -47,9 +61,17 @@ Issues and pull requests may implement or propose changes, but they may not sile
 - [Experience design roadmap](roadmap/design-roadmap.md)
 - [Initial build sequence](roadmap/initial-build-sequence.md)
 
+## Decisions
+
+- [Open decisions register](decisions/open-decisions.md)
+
+Resolved durable decisions belong in ADRs, the PRD, or another named authority. Open questions must not silently become implementation facts.
+
 ## Integrations
 
 - [ViMax video generation assessment](integrations/vimax-video-generation.md)
+
+Integration access, pricing, scopes, provider terms, and review requirements must be revalidated when implementation begins.
 
 ## Governance and safety
 
@@ -64,6 +86,7 @@ Issues and pull requests may implement or propose changes, but they may not sile
 ## Source migration
 
 - GitHub issue #1 is the implementation authority for the sanitized Event Radar product-code migration.
+- [Product provenance and ownership](product/provenance-and-ownership.md) defines the durable migration and ownership boundary.
 - No external organization content, credentials, account identifiers, destinations, prompts, logs, reports, confidential fixtures, or secret-bearing material may be imported.
 - Imported event functionality must respect ADR-0006 and remain a bounded subsystem inside the wider marketability architecture.
 
@@ -82,4 +105,6 @@ Documentation must distinguish:
 - known limitations;
 - decisions that require current revalidation.
 
-A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, and user documentation that it affects.
+A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, and user documentation that it affects.
+
+The session handoff should be refreshed when a major product boundary, issue sequence, migration posture, or open decision changes materially.
