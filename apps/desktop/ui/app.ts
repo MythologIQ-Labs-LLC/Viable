@@ -6,9 +6,13 @@ import { LocalStorageProductWorkspaceStore } from "./local-storage-product-works
 
 const store = new LocalStorageProductWorkspaceStore();
 const service = new ProductCoreService(store);
-const main = document.querySelector<HTMLElement>("#main");
-const live = document.querySelector<HTMLElement>("#live-region");
-if (!main || !live) throw new Error("Desktop shell regions are missing");
+function requiredElement(selector: string): HTMLElement {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (!element) throw new Error(`Desktop shell region ${selector} is missing`);
+  return element;
+}
+const main = requiredElement("#main");
+const live = requiredElement("#live-region");
 
 let workspace: ProductWorkspace | undefined;
 let page: "home" | "product" = "home";
@@ -300,7 +304,7 @@ document.addEventListener("submit", (event) => {
     workspace = await service.addEvidence(workspace!.id, { title: String(form.get("title")), summary: String(form.get("summary")), origin, observedAt: new Date(String(form.get("observedAt"))).toISOString(), freshnessReviewAt: new Date(String(form.get("freshnessReviewAt"))).toISOString(), reviewStatus: "suggested", confidence: String(form.get("confidence")) as "medium" });
   }, "Evidence added for review");
   if (kind === "add-icp") void act(async () => {
-    const dimensions = Object.fromEntries(ICP_DIMENSIONS.map((dimension) => [dimension, { rating: asRating(form.get(`${dimension}.rating`)), rationale: String(form.get(`${dimension}.rationale`)), evidenceIds: workspace!.evidence.filter((item) => item.reviewStatus === "reviewed" && item.origin !== "generated_suggestion").map((item) => item.id), confidence: String(form.get(`${dimension}.confidence`)) as "medium" }])) as IcpHypothesis["dimensions"];
+    const dimensions = Object.fromEntries(ICP_DIMENSIONS.map((dimension) => [dimension, { rating: asRating(form.get(`${dimension}.rating`)), rationale: String(form.get(`${dimension}.rationale`)), evidenceIds: workspace!.evidence.filter((item) => item.reviewStatus === "reviewed" && item.origin !== "generated_suggestion").map((item) => item.id), confidence: String(form.get(`${dimension}.confidence`)) as "medium" }])) as unknown as IcpHypothesis["dimensions"];
     const origin = String(form.get("origin")) as "human" | "generated_suggestion";
     workspace = await service.addIcpHypothesis(workspace!.id, { name: String(form.get("name")), summary: String(form.get("summary")), status: origin === "generated_suggestion" ? "suggested" : "candidate", origin, reviewStatus: "suggested", roles: rolesFrom(form), dimensions, disqualifiers: lines(form.get("disqualifiers")), antiIcpConditions: lines(form.get("antiIcp")), assumptions: lines(form.get("assumptions")), contradictions: lines(form.get("contradictions")), evidenceIds: workspace!.evidence.filter((item) => item.reviewStatus === "reviewed" && item.origin !== "generated_suggestion").map((item) => item.id), confidence: "medium", owner: String(form.get("owner")), nextValidationAction: String(form.get("nextValidationAction")), changeConditions: lines(form.get("changeConditions")), experiments: [] });
   }, "ICP hypothesis added");
