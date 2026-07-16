@@ -68,7 +68,7 @@ Events provide the inherited opportunity source, while public repositories immed
 
 ## Slice 3: Campaign brief and canonical asset
 
-Status: guarded campaign, canonical-asset, channel-variant, review, invalidation, local-persistence, and manual-export core implemented and automatedly validated through PR #16; desktop workflow and human acceptance remain open under issue #6.
+Status: guarded campaign, canonical-asset, channel-variant, review, invalidation, local-persistence, Campaigns and Studio desktop workflow, channel comparison, and downloadable manual-export journey implemented and automatedly validated through PR #18; hands-on accessibility and unfamiliar-user acceptance remain open under issue #6.
 
 ### User outcome
 
@@ -88,6 +88,12 @@ A user converts product truth, the selected ICP or a deliberate test audience, a
 ### Why third
 
 This proves that Viable can transform product truth, ICP context, and market evidence into useful, governed market action before external automation is added.
+
+### Remaining exit evidence
+
+- hands-on keyboard and assistive-technology review;
+- unfamiliar-user completion of the campaign-to-export journey without maintainer intervention;
+- remediation of any evidenced accessibility, clarity, or recovery gaps.
 
 ## Slice 4: Repository growth and launch room
 
