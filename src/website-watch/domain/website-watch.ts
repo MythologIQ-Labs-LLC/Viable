@@ -77,6 +77,8 @@ export type WebsiteSnapshot = Readonly<{
   limitations: readonly string[];
   retentionClass: WebsiteWatchRetentionClass;
   deleteAfter?: string;
+  deletedAt?: string;
+  deletedBy?: string;
   createdAt: string;
 }>;
 
