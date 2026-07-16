@@ -5,7 +5,7 @@
 
 ### A local-first marketability operating system for products, public repositories, founders, and small teams
 
-[![Status: Product foundation](https://img.shields.io/badge/Status-product_foundation-2ea043)](#current-state)
+[![Status: Internal Slice 1](https://img.shields.io/badge/Status-internal_slice_1-2ea043)](#current-state)
 [![Approach: Local first](https://img.shields.io/badge/Approach-local_first-8957e5)](#product-principles)
 [![ICP: Evidence based](https://img.shields.io/badge/ICP-evidence_based-0b7285)](#identify-the-proper-icp)
 [![External action: Human approved](https://img.shields.io/badge/External_action-human_approved-b42335)](docs/adr/0005-human-approval-for-external-action.md)
@@ -263,7 +263,7 @@ Durable architecture is documented in:
 
 ## Current state
 
-Viable is currently in initial implementation-foundation stage.
+Viable is currently in the first internal product-slice stage.
 
 | Area | Status |
 |---|---|

@@ -11,10 +11,9 @@ It preserves the product context required to begin a new session without dependi
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- Active implementation branch: `feat/product-home-desktop-workflow`
-- Active implementation PR: #11
-- Current maturity: internal Slice 1 implementation with automated desktop validation
-- Current implementation priority: complete human accessibility and unfamiliar-founder acceptance for issue #2, then begin issue #5
+- Latest merged implementation PR: #11 at `bfd40c351b461016f246216026d0da963f1c2f76`
+- Current maturity: internal Slice 1 implementation on `main` with automated desktop validation
+- Current implementation priority: complete human accessibility and unfamiliar-founder acceptance for issue #2 while beginning the bounded Signals Inbox under issue #5
 
 ## Read before acting
 
@@ -221,7 +220,7 @@ Merged and validated on `main`:
 - PR #9: bounded Event Intelligence, local persistence, Tauri shell, CI, and Debian packaging;
 - PR #10: Product Core workspace, claims, evidence review, canonical ICP services, assessment, actions, and local persistence.
 
-Implemented and automatedly validated on PR #11:
+Merged to `main` and automatedly validated through PR #11:
 
 - Home and Product desktop navigation;
 - local workspace creation and product-truth revision;
@@ -278,7 +277,7 @@ Especially important:
 
 ## Exact new-session prompt
 
-> Continue work on `MythologIQ-Labs-LLC/Viable`. First read `README.md`, `docs/handoff/CURRENT.md`, `docs/product/PRD.md`, `docs/product/icp-discovery-and-validation.md`, `docs/adr/README.md`, `docs/architecture/viable-platform.md`, `docs/architecture/icp-domain.md`, `docs/status/current-state.md`, `docs/roadmap/initial-build-sequence.md`, and `docs/decisions/open-decisions.md`. Inspect merged PRs #8 through #10, active PR #11, and issues #1 through #7 before proposing or changing implementation. Treat Viable as a MythologIQ-owned local-first marketability operating system that explicitly helps founders identify, validate, and refine the proper ICP. Preserve the fail-closed source-migration boundary and do not import external organization content, credentials, accounts, destinations, private operational data, or ambiguous licensing. Keep Event Intelligence bounded, Product Core authoritative for ICP, and named human approval mandatory for external action. Distinguish designed behavior from implemented and validated behavior. Then report the current state, unresolved decisions, and the single next highest-value action before proceeding.
+> Continue work on `MythologIQ-Labs-LLC/Viable`. First read `README.md`, `docs/handoff/CURRENT.md`, `docs/product/PRD.md`, `docs/product/icp-discovery-and-validation.md`, `docs/adr/README.md`, `docs/architecture/viable-platform.md`, `docs/architecture/icp-domain.md`, `docs/status/current-state.md`, `docs/roadmap/initial-build-sequence.md`, and `docs/decisions/open-decisions.md`. Inspect merged PRs #8 through #11 and issues #1 through #7 before proposing or changing implementation. Treat Viable as a MythologIQ-owned local-first marketability operating system that explicitly helps founders identify, validate, and refine the proper ICP. Preserve the fail-closed source-migration boundary and do not import external organization content, credentials, accounts, destinations, private operational data, or ambiguous licensing. Keep Event Intelligence bounded, Product Core authoritative for ICP, and named human approval mandatory for external action. Distinguish designed behavior from implemented and validated behavior. Then report the current state, unresolved decisions, and the single next highest-value action before proceeding.
 
 ## Historical session detail
 
