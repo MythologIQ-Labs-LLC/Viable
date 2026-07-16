@@ -26,7 +26,7 @@ function activateNavigation(): void {
 function activate(button: HTMLButtonElement, target: "campaigns" | "studio", text: string): void {
   button.disabled = false;
   button.dataset.nav = target;
-  button.textContent = text;
+  if (button.textContent !== text) button.textContent = text;
   button.setAttribute("aria-current", page === target ? "page" : "false");
 }
 
