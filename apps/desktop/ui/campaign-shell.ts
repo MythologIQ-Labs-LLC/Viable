@@ -30,6 +30,13 @@ function activate(button: HTMLButtonElement, target: "campaigns" | "studio", tex
   button.setAttribute("aria-current", page === target ? "page" : "false");
 }
 
+function decorateChoices(): void {
+  if (!main) return;
+  for (const label of main.querySelectorAll<HTMLLabelElement>("label")) {
+    if (label.querySelector('input[type="checkbox"]')) label.classList.add("choice");
+  }
+}
+
 async function open(target: "campaigns" | "studio"): Promise<void> {
   if (!main) return;
   const workspaceId = productStore.activeWorkspaceId();
@@ -58,6 +65,7 @@ async function open(target: "campaigns" | "studio"): Promise<void> {
 function render(): void {
   if (!main || !page) return;
   main.innerHTML = controller?.render(page) ?? `<section class="state loading" role="status"><strong>Loading campaign workflow</strong></section>`;
+  decorateChoices();
   activateNavigation();
 }
 
