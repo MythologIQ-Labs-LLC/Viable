@@ -1,219 +1,377 @@
 # ViMax Video Generation Integration Assessment
 
+## Document control
+
+| Field | Value |
+|---|---|
+| Status | Stage 1 manual compatibility implemented; execution adapter deferred |
+| Last reviewed | 2026-07-16 |
+| Upstream repository | `HKUDS/ViMax` |
+| Compatibility target | `v1.1.0`, revision `1f8f650` |
+| Implementation | PRs #23 and #24 |
+| Product issue | GitHub issue #4 |
+
 ## Decision
 
-ViMax is a strong candidate for an optional Viable video-orchestration adapter and reference implementation.
+ViMax is an optional, removable production-tool adapter for Viable.
 
-It should not become Viable's canonical video domain, credential store, approval authority, or only generation path. Viable should own the campaign brief, product claims, audience, script approval, asset rights, job intent, review state, final asset record, and distribution workflow. ViMax may orchestrate the production steps behind an explicit generation job.
+The implemented integration is a provider-neutral manual package and artifact-import workflow. Viable does not install or execute ViMax, bundle its Python dependency graph, inject credentials, call media providers, schedule media, publish, claim delivery, or measure performance.
 
-## Why ViMax is relevant
+Viable remains authoritative for:
 
-ViMax is an MIT-licensed agentic video-generation framework that coordinates:
+- product truth;
+- ICP and audience context;
+- campaign intent;
+- approved claims and evidence;
+- approved canonical script and exact version;
+- storyboard constraints;
+- source assets, rights, consent, and disclosures;
+- provider choice, cost estimate, and data-handling notes;
+- video brief approval;
+- imported render review;
+- platform-variant review;
+- future calendar, publishing, delivery, and measurement records.
+
+ViMax may be used separately to orchestrate production steps. It cannot grant Viable approval or external-action authority.
+
+## Upstream revalidation
+
+The implementation review pinned ViMax at:
+
+- tag: `v1.1.0`;
+- revision: `1f8f650`;
+- release date: 2026-06-08;
+- license: MIT;
+- copyright notice: Copyright (c) 2025;
+- runtime: Python 3.12 or newer;
+- environment management: `uv`;
+- upstream-listed operating systems: Linux and Windows;
+- unverified operating system: macOS.
+
+The upstream project contains:
 
 - idea-to-video workflows;
 - script-to-video workflows;
 - novel-to-video workflows;
-- script generation;
-- storyboard and shot planning;
-- reference image management;
-- image generation and consistency review;
-- video generation;
+- script and storyboard planning;
+- reference-image handling;
+- image and video generation;
+- consistency checks;
 - audio and video assembly;
-- session resume and render status.
+- session and working-directory behavior;
+- provider configuration through YAML or environment values.
 
-This aligns with Viable's planned short-video production system, especially for campaigns that need a script, storyboard, visual references, multiple shots, captions, and reviewable output rather than one isolated generated clip.
+The root `vimax tui` entrypoint is interactive. It is not treated as a stable machine job API.
 
-## Current implementation characteristics
+The pinned Script2Video example calls `Script2VideoPipeline.init_from_config(...)` and accepts:
 
-| Concern | ViMax posture | Viable implication |
-|---|---|---|
-| License | MIT | Integration and modification are permitted with attribution and license retention |
-| Runtime | Python 3.12 with `uv` | Requires a separate managed runtime or external worker beside the Tauri and Node application |
-| Supported OS listed | Linux and Windows | macOS support must be tested rather than assumed |
-| Orchestration | Multi-agent pipeline and TUI | Useful backend, but Viable should provide the product-facing workflow |
-| Providers | Configurable LLM, image, and video endpoints | Good adapter boundary, but model availability, cost, and terms remain external |
-| Credentials | YAML or environment-variable API keys | Viable must inject scoped secrets from the OS vault and must not copy keys into project files |
-| Media assembly | MoviePy, OpenCV, scene detection | Useful for local artifact assembly and inspection |
-| Retrieval | FAISS and LangChain dependencies | Requires review for local storage, model calls, and supply-chain footprint |
-| Packaging | Developer-oriented clone and `uv sync` flow | Not yet suitable as an invisible end-user dependency without packaging work |
-| Interface | Python entrypoints and TUI | Start with a job-package or CLI adapter, then consider a local service |
+- script;
+- user requirement;
+- style;
+- YAML configuration.
 
-## Recommended integration boundary
+The upstream YAML supports blank API-key fields. Viable therefore exports a blank template and never populated credentials.
+
+## Implemented Stage 1
+
+### Provider-neutral video brief
+
+Viable records:
+
+- approved campaign and canonical script;
+- exact script version;
+- claim revisions and reviewed evidence;
+- objective, audience, duration, platforms, and aspect ratios;
+- visual style and prohibited elements;
+- storyboard scenes and shot constraints;
+- captions, audio description, accessibility, and disclosures;
+- source-asset rights and consent;
+- LLM, image, and video provider plans;
+- estimated costs, currency, and data-handling notes;
+- named owner and review state.
+
+### Manual package
+
+The export contains:
+
+- the approved video brief;
+- script authority references;
+- storyboard;
+- source-asset manifest;
+- provider plan;
+- expected artifacts;
+- a pinned ViMax Script2Video compatibility packet;
+- a blank provider YAML template;
+- an upstream notice file;
+- manual run and re-import instructions.
+
+The package explicitly records:
 
 ```text
-Viable campaign and product truth
-  -> approved video brief
-  -> approved script, claims, and source assets
-  -> Viable video job manifest
-  -> ViMax adapter
-       -> script and storyboard orchestration
-       -> image and video provider calls
-       -> consistency and assembly workflow
-  -> local working artifacts
-  -> Viable review queue
-  -> approved final video and variants
-  -> Viable calendar and delivery adapters
-  -> performance and learning record
+credentials included: false
+executed by Viable: false
+render approved: false
+approved for publishing: false
+delivered: false
 ```
 
-ViMax cannot:
+### ViMax compatibility packet
 
-- approve a campaign or script;
-- invent unverified product claims;
-- select a real person, customer, logo, voice, likeness, or copyrighted asset without recorded rights;
-- access provider credentials directly from Viable configuration files;
-- publish generated media;
-- mark an output approved merely because the render completed;
-- become the source of truth for the campaign, product, or final asset.
+The implemented packet contains:
 
-## Integration stages
+- `vimax/main_script2video_viable.py`;
+- `vimax/configs/script2video.viable.yaml`;
+- `vimax/UPSTREAM-NOTICE.txt`.
 
-### Stage 1: Tool catalog and manual export
+The generated Python file adapts the approved script, storyboard constraints, target duration, platforms, aspect ratios, prohibited elements, and accessibility requirements to the pinned Script2Video entrypoint.
 
-Viable generates a production package containing:
+The YAML template contains blank credential fields.
 
-- video brief;
-- target platforms and aspect ratios;
-- approved script;
-- scene and shot constraints;
-- product claims and supporting evidence;
-- brand style and prohibited elements;
-- asset manifest and rights metadata;
-- caption and accessibility requirements;
-- output and review requirements.
+The notice records the pinned upstream target and the obligation to retain the MIT copyright and permission notice in copies or substantial portions of ViMax.
 
-The user exports the package and runs ViMax separately. Completed media is imported back into Viable.
+The compatibility packet does not contain ViMax itself.
 
-This validates creative fit without binding the desktop product to a Python runtime or provider costs.
+### Artifact import
 
-### Stage 2: Local CLI adapter
+Viable imports:
 
-Viable launches a separately installed ViMax command with:
+- source tool and version;
+- correlation ID;
+- completed, partial, failed, or cancelled status;
+- stage history;
+- failure class and detail;
+- relative artifact paths;
+- MIME types and sizes;
+- SHA-256 values;
+- final render, platform render, clip, image, audio, caption, manifest, and redacted-log relationships;
+- redacted logs;
+- source brief and package relationships;
+- named importer;
+- separate review state.
 
-- a generated temporary job directory;
-- a sanitized configuration;
-- environment-injected credential references;
-- bounded working storage;
-- explicit provider selection;
-- job and correlation identifiers.
+Render completion remains distinct from approval.
 
-Viable captures structured status, output paths, provider usage, failures, and logs after redaction.
+### Platform variants
 
-### Stage 3: Managed local worker
+Approved imported artifacts may produce separately reviewed variants for:
 
-Viable optionally installs or connects to a version-pinned local ViMax worker.
+- LinkedIn;
+- Instagram Reels;
+- YouTube Shorts;
+- website.
 
-Required capabilities include:
+Variant approval verifies platform crop, captions, accessibility, disclosures, and message consistency.
 
-- health and version contract;
+## Architecture boundary
+
+```text
+Product Core
+  -> approved claims and evidence
+
+Campaigns and Assets
+  -> approved campaign
+  -> approved canonical script and version
+
+Video Production
+  -> reviewed video brief
+  -> provider-neutral package
+  -> optional ViMax compatibility packet
+
+External production environment
+  -> provider calls and media assembly
+  -> stage evidence and artifacts
+
+Video Production
+  -> imported unapproved artifact
+  -> named render review
+  -> named platform-variant review
+
+Issue #7, later
+  -> Calendar
+  -> publishing and delivery evidence
+  -> measurement and learning
+```
+
+## Authority revalidation
+
+External production may outlive the approval state used to create the package. Viable revalidates current authority at:
+
+- package creation;
+- run import;
+- artifact approval;
+- variant creation;
+- variant approval.
+
+The service checks the current campaign, script, version, claims, reviewed evidence, rights, consent, accessibility, and disclosure relationships.
+
+Stale output may remain as retained evidence, but it cannot silently inherit current approval.
+
+## Credential posture
+
+No credential may enter:
+
+- Product Core;
+- campaign or canonical asset records;
+- video briefs;
+- exported packages;
+- compatibility files;
+- artifact metadata;
+- imported logs;
+- repository files;
+- screenshots or documentation fixtures.
+
+The Stage 1 workflow does not use an OS vault because it does not execute a provider or local worker.
+
+A future execution adapter must use scoped environment injection from an operating-system vault and must create temporary, bounded, redacted configuration.
+
+## Runtime and supply-chain posture
+
+ViMax requires a separate Python environment and includes a broad AI and media dependency graph. Upstream dependencies include provider SDKs, LangChain components, FAISS, MoviePy, OpenCV, media-processing packages, and model clients.
+
+The implemented boundary avoids adding those packages to the Tauri desktop distribution.
+
+Before any managed worker or CLI execution ships, Viable must define:
+
+- version and health checks;
+- checksum or signature verification;
+- installation and update ownership;
+- dependency and vulnerability scanning;
 - job submission and cancellation;
 - progress and stage reporting;
-- resumable jobs;
-- resource and disk limits;
-- scoped provider credentials;
-- artifact manifest;
 - structured errors;
-- cleanup and retention policy;
-- signed or checksum-verified distribution.
+- resource, disk, and retention limits;
+- bounded working directories;
+- redacted logs;
+- artifact manifests;
+- rollback and uninstall behavior;
+- support expectations for Windows, Linux, and macOS.
 
-### Stage 4: Optional remote execution
+## Operating-system posture
 
-Remote execution should be considered only when local compute or provider orchestration becomes impractical.
+Upstream documentation lists Linux and Windows.
 
-It requires explicit disclosure and controls for:
+Viable has not executed the Stage 1 package on either operating system because Stage 1 is manual and does not invoke ViMax.
 
-- uploaded scripts, images, audio, and video;
-- storage location and retention;
-- model and provider data use;
-- identity, access, and tenant isolation;
-- cost budgets and approval;
-- deletion and export;
-- generated-media rights and disclosures.
+Therefore:
 
-A remote service must remain optional. Viable's planning, review, and export workflow must still function without it.
+- Linux compatibility is recorded as an upstream statement, not Viable evidence;
+- Windows compatibility is recorded as an upstream statement, not Viable evidence;
+- macOS remains unverified and unclaimed;
+- cross-platform execution acceptance remains a future CLI-adapter gate.
 
-## Viable video job manifest
+## Rights and identity posture
 
-The adapter should receive a provider-neutral manifest similar to:
+Video production increases the risk of rights and identity misuse. Viable records source, owner, rights basis, consent, allowed use, prohibited use, expiration, and disclosures for:
 
-```json
-{
-  "jobId": "video_job_123",
-  "campaignId": "campaign_123",
-  "objective": "Explain the product problem and invite a demo",
-  "audience": "Small software product teams",
-  "format": {
-    "durationSeconds": 30,
-    "aspectRatios": ["9:16", "1:1", "16:9"],
-    "platforms": ["linkedin", "instagram-reels", "youtube-shorts"]
-  },
-  "script": {
-    "status": "approved",
-    "text": "...",
-    "claimIds": ["claim_12"]
-  },
-  "style": {
-    "visualDirection": "Clean product demonstration",
-    "prohibitedElements": ["unapproved logos", "invented testimonials"]
-  },
-  "assets": [],
-  "accessibility": {
-    "captionsRequired": true,
-    "audioDescriptionRequired": false
-  },
-  "providers": {
-    "llm": "user-selected",
-    "image": "user-selected",
-    "video": "user-selected"
-  }
-}
-```
+- likeness;
+- voice;
+- logo;
+- trademark;
+- customer asset;
+- copyrighted asset;
+- generated media.
 
-Provider credentials never enter this manifest.
+Sensitive assets require recorded consent. Missing consent is not converted into approval.
 
-## Product risks
+Provider and model terms remain separate obligations. The upstream MIT license does not grant rights to source media, provider models, customer assets, or generated likenesses.
 
-### Provider cost and availability
+## Failure semantics
 
-ViMax orchestrates generation but does not eliminate model costs. The examples use external LLM, image, and video APIs. Viable must estimate cost before submission, enforce user budgets where possible, and provide an export-only alternative.
+The workflow preserves:
 
-### Quality and repeatability
+- partial production;
+- failed stages;
+- cancelled stages;
+- failure detail;
+- retained artifacts;
+- redacted logs;
+- unapproved review state.
 
-Multi-agent orchestration can improve planning while still producing inconsistent media. Viable needs review, variant comparison, retry reasons, source preservation, and the ability to replace one production stage without repeating the entire campaign process.
+A failed or cancelled run cannot be approved as a completed render.
 
-### Supply chain
+## Accessibility
 
-The Python environment includes AI SDKs, LangChain components, FAISS, MoviePy, OpenCV, and provider clients. Viable must pin and scan the worker separately from the desktop application.
+The brief and variant records include:
 
-### Credential isolation
+- caption requirements;
+- audio-description requirements;
+- visual accessibility constraints;
+- platform accessibility notes;
+- disclosures.
 
-ViMax supports keys in local YAML or environment variables. Viable must use environment injection from the operating-system vault and create temporary redacted configuration. No credential may be committed, placed in the video project, included in logs, or copied into an export package.
+The internal Studio workflow includes semantic labels, keyboard-operable controls, non-color status, scalable layout, and reduced-motion behavior.
 
-### Rights and identity
+Hands-on keyboard and assistive-technology acceptance remains open.
 
-AutoCameo and reference-image workflows make consent and rights especially important. Viable must track the source, owner, consent, allowed use, expiration, and disclosure requirements for each likeness, voice, logo, customer asset, and generated element.
+## Deferred Stage 2: Local CLI adapter
 
-### Product complexity
+A local CLI adapter remains deferred because the pinned upstream TUI is interactive and no stable machine-safe contract has been accepted.
 
-Bundling the full ViMax runtime into the first Viable desktop release would create a large packaging, update, support, and security burden. The manual export and optional local adapter stages should precede any bundled worker.
+A future adapter requires:
 
-## Acceptance criteria for a ViMax adapter
+- noninteractive invocation;
+- version and health contract;
+- explicit job ID;
+- cancellation;
+- progress reporting;
+- structured stage events;
+- structured errors;
+- deterministic output manifest;
+- bounded working directory;
+- environment-only credential injection;
+- redacted logs;
+- cleanup and retention behavior;
+- cross-platform execution validation.
 
-- ViMax version and license are recorded.
-- The adapter can generate from an approved Viable job manifest.
-- No external organization data or secret is embedded in the integration.
-- Credentials are injected from the OS vault and are absent from files and logs.
-- The user chooses providers and sees expected costs and data-handling notes.
-- Render stages and failures are visible.
-- Jobs can be cancelled and resumed where ViMax supports it.
-- Every output has an artifact manifest and source relationship.
-- Render completion does not equal approval.
-- Final media re-enters Viable's review, calendar, distribution, and measurement workflow.
-- Uninstalling or disabling ViMax does not damage the rest of Viable.
+Implementation convenience must not convert the interactive TUI into an assumed API.
+
+## Deferred Stage 3: Managed local worker
+
+A managed local worker remains optional and requires a separate architecture and operational decision.
+
+It must remain removable and cannot become required for core Viable planning, approval, package export, artifact import, or review.
+
+## Deferred Stage 4: Remote execution
+
+Remote execution is not planned for the current product stage.
+
+Any future remote service requires explicit decisions for identity, tenant isolation, uploaded media, location, retention, provider data use, costs, deletion, export, and incident handling.
+
+## Acceptance status
+
+| Criterion | Status |
+|---|---|
+| ViMax version and license recorded | Implemented |
+| Provider-neutral approved package | Implemented |
+| Blank-credential Script2Video compatibility packet | Implemented |
+| Provider choice, costs, and data handling | Implemented |
+| Rights and consent manifest | Implemented |
+| Render stages and failures visible | Implemented |
+| Artifact manifest and source relationships | Implemented |
+| Render completion separate from approval | Implemented |
+| Named final render approval | Implemented |
+| Separately reviewed platform variants | Implemented |
+| Calendar and measurement handoff | Blocked on issue #7 |
+| Local ViMax execution | Deferred |
+| Cancellation and resume | Deferred with execution adapter |
+| Windows execution validation | Not performed |
+| Linux execution validation | Not performed |
+| macOS execution validation | Not performed and not claimed |
+| Human accessibility acceptance | Open |
+| Unfamiliar-user acceptance | Open |
+
+## Related documents
+
+- `../architecture/video-production-domain.md`
+- `../user/video-production.md`
+- `../roadmap/initial-build-sequence.md`
+- `../status/current-state.md`
+- GitHub issue #4
 
 ## Upstream references
 
 - Repository: https://github.com/HKUDS/ViMax
+- Pinned tag: https://github.com/HKUDS/ViMax/tree/v1.1.0
 - Technical report: https://arxiv.org/abs/2606.07649
 
-The upstream repository and its dependencies must be reviewed again at implementation time because the project is actively changing.
+The upstream project and dependency graph must be revalidated before any execution adapter is implemented.
