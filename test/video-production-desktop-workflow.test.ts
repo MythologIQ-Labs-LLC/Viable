@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const read = (path: string): Promise<string> => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("Studio exposes the complete manual video production journey", async () => {
   const [view, shell, html] = await Promise.all([
