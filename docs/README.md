@@ -27,9 +27,10 @@ For a new session or contributor, read:
 4. [Architecture Decision Records](adr/README.md)
 5. [Platform architectural design](architecture/viable-platform.md)
 6. [ICP domain architectural design](architecture/icp-domain.md)
-7. [Current state](status/current-state.md)
-8. [Initial build sequence](roadmap/initial-build-sequence.md)
-9. [Open decisions](decisions/open-decisions.md)
+7. [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
+8. [Current state](status/current-state.md)
+9. [Initial build sequence](roadmap/initial-build-sequence.md)
+10. [Open decisions](decisions/open-decisions.md)
 
 Supporting review records:
 
@@ -55,6 +56,7 @@ Supporting review records:
 
 - [Platform architectural design](architecture/viable-platform.md)
 - [ICP domain architectural design](architecture/icp-domain.md)
+- [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
 - [ADR index](adr/README.md)
 - [ADR template](adr/TEMPLATE.md)
 
