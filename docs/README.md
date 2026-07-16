@@ -80,6 +80,10 @@ Integration access, pricing, scopes, provider terms, and review requirements mus
 
 - [Research, content, and outreach safety](governance/research-and-outreach-safety.md)
 
+## User guides
+
+- [Product and ICP desktop workflow](user/product-and-icp-workflow.md)
+
 ## Status and reviews
 
 - [Current state](status/current-state.md)

@@ -3,3 +3,4 @@ dist/
 .viable/
 *.log
 .DS_Store
+apps/desktop/web/generated/
