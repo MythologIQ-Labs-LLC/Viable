@@ -30,9 +30,10 @@ For a new session or contributor, read:
 7. [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
 8. [Video Production domain architectural design](architecture/video-production-domain.md)
 9. [Calendar, Activation, Outcome, and Learning architecture](architecture/activation-and-learning-domain.md)
-10. [Current state](status/current-state.md)
-11. [Initial build sequence](roadmap/initial-build-sequence.md)
-12. [Open decisions](decisions/open-decisions.md)
+10. [Website Watch domain architecture](architecture/website-watch-domain.md)
+11. [Current state](status/current-state.md)
+12. [Initial build sequence](roadmap/initial-build-sequence.md)
+13. [Open decisions](decisions/open-decisions.md)
 
 Supporting review records:
 
@@ -61,6 +62,7 @@ Supporting review records:
 - [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
 - [Video Production domain architectural design](architecture/video-production-domain.md)
 - [Calendar, Activation, Outcome, and Learning architecture](architecture/activation-and-learning-domain.md)
+- [Website Watch domain architecture](architecture/website-watch-domain.md)
 - [ADR index](adr/README.md)
 - [ADR template](adr/TEMPLATE.md)
 
@@ -79,18 +81,20 @@ Resolved durable decisions belong in ADRs, the PRD, domain architecture, or a na
 ## Integrations
 
 - [ViMax video generation assessment and implemented Stage 1 boundary](integrations/vimax-video-generation.md)
-- [Webdog website monitoring assessment and accepted Stage 1 direction](integrations/webdog-website-monitoring.md)
+- [Webdog website monitoring assessment and implemented Stage 1 boundary](integrations/webdog-website-monitoring.md)
 
 Integration access, versions, pricing, scopes, licenses, provider terms, runtime assumptions, and review requirements must be revalidated when implementation begins or materially changes.
 
 ## Governance and safety
 
 - [Research, content, and outreach safety](governance/research-and-outreach-safety.md)
+- [Third-party notices](../THIRD_PARTY_NOTICES.md)
 
 ## User guides
 
 - [Product and ICP desktop workflow](user/product-and-icp-workflow.md)
 - [Signals Inbox and Market evidence workflow](user/signals-inbox.md)
+- [Website Watch in Signals and Market](user/website-watch.md)
 - [Campaigns and Studio desktop workflow](user/campaigns-and-studio.md)
 - [Public Repository Growth and Launch workflow](user/repository-growth.md)
 - [Video Production in Studio](user/video-production.md)
@@ -108,6 +112,7 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 - [Product provenance and ownership](product/provenance-and-ownership.md) defines the durable migration and ownership boundary.
 - No external-organization content, credentials, account identifiers, destinations, prompts, logs, reports, confidential fixtures, or secret-bearing material may be imported.
 - Imported event functionality must respect ADR-0006 and remain a bounded subsystem inside the wider marketability architecture.
+- Website Watch may use Webdog-compatible public alert evidence but must not import Webdog credentials, account sessions, hosted database state, private monitored content, notification destinations, or secret-bearing configuration.
 
 ## Documentation expectations
 
@@ -124,6 +129,6 @@ Documentation must distinguish:
 - known limitations;
 - decisions that require current revalidation.
 
-A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, integration assessments, and user documentation that it affects.
+A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, integration assessments, third-party notices, and user documentation that it affects.
 
 The current handoff should be refreshed when a major product boundary, accepted decision, issue sequence, migration posture, integration posture, or open decision changes materially.

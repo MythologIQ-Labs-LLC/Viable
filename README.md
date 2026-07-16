@@ -5,21 +5,21 @@
 
 ### A local-first marketability operating system for products, public repositories, founders, and small teams
 
-[![Status: Internal Slice 6](https://img.shields.io/badge/Status-internal_slice_6-2ea043)](#current-state)
+[![Status: Internal Slice 6 plus Website Watch](https://img.shields.io/badge/Status-slice_6_plus_website_watch-2ea043)](#current-state)
 [![Approach: Local first](https://img.shields.io/badge/Approach-local_first-8957e5)](#product-principles)
 [![ICP: Evidence based](https://img.shields.io/badge/ICP-evidence_based-0b7285)](#identify-the-proper-icp)
 [![Approval: Named human](https://img.shields.io/badge/Approval-named_human-b42335)](docs/adr/0005-human-approval-for-external-action.md)
-[![Activation: Manual evidence](https://img.shields.io/badge/Activation-manual_evidence-0b7285)](docs/architecture/activation-and-learning-domain.md)
+[![Evidence: Explicit state](https://img.shields.io/badge/Evidence-explicit_state-0b7285)](docs/adr/0004-evidence-provenance-and-partial-failure.md)
 [![License: Proprietary](https://img.shields.io/badge/License-proprietary_all_rights_reserved-b42335)](LICENSE)
 
 </div>
 
 > [!IMPORTANT]
-> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. Internal workflows through Slice 6 are implemented and automatedly validated: Product Core and ICP, Signals, Campaigns and Studio, Public Repository Growth and Launch, provider-neutral Video Production, Calendar, manual activation, delivery and failure evidence, baseline and metric import, retrospectives, and the learning ledger. Direct publishing, connected analytics, actual ViMax execution, leads, sales, signed installers, hands-on accessibility acceptance, unfamiliar-user acceptance, and end-user release readiness remain incomplete.
+> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. All six initial internal product slices and Website Watch Stage 1 are implemented and automatedly validated. Direct publishing, connected analytics, live website crawling, Context.dev execution, live Webdog synchronization, actual ViMax execution, leads, sales, signed installers, hands-on accessibility acceptance, unfamiliar-user acceptance, and end-user release readiness remain incomplete.
 
-Viable helps founders and product teams establish product truth, identify and validate the proper ideal customer profile, assess marketability, understand evidence, create governed campaigns and assets, improve public repository readiness, prepare reviewable video-production packages, schedule approved work, activate it manually, record what actually happened, and choose the next reversible action from explicit evidence.
+Viable helps founders and product teams establish product truth, identify and validate the proper ideal customer profile, assess marketability, collect bounded evidence, monitor relevant public changes, create governed campaigns and assets, improve public repository readiness, prepare reviewable video-production packages, schedule approved work, activate it manually, record what actually happened, and choose the next reversible action from explicit evidence.
 
-It is not a social scheduler with an AI text box attached. It is not a repository score generator, a video generator, a CRM, or a collection of disconnected dashboards. Viable connects those concerns through one product, evidence, ICP, campaign, asset, approval, destination, outcome, and learning model.
+It is not a social scheduler with an AI text box attached. It is not a website watcher, repository score generator, video generator, CRM, or collection of disconnected dashboards. Viable connects those concerns through one product, evidence, ICP, campaign, asset, approval, destination, outcome, and learning model.
 
 ## Marketability loop
 
@@ -28,6 +28,7 @@ Establish product truth
   -> identify and validate the proper ICP
   -> assess marketability
   -> understand market and opportunity evidence
+  -> monitor relevant public changes
   -> choose positioning and offers
   -> create canonical assets
   -> adapt assets to channels and production formats
@@ -38,10 +39,10 @@ Establish product truth
   -> compare explicit metric evidence against a baseline
   -> complete a retrospective
   -> choose one reversible next action
-  -> refine product, ICP, message, offer, repository, asset, and channel plan
+  -> refine product, ICP, message, offer, repository, asset, source, and channel plan
 ```
 
-Event Intelligence is one bounded signal subsystem. Repository Growth is one Product-integrated surface workflow. Video Production is one Campaign-linked production workflow. Calendar and Analytics complete the first manual operating loop. None becomes the product center merely because it has an API, dashboard, or impressive dependency graph.
+Event Intelligence and Website Watch are bounded Signals subsystems. Repository Growth is one Product-integrated surface workflow. Video Production is one Campaign-linked production workflow. Calendar and Analytics complete the first manual operating loop. None becomes the product center merely because it has an API, dashboard, or impressive dependency graph.
 
 ## Why Viable exists
 
@@ -51,6 +52,7 @@ Founders and small teams commonly manage marketability across:
 - research notes;
 - spreadsheets;
 - event feeds;
+- competitor and public website pages;
 - social tools;
 - repository pages;
 - content generators;
@@ -65,7 +67,9 @@ The predictable results are:
 - marketing begins before the team knows who the product is for;
 - broad audiences are mistaken for an evidence-backed ICP;
 - claims drift across websites, posts, releases, videos, and sales material;
-- research loses provenance and freshness;
+- public changes are noticed without durable provenance or review;
+- AI summaries are mistaken for source evidence;
+- failed checks are mistaken for no change;
 - missing access is converted into zero activity;
 - repository attention is mistaken for adoption;
 - render completion is mistaken for approval;
@@ -97,7 +101,7 @@ The implemented Product Core workflow supports:
 - selected, secondary, adjacent, rejected, and historical candidates;
 - revision history and change conditions.
 
-Viable does not declare an ICP proven because a model generated a polished persona, a repository earned stars, or a campaign received attention. Product Core owns canonical ICP hypotheses. Downstream workflows may contribute evidence and propose review, but they cannot silently rewrite the ICP.
+Viable does not declare an ICP proven because a model generated a polished persona, a repository earned stars, a website changed, or a campaign received attention. Product Core owns canonical ICP hypotheses. Downstream workflows may contribute reviewed evidence and propose review, but they cannot silently rewrite the ICP.
 
 See:
 
@@ -131,9 +135,57 @@ Approved claims require reviewed non-generated evidence.
 - provenance, retrieval time, freshness, confidence, and limitations;
 - named review;
 - save, tag, assignment, relationship, and proposed-work conversion;
-- explicit success, verified-empty, partial, unavailable, rate-limited, validation-failed, transport-failed, offline, and recovery states.
+- explicit success, verified-empty, partial, unavailable, rate-limited, validation-failed, transport-failed, offline, and recovery states;
+- Market summary of reviewed evidence.
 
 One broken source cannot masquerade as an empty market.
+
+See [Signals Inbox and Market evidence workflow](docs/user/signals-inbox.md).
+
+### Website Watch in Signals and Market
+
+Website Watch Stage 1 supports:
+
+- watched-site identity, canonical public URL, normalized domain, relationship, purpose, authorization confirmation, retention, named owner, and active state;
+- site-link, page-content, and product-price target intent;
+- target URL, link scope, watch note, requested interval, next-due intent, source adapter, retention, and mandatory review;
+- strict pasted or local-file Webdog `webdog_ai.new_alerts` version 1 import;
+- one to one hundred alerts and a 512 KiB import limit;
+- source-instance origin validation;
+- secret-bearing field and value rejection;
+- absolute public HTTP and HTTPS URL validation;
+- browser-safe literal IPv4 and IPv6 private, loopback, link-local, metadata, multicast, documentation, and reserved-range restrictions;
+- provider-neutral snapshots with SHA-256 identity, bounded payload reference, limitations, retention, and deletion evidence;
+- ordered bounded line differences without semantic-completeness claims;
+- explicit change-detected, verified-no-change, baseline, partial, unavailable, rate-limit, authentication, validation, transport, offline, and cancellation outcomes;
+- first-snapshot baseline semantics that do not claim no earlier change;
+- Website Watch observations and correlated Signals suggestions from the same validated import;
+- generated change summaries and relevance recommendations stored separately from evidence;
+- named Signals review synchronized with Website Watch observation review;
+- snapshot deletion and retention pruning with named actors while preserving provenance;
+- proposed Website Watch response work;
+- reviewed follow-up, experiment, opportunity, or approval-deadline planning through existing Calendar authority;
+- local browser-profile persistence;
+- responsive and reduced-motion-safe presentation;
+- Webdog revision tracking and MIT attribution.
+
+Website Watch Stage 1 does not crawl websites, call Context.dev, connect to a live Webdog service, run a worker, import live screenshots, open a public webhook listener, copy browser sessions, access private pages, execute AI triage, send notifications, publish, or mutate Product Core automatically.
+
+```text
+configured target
+  != completed check
+  != verified no change
+  != reviewed evidence
+  != Product Core truth
+  != Calendar action
+```
+
+See:
+
+- [Website Watch domain architecture](docs/architecture/website-watch-domain.md)
+- [Webdog integration assessment](docs/integrations/webdog-website-monitoring.md)
+- [Website Watch user guide](docs/user/website-watch.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ### Campaigns and Studio
 
@@ -193,7 +245,7 @@ The implemented Stage 1 Video Production workflow supports:
 - blank-credential Script2Video compatibility packet;
 - upstream MIT notice obligations;
 - completed, partial, failed, and cancelled run import;
-- structured stages, failures, relative artifact paths, MIME types, sizes, SHA-256 values, source relationships, and redacted logs;
+- structured stages, failures, paths, MIME types, sizes, SHA-256 values, source relationships, and redacted logs;
 - completed renders entering Viable as draft artifacts;
 - named render review;
 - separately reviewed LinkedIn, Instagram Reels, YouTube Shorts, and website variants;
@@ -214,8 +266,9 @@ See:
 The implemented Calendar workflow supports:
 
 - destination records with non-secret account references and explicit ownership confirmation;
-- channels for LinkedIn, website, GitHub release, Instagram Reels, and YouTube Shorts;
+- LinkedIn, website, GitHub release, Instagram Reels, and YouTube Shorts channels;
 - internal approval deadlines, event opportunities, experiments, and follow-ups;
+- planning entries related to reviewed Website Watch observations;
 - external actions sourced from approved Campaign variants, ready Repository Launch rooms, and approved Video variants;
 - destination-channel filtering;
 - exact source snapshots with claims, evidence, rights, accessibility, and disclosures;
@@ -259,21 +312,22 @@ See:
 
 ## Product principles
 
-1. **Local first.** Core product records, evidence, drafts, approvals, repository plans, video briefs, destinations, outcomes, and learning belong to the user's workspace.
+1. **Local first.** Core product records, evidence, drafts, approvals, watched sites, snapshots, repository plans, video briefs, destinations, outcomes, and learning belong to the user's workspace.
 2. **Product truth before content volume.** Viable never scales an unsupported claim.
-3. **Evidence before action.** Recommendations and generated work retain their source, confidence, freshness, and limitations.
+3. **Evidence before action.** Recommendations, imported observations, and generated work retain their source, confidence, freshness, and limitations.
 4. **Named human approval.** Research and generation accelerate judgment. They do not replace accountability.
-5. **Provider-neutral core.** Platforms and production tools are adapters, not the product model.
+5. **Provider-neutral core.** Platforms, monitoring services, and production tools are adapters, not the product model.
 6. **Supported access only.** Public or explicitly authorized interfaces are preferred over copied sessions and undocumented private endpoints.
-7. **Partial failure is visible.** A missing source, rejected render, interrupted export, unavailable metric, or failed delivery remains visible.
+7. **Partial failure is visible.** A missing source, failed screenshot, rejected render, interrupted export, unavailable metric, or failed delivery remains visible.
 8. **Canonical first, variant second.** Users approve the underlying meaning before adapting it to channels or formats.
 9. **Manual fallback is a feature.** Core workflows remain useful when APIs are restricted, costly, unavailable, or undesirable.
 10. **Simple normal use.** Ordinary work should not require configuration-file editing, cron expressions, or invented IDs.
 11. **Accessible by default.** Keyboard operation, visible focus, semantic labels, scalable text, reduced motion, captions, and non-color status are release requirements.
 12. **No fake growth.** Viable does not automate spam, fake stars, reciprocal rings, fabricated testimonials, or manufactured adoption.
-13. **No secret sprawl.** Credentials do not enter briefs, packages, repository files, destinations, outcomes, metrics, logs, screenshots, or documentation fixtures.
-14. **Measure useful outcomes.** Activity and schedule intent are evidence, not success by themselves.
-15. **Record uncertainty.** Missing data, attribution uncertainty, and open decisions remain visible rather than being replaced by confident invention.
+13. **No secret sprawl.** Credentials do not enter evidence, briefs, packages, repository files, destinations, outcomes, metrics, logs, screenshots, fixtures, or documentation.
+14. **Measure useful outcomes.** Activity, a detected change, and schedule intent are evidence, not success by themselves.
+15. **Record uncertainty.** Missing data, bounded imports, attribution uncertainty, and open decisions remain visible rather than being replaced by confident invention.
+16. **Respect monitored sources.** Public visibility does not authorize access-control bypass, abusive crawling, unlimited retention, or redistribution of third-party content.
 
 ## Architecture
 
@@ -285,6 +339,12 @@ Viable desktop workspace
   -> Evidence and Signals
        -> events
        -> public repositories
+       -> Website Watch
+            -> watched sites and targets
+            -> source health and snapshots
+            -> bounded change observations
+            -> named review and proposed work
+            -> reviewed Calendar planning
   -> Marketability Assessment
   -> Campaigns and Assets
        -> canonical assets
@@ -323,19 +383,21 @@ Durable architecture:
 - [Repository Growth domain architecture](docs/architecture/repository-growth-domain.md)
 - [Video Production domain architecture](docs/architecture/video-production-domain.md)
 - [Calendar, Activation, Outcome, and Learning architecture](docs/architecture/activation-and-learning-domain.md)
+- [Website Watch domain architecture](docs/architecture/website-watch-domain.md)
 - [ADR index](docs/adr/README.md)
 
 ## Current state
 
-Viable is in internal Slice 6.
+Viable has completed internal Slice 6 and Website Watch Stage 1.
 
 | Area | Status |
 |---|---|
 | Product identity and positioning | Established |
-| Platinum README | Synchronized through Slice 6 |
+| Platinum README | Synchronized through Website Watch Stage 1 |
 | PRD and foundational ADRs | Established |
 | Product truth, ICP, and assessment | Implemented; human acceptance open |
 | Signals and Market | Implemented; human acceptance open |
+| Website Watch Stage 1 | Implemented; live adapters and human acceptance open |
 | Campaigns and canonical assets | Implemented; human acceptance open |
 | Repository Growth and Launch | Implemented; human acceptance open |
 | Video Production Stage 1 | Implemented; actual ViMax execution and human acceptance open |
@@ -350,12 +412,16 @@ See [Current state](docs/status/current-state.md).
 
 ## Validation
 
-Exact-head validation through PRs #26 and #27 included:
+Exact-head validation through PRs #30 and #31 included:
 
 - repository secret scan;
 - core TypeScript;
 - desktop TypeScript;
-- full deterministic Node test suite;
+- complete deterministic Node test suite;
+- canonical SHA-256 vectors;
+- literal IPv4 and IPv6 URL-safety tests;
+- Website Watch and Signals review-synchronization contracts;
+- reviewed Calendar handoff contracts;
 - Rust formatting;
 - Rust tests;
 - Tauri bundle construction;
@@ -367,7 +433,7 @@ CI retains failure-only artifacts for:
 - desktop TypeScript diagnostics;
 - build and test diagnostics.
 
-Validation proves repository and packaged-desktop behavior. It does not prove provider publication, connected analytics, hands-on accessibility, unfamiliar-user completion, or end-user release readiness.
+Validation proves repository and packaged-desktop behavior. It does not prove live website collection, DNS and redirect safety for a future provider, provider publication, connected analytics, hands-on accessibility, unfamiliar-user completion, or end-user release readiness.
 
 ## Development
 
@@ -378,7 +444,7 @@ Validation proves repository and packaged-desktop behavior. It does not prove pr
 - Rust toolchain for desktop validation;
 - Linux Tauri build dependencies for Debian package construction.
 
-ViMax, Python, publishing credentials, and analytics credentials are not required to build or validate the Viable desktop application.
+Webdog, Context.dev, ViMax, Python, publishing credentials, analytics credentials, and website-monitoring credentials are not required to build or validate the Viable desktop application.
 
 ### Install
 
@@ -427,27 +493,28 @@ Core reading order:
 3. [ICP discovery and validation](docs/product/icp-discovery-and-validation.md)
 4. [ADR index](docs/adr/README.md)
 5. [Platform architecture](docs/architecture/viable-platform.md)
-6. [Video Production architecture](docs/architecture/video-production-domain.md)
-7. [Calendar, Activation, Outcome, and Learning architecture](docs/architecture/activation-and-learning-domain.md)
-8. [Current state](docs/status/current-state.md)
-9. [Initial build sequence](docs/roadmap/initial-build-sequence.md)
-10. [Open decisions](docs/decisions/open-decisions.md)
+6. [Website Watch architecture](docs/architecture/website-watch-domain.md)
+7. [Video Production architecture](docs/architecture/video-production-domain.md)
+8. [Calendar, Activation, Outcome, and Learning architecture](docs/architecture/activation-and-learning-domain.md)
+9. [Current state](docs/status/current-state.md)
+10. [Initial build sequence](docs/roadmap/initial-build-sequence.md)
+11. [Open decisions](docs/decisions/open-decisions.md)
 
 ## Next implementation priorities
 
-The initial six-slice vertical sequence is implemented and automatedly validated.
+The initial six-slice vertical sequence and Website Watch Stage 1 are implemented and automatedly validated.
 
 The next priorities are:
 
-1. complete hands-on accessibility and unfamiliar-user acceptance for issues #2, #5, #6, #3, #4, and #7;
-2. remediate evidenced workflow, clarity, and recovery gaps;
-3. define backup, restore, retention, deletion, and migration guarantees;
+1. complete hands-on accessibility and unfamiliar-user acceptance for issues #2, #5, #6, #3, #4, #7, and #29;
+2. remediate evidenced workflow, clarity, rights, retention, failure, and recovery gaps;
+3. define backup, restore, product-wide retention, deletion, and migration guarantees;
 4. identify and validate Viable's own narrower launch ICP;
-5. decide the first connected publishing, analytics, search, and CRM adapters from current product evidence;
+5. decide the first connected publishing, analytics, search, CRM, Context.dev, and live Webdog adapters from current product evidence;
 6. add installer signing, updates, rollback, and cross-platform validation before external beta;
 7. build Relationships and Sales only after its authoritative domain and evidence boundaries are approved.
 
-Direct publishing should not precede human acceptance of the complete manual activation and evidence loop.
+Direct publishing and live website collection should not precede human acceptance of the complete manual evidence and activation loop.
 
 ## Release posture
 
@@ -459,8 +526,9 @@ Before external beta, complete:
 - unfamiliar-user acceptance;
 - remediation from those reviews;
 - backup and restore;
-- retention and deletion behavior;
+- product-wide retention and deletion behavior;
 - privacy and security review;
+- schema migration guarantees;
 - installer signing and update behavior;
 - cross-platform installer validation;
 - operational support documentation.
@@ -469,4 +537,4 @@ Before external beta, complete:
 
 Viable is owned by MythologIQ Labs, LLC.
 
-The repository is licensed under the proprietary terms in [LICENSE](LICENSE). Third-party components retain their own licenses. The ViMax compatibility packet records the pinned upstream MIT notice obligations and does not redistribute ViMax itself.
+The repository is licensed under the proprietary terms in [LICENSE](LICENSE). Third-party components retain their own licenses. [Third-party notices](THIRD_PARTY_NOTICES.md) record reviewed external source provenance and attribution requirements. The ViMax compatibility packet records its pinned upstream MIT obligations without redistributing ViMax. Website Watch records the reviewed Webdog revision and MIT terms without importing Webdog's hosted application, credentials, or Context.dev service access.

@@ -4,232 +4,127 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted Stage 1 integration direction |
+| Status | Implemented Stage 1 boundary |
 | Last reviewed | 2026-07-16 |
 | External project | `context-dot-dev/webdog` |
-| External license | MIT, Copyright 2026 Context.dev |
+| Reviewed upstream revision | `13bf5e2cff9f7ee7ad62b7099f6c41575efc2c32` |
 | External package version reviewed | `0.1.0` |
+| External license | MIT, Copyright 2026 Context.dev |
 | Viable context | Signals and Market |
-| Downstream contexts | Product Core evidence, Calendar follow-up, Measurement and Learning |
-| Related architecture | `../architecture/viable-platform.md` |
-| Related safety policy | `../governance/research-and-outreach-safety.md` |
+| Downstream contexts | Product Core evidence review, Calendar planning, Measurement and Learning |
+| Implementation issue | #29 |
+| Implementation PRs | #30 and #31 |
+| Architecture | `../architecture/website-watch-domain.md` |
+| Third-party notice | `../../THIRD_PARTY_NOTICES.md` |
 
 ## Decision
 
-Viable should use a hybrid absorption and integration approach.
+Viable uses a hybrid absorption and integration approach.
 
-Viable will:
+Stage 1 is implemented as:
 
-- absorb Webdog's useful monitoring-domain patterns into Viable-owned, provider-neutral domain records;
-- selectively adapt small MIT-licensed pure utilities when doing so is safer and clearer than reimplementation;
-- preserve the upstream MIT copyright and permission notice for copied or substantially adapted code;
-- add optional Webdog-compatible and Context.dev-backed adapters behind Viable ports;
-- keep website monitoring inside Signals and Market;
-- allow reviewed website-change evidence to become proposed work, experiments, campaign inputs, Calendar follow-ups, and retrospective evidence.
+- Viable-owned provider-neutral Website Watch records;
+- browser-safe monitoring utilities;
+- strict Webdog-compatible manual JSON import;
+- correlated Website Watch observations and Signals Inbox suggestions;
+- generated-summary separation;
+- named review synchronization;
+- retention and deletion;
+- reviewed Calendar follow-up;
+- no live Webdog or Context.dev dependency.
 
-Viable will not:
+Viable does not absorb the complete Webdog application.
 
-- merge the full Webdog application into the Viable repository or runtime;
-- make Webdog, Context.dev, Next.js, PostgreSQL, Better Auth, Railway, Resend, Slack, or a hosted worker mandatory for the base product;
-- copy Webdog branding, product identity, hosted-account assumptions, notification destinations, authentication model, database schema, or deployment model into Viable authority;
-- treat an AI summary as evidence;
-- treat a detected change as automatically relevant, approved, actionable, or externally deliverable;
-- open a public webhook listener from the desktop as the initial integration;
-- store Context.dev, Webdog, OpenAI, Resend, Slack, or webhook credentials in Product Core, Signals, Calendar, evidence records, packages, logs, screenshots, fixtures, or repository files.
+## Implemented outcome
+
+A founder or maintainer can:
+
+1. create a watched public site;
+2. record site-link, page-content, or product-price monitoring intent;
+3. select relationship, purpose, retention, authorization, and ownership;
+4. paste or select a Webdog alert JSON payload;
+5. inspect explicit source health and limitations;
+6. inspect bounded snapshots, hashes, differences, and generated analysis;
+7. accept or dismiss the correlated signal with a named reviewer;
+8. convert reviewed evidence into proposed work;
+9. create a reviewed Calendar follow-up, experiment, opportunity, or approval deadline;
+10. delete retained snapshot payloads or prune expired retention while preserving provenance.
 
 ## Why the fit is strong
 
-Webdog monitors three evidence classes that are directly useful to Viable:
+Webdog demonstrates three evidence classes that are directly useful to Viable:
 
-1. sitemap link changes;
-2. page-content changes represented as clean markdown and line-level differences;
-3. product-price and currency changes.
+- sitemap-link changes;
+- page-content changes;
+- product-price and currency changes.
 
-It also demonstrates useful supporting behavior:
+It also demonstrates useful patterns:
 
-- content hashing and snapshot comparison;
-- scheduled checks with per-target intervals;
-- best-effort screenshots that do not invalidate otherwise successful content checks;
-- explicit per-target error state;
-- persisted alerts independent of outbound notification;
-- optional AI change summaries;
-- optional relevance triage that preserves suppressed alerts and fails open;
-- manual and scheduled execution paths;
-- Slack, email, and webhook notification routes;
-- managed or user-supplied Context.dev access.
+- content hashing;
+- snapshot comparison;
+- per-target interval intent;
+- best-effort screenshots;
+- explicit source errors;
+- stored alerts independent of notification;
+- generated change summaries;
+- relevance recommendations that preserve held evidence and fail open;
+- manual and scheduled execution paths.
 
-Those capabilities support Viable use cases such as:
+These patterns support:
 
-- competitor-pricing changes;
-- competitor positioning and offer changes;
+- competitor pricing and positioning monitoring;
+- owned-site claim drift;
 - product documentation and changelog monitoring;
-- government and standards-page changes;
-- job-listing changes that indicate market movement;
-- partner and integration-page changes;
-- Viable-owned website claim drift;
-- launch-page and repository-documentation consistency;
-- evidence collection for ICP experiments and campaign retrospectives.
+- government and standards evidence;
+- partner and integration changes;
+- job-listing evidence;
+- campaign and ICP experiment inputs;
+- retrospective evidence.
 
-## Why the full application should not be absorbed
+## Why the full Webdog application is not absorbed
 
-The reviewed Webdog application is a hosted or self-hosted multi-user web application built around:
+The reviewed Webdog application is built around:
 
 - Next.js and React;
 - PostgreSQL and Drizzle;
-- Better Auth sessions and account membership;
-- a long-running Node worker and cron expression;
-- server-managed or per-account API keys;
-- Context.dev as the scraping, extraction, screenshot, product, and brand provider;
-- optional OpenAI or Vercel AI Gateway summaries;
-- Slack, Resend email, and generic webhook notification destinations;
-- public share links and team invitations.
+- Better Auth;
+- a long-running Node worker;
+- server or per-account credentials;
+- Context.dev as the collection provider;
+- optional AI providers;
+- Slack, email, and webhook notification destinations;
+- team invitations and public share links;
+- Railway deployment assumptions.
 
-Those are valid Webdog product choices, but importing them wholesale would conflict with Viable's current boundaries:
+Those are reasonable Webdog product choices but conflict with Viable's current boundaries:
 
-- Viable is local first and single-user authoritative by default;
-- Viable already owns Signals, source health, evidence provenance, review, proposed work, destinations, Calendar, and learning records;
-- Viable must not create duplicate Account, Alert, Destination, Approval, or Evidence authority;
-- Viable credentials belong behind a future vault boundary rather than inside domain rows;
-- Viable's base product must remain useful without a hosted database or continuously running service;
-- Viable external action requires named approval and evidence semantics that Webdog notifications do not provide.
+- Viable is local first;
+- Viable already owns Signals, evidence, review, destinations, Calendar, and learning authority;
+- Viable must not duplicate Account, Alert, Destination, Approval, or Evidence authority;
+- credentials belong behind a future OS-vault boundary;
+- the base product must remain useful without a hosted database or continuously running service;
+- Webdog notification delivery is not Viable external-action approval or provider-verified delivery.
 
-A wholesale merge would therefore add substantial architectural duplication while still retaining the Context.dev service dependency.
+A wholesale merge would add architectural duplication while retaining the Context.dev dependency.
 
-## Context ownership
+## Implemented provider-neutral domain
 
-### Signals and Market owns website monitoring
+Stage 1 implements:
 
-Website monitoring belongs in Signals and Market because its primary output is externally observed evidence.
-
-Signals and Market should own:
-
-- watched-site identity;
-- watch target;
-- provider-neutral check schedule intent;
+- `WatchedSite`;
+- `WatchTarget`;
+- `WebsiteSnapshot`;
+- `WebsiteChangeObservation`;
+- `WebsiteWatchGeneratedAnalysis`;
+- source registration;
 - source health;
-- snapshot evidence;
-- content, link, and price observations;
-- diff evidence;
-- screenshot references;
-- change alerts;
-- relevance review;
-- conversion to proposed work or related records.
+- local workspace persistence.
 
-### Product Core receives evidence, not automatic truth changes
+See `../architecture/website-watch-domain.md` for the authoritative record definitions and context ownership.
 
-Reviewed website observations may support:
+## Implemented source outcomes
 
-- new evidence records;
-- contradiction evidence;
-- claim-review reminders;
-- ICP hypothesis evidence;
-- marketability-assessment inputs.
-
-They may not silently change:
-
-- approved product claims;
-- selected ICP;
-- pricing;
-- positioning;
-- capabilities;
-- limitations.
-
-### Calendar is downstream
-
-A reviewed website change may create:
-
-- an approval deadline;
-- an experiment;
-- a campaign task;
-- a follow-up;
-- an event opportunity;
-- a source-revalidation reminder.
-
-Calendar does not own the website observation itself.
-
-### Measurement and Learning consumes reviewed outcomes
-
-A retrospective may cite website-change evidence and record what changed because of it.
-
-An AI summary or unreviewed alert is insufficient evidence for a canonical learning decision.
-
-## Proposed provider-neutral domain
-
-### Watched site
-
-A watched-site record should contain:
-
-- stable local identifier;
-- workspace identifier;
-- display name;
-- canonical URL;
-- normalized domain;
-- ownership classification: owned, competitor, partner, regulator, community, or other;
-- purpose;
-- sensitivity and retention classification;
-- created and updated times;
-- active or disabled state.
-
-### Watch target
-
-Initial target kinds should mirror the useful Webdog concepts without importing Webdog identifiers:
-
-- `site_links`;
-- `page_content`;
-- `product_price`.
-
-A target should contain:
-
-- watched-site identifier;
-- target URL when applicable;
-- optional link scope: added, removed, or both;
-- watch note;
-- enabled state;
-- requested minimum check interval;
-- next-due intent;
-- owner;
-- source adapter identifier;
-- retention policy;
-- review requirements.
-
-### Website snapshot
-
-A snapshot should contain:
-
-- target identifier;
-- evidence kind;
-- observed URL or domain;
-- retrieved time;
-- provider;
-- provider request or correlation identifier when available;
-- content hash;
-- normalized payload reference;
-- screenshot reference when available;
-- limitations;
-- retention and deletion metadata.
-
-Large markdown and screenshots should use bounded local artifact storage rather than unlimited inline domain fields.
-
-### Website change observation
-
-A change observation should contain:
-
-- previous and current snapshot identifiers;
-- change kind;
-- added and removed link counts;
-- bounded line-diff preview;
-- total added and removed lines;
-- previous and current price and currency when applicable;
-- evidence state;
-- confidence;
-- limitations;
-- review state;
-- optional generated summary stored separately from evidence;
-- optional relevance recommendation stored separately from human review.
-
-## Evidence and source outcomes
-
-The adapter should expose explicit outcomes consistent with existing Signals behavior:
+Website Watch preserves:
 
 - `success_change_detected`;
 - `verified_no_change`;
@@ -242,78 +137,162 @@ The adapter should expose explicit outcomes consistent with existing Signals beh
 - `offline`;
 - `cancelled`.
 
-A failed screenshot with successful page content should be `partial`, not a failed content check.
+Required behavior:
 
-A failed provider request must never become `verified_no_change`.
+- a provider failure never becomes no change;
+- first evidence establishes a baseline rather than proving no earlier change;
+- a future failed screenshot with valid content evidence must become partial;
+- configured intent is not proof of execution;
+- missing evidence remains visible.
 
-An absent prior snapshot establishes a baseline. It does not prove that no prior change occurred.
+## Implemented manual import contract
 
-## AI summary and relevance triage
+Stage 1 accepts the documented Webdog outbound payload:
 
-Webdog's fail-open relevance-triage pattern is worth preserving conceptually:
+- type `webdog_ai.new_alerts`;
+- version `1`;
+- kind `new_alerts`;
+- source instance URL;
+- site identity;
+- alert identity;
+- target identity;
+- title;
+- optional alert kind;
+- optional generated change summary;
+- optional bounded diff preview;
+- dashboard URL;
+- optional suppression state and reason.
 
-- every detected change remains stored;
-- generated summaries remain distinguishable from source evidence;
-- a relevance recommendation may reduce interruption but may not delete evidence;
-- triage failure surfaces the change rather than suppressing it;
-- human review remains authoritative for conversion to Product Core evidence, proposed work, campaigns, or Calendar entries.
+The import:
 
-Viable should name the generated records explicitly:
+- accepts pasted JSON;
+- accepts one local JSON file;
+- limits input to 512 KiB;
+- limits one import to one hundred alerts;
+- rejects unsupported fields;
+- rejects secret-bearing fields and values;
+- rejects invalid or unsafe public URLs;
+- requires alert dashboard URLs to use the source-instance origin;
+- preserves Webdog provenance;
+- records limitations caused by the bounded payload;
+- creates Website Watch evidence and correlated Signals suggestions;
+- remains usable without Webdog running.
+
+The documented payload does not contain:
+
+- complete previous and current snapshots;
+- live source-health detail;
+- screenshots;
+- complete provider responses;
+- the monitored page URL in every alert;
+- AI provider model and prompt metadata.
+
+Viable records those limitations rather than inventing missing evidence.
+
+## Generated analysis
+
+Imported AI output becomes one of:
 
 - `generated_change_summary`;
 - `generated_relevance_recommendation`.
 
-Neither is a reviewed evidence record by itself.
+It remains separate from evidence.
 
-## Stage 1 integration
+The Signals summary is built from:
 
-Stage 1 should implement the provider-neutral domain and a Webdog-compatible manual import.
-
-### Manual import contract
-
-The documented Webdog outbound webhook payload can seed the first import format:
-
-- event type and version;
-- source instance URL;
-- site identity;
-- alert identifier;
-- target identifier;
-- title;
-- generated change summary when present;
+- source alert title;
 - bounded diff preview;
-- source dashboard URL.
+- explicit missing-diff statement when no preview is supplied.
 
-Because that payload does not include the complete previous and current snapshots, screenshot evidence, source-health detail, or full provider response, Viable must classify the import as bounded external evidence with explicit limitations.
+Generated prose cannot approve, dismiss, convert, or revise evidence.
 
-The import should:
+## Selective utility absorption
 
-- accept pasted or file-based JSON;
-- validate schema version and required fields;
-- reject credentials and private headers;
-- preserve the Webdog source and source-instance reference;
-- create source health and website-change signal records;
-- mark AI summaries as generated;
-- require named review before creating Product Core evidence or proposed work;
-- remain usable when Webdog is not running.
+Viable implements provider-neutral utilities informed by the reviewed Webdog source:
 
-### Selective code adaptation
-
-Stage 1 may adapt or reimplement small pure helpers such as:
-
-- line-diff preview;
-- SHA-256 content hashing;
+- SHA-256 snapshot identity;
+- bounded line differences;
 - due-check calculation;
-- next-due calculation after success;
+- next-due calculation;
 - domain normalization;
-- provider-error classification.
+- source-failure classification;
+- best-effort partial-failure semantics;
+- fail-open generated relevance posture.
 
-Any copied or substantially adapted Webdog code must retain the MIT notice in a third-party notice file and in source headers where practical.
+The implemented line difference uses an ordered bounded longest-common-subsequence approach rather than Webdog's reviewed line-set helper. Viable still labels it bounded and does not claim semantic completeness.
 
-The current Webdog line-diff helper uses line-set membership rather than ordered edit distance. Viable should not describe it as a complete semantic or positional diff. A future implementation may use a stronger bounded diff algorithm while preserving explicit limits.
+The initial Node-only SHA and literal-address utilities were replaced during PR #31 with browser-safe TypeScript so the same authority can execute in the Tauri webview.
 
-## Stage 2 Context.dev adapter
+Canonical SHA-256 vectors and IPv4 and IPv6 restrictions are tested.
 
-A direct Context.dev adapter may provide:
+## Security and privacy
+
+### Implemented URL controls
+
+Stage 1 allows only absolute HTTP and HTTPS URLs.
+
+It rejects:
+
+- embedded credentials;
+- credential-like query parameters;
+- localhost;
+- loopback;
+- private IPv4 ranges;
+- link-local addresses;
+- metadata addresses;
+- reserved literal ranges;
+- private, loopback, link-local, multicast, and documentation IPv6 literals;
+- unsupported schemes;
+- Webdog dashboard links outside the declared source-instance origin.
+
+A future live adapter must add:
+
+- DNS-resolution validation;
+- redirect-target validation;
+- DNS-rebinding defenses;
+- request timeout;
+- response-size limits;
+- redirect limits;
+- cancellation.
+
+### Implemented secret controls
+
+Stage 1 rejects:
+
+- credential-bearing field names;
+- bearer tokens;
+- private keys;
+- common API-key and access-token formats;
+- copied sessions and cookies;
+- secret-like assignment text.
+
+No provider credential is stored in:
+
+- Product Core;
+- Signals;
+- Website Watch;
+- Calendar;
+- snapshots;
+- generated analysis;
+- fixtures;
+- logs;
+- repository files.
+
+### Retention
+
+Implemented retention classes are:
+
+- ephemeral, 14 days;
+- standard, 90 days;
+- extended, manual deletion.
+
+Stage 1 supports named deletion and retention pruning while retaining provenance.
+
+## Context.dev Stage 2
+
+A direct Context.dev adapter remains deferred.
+
+It may later provide:
 
 - markdown scraping;
 - sitemap extraction;
@@ -321,25 +300,22 @@ A direct Context.dev adapter may provide:
 - product extraction;
 - optional brand data.
 
-It must be optional and provider neutral.
+Requirements before implementation:
 
-Requirements:
-
-- credential reference through the future OS-vault boundary;
-- no key in workspace data;
-- user-visible provider, request purpose, data handling, cost, cache, and retention;
-- explicit rate-limit and failure outcomes;
-- cancellation and timeout;
-- URL validation and SSRF controls;
+- OS-vault credential references;
+- explicit provider and data-handling disclosure;
+- user-visible cost and cache posture;
+- URL, DNS, redirect, SSRF, timeout, size, and cancellation controls;
 - bounded content and screenshot storage;
-- fresh versus cached retrieval recorded honestly;
-- no automatic Product Core mutation;
-- deterministic fixtures that do not require a live provider;
-- live-provider tests kept separate from base CI.
+- structured provider and rate-limit errors;
+- deterministic fixtures independent of the live provider;
+- separate live-provider validation;
+- retention and deletion of screenshots;
+- no automatic Product Core mutation.
 
-## Stage 3 Webdog service adapter
+## Webdog service Stage 3
 
-A service adapter may be added when Webdog exposes a documented stable integration contract for reading:
+A live Webdog service adapter remains deferred until Webdog exposes a stable documented integration contract for:
 
 - sites;
 - targets;
@@ -348,167 +324,80 @@ A service adapter may be added when Webdog exposes a documented stable integrati
 - screenshots;
 - alerts;
 - suppression state;
-- full diff evidence.
-
-Until then, Viable should not depend on Webdog's internal authenticated Next.js routes or database schema.
-
-A future service adapter should prefer:
-
-- documented versioned API;
-- outbound signed webhook plus follow-up retrieval;
-- explicit account and workspace mapping;
-- least-privilege token scopes;
-- revocation;
+- complete diff evidence;
 - pagination;
 - idempotency;
-- retry and backoff;
-- source deletion and disconnect behavior.
+- revocation;
+- disconnect and deletion behavior.
 
-A desktop inbound webhook listener is not the default because it introduces network exposure, firewall complexity, public reachability assumptions, and additional credential handling.
+Viable must not depend on Webdog's internal authenticated Next.js routes or PostgreSQL schema.
 
-## Security and privacy requirements
-
-### URL safety
-
-Website monitoring can become an SSRF and local-network discovery vector.
-
-Adapters must:
-
-- allow only supported schemes;
-- reject credentials embedded in URLs;
-- reject localhost, loopback, link-local, metadata-service, private-network, and unsupported address ranges unless a separately approved local-monitoring mode exists;
-- validate every redirect target;
-- enforce size, time, and redirect limits;
-- avoid arbitrary file, FTP, browser-extension, and custom schemes.
-
-### Authorization and acceptable use
-
-The user must confirm a legitimate monitoring purpose.
-
-Viable must not support:
-
-- credentialed page access through copied browser sessions;
-- bypassing access controls;
-- monitoring private accounts without authorization;
-- surveillance of individuals;
-- scraping prohibited personal data;
-- evading robots, provider terms, or legal restrictions;
-- high-frequency abusive crawling.
-
-### Sensitive content
-
-Snapshots and screenshots may contain:
-
-- personal data;
-- pricing or commercial information;
-- copyrighted content;
-- tracking identifiers;
-- hidden or irrelevant page material.
-
-Viable must provide:
-
-- explicit retention;
-- deletion;
-- bounded storage;
-- artifact provenance;
-- export behavior;
-- redaction where appropriate;
-- a safe preview rather than unlimited content duplication.
-
-### Generated analysis
-
-AI summaries and relevance recommendations must record:
-
-- provider and model when used;
-- generated status;
-- source observations;
-- prompt purpose;
-- time;
-- uncertainty;
-- failure behavior.
-
-Generated analysis must never replace the underlying diff or evidence state.
-
-## Notification boundary
-
-Webdog's Slack, email, and webhook delivery is not part of the initial Viable integration.
-
-Viable already distinguishes:
-
-- signal ingestion;
-- proposed work;
-- Calendar scheduling;
-- named external-action review;
-- manual activation;
-- delivery evidence.
-
-A Webdog notification says that Webdog attempted to notify a configured destination. It does not prove that Viable reviewed the change or approved any marketability action.
-
-Future notification integration may import Webdog delivery evidence as source-operational evidence only.
+A public inbound desktop webhook listener is not the default integration because it creates network exposure, reachability, firewall, signing, replay, and credential concerns.
 
 ## Licensing and attribution
 
-Webdog is reviewed under the MIT License.
+Webdog is MIT licensed.
 
-When Viable copies or substantially adapts Webdog code, it must:
+`THIRD_PARTY_NOTICES.md` records:
 
-- include the Webdog copyright and MIT permission notice;
-- identify the adapted source path and reviewed revision in a third-party notice record;
-- preserve upstream attribution without implying endorsement;
-- avoid copying Webdog logos, screenshots, brand identity, marketing copy, or Context.dev trademarks as Viable assets;
-- continue treating Context.dev SDK and service terms separately from the Webdog source-code license.
+- Webdog project identity;
+- reviewed revision;
+- package version;
+- Copyright 2026 Context.dev;
+- MIT permission terms;
+- reviewed source paths;
+- service and content boundaries.
 
-The MIT license permits modification and redistribution of the code. It does not grant free Context.dev service access, trademark rights, or rights to third-party page content collected through the service.
+The MIT source license does not provide:
 
-## Rejected alternatives
+- Context.dev service access;
+- service credits;
+- trademark rights;
+- rights to third-party website content;
+- authorization to bypass access controls, provider terms, or applicable law.
 
-### Merge Webdog wholesale into Viable
+## Validation
 
-Rejected because it duplicates contexts, changes the local-first runtime, imports hosted authentication and database assumptions, expands secret handling, and still requires Context.dev for its core collection functions.
+PR #30 exact-head CI passed:
 
-### Make Webdog a required sidecar
+- secret scanning;
+- core TypeScript;
+- desktop TypeScript;
+- full build and deterministic tests.
 
-Rejected because the base Signals workflow must remain useful without a continuously running hosted or local service.
+PR #31 exact-head validation passed:
 
-### Treat Webdog notifications as Viable external-action delivery
+- secret scanning;
+- core TypeScript;
+- desktop TypeScript;
+- full build and deterministic tests;
+- Rust formatting;
+- Rust tests;
+- Tauri bundle construction;
+- Debian package inspection.
 
-Rejected because website-change alerts are incoming evidence, not approved outbound marketability action.
+## Explicit Stage 1 limitations
 
-### Depend on internal Webdog API routes
+Stage 1 does not:
 
-Rejected until a stable, documented, versioned external contract exists.
+- crawl websites;
+- call Context.dev;
+- connect to a live Webdog service;
+- open a public webhook listener;
+- run target schedules;
+- import live screenshots;
+- copy browser sessions;
+- access private pages;
+- send notifications;
+- execute AI summaries or relevance triage;
+- mutate Product Core, ICP, campaign, Calendar, or learning authority automatically;
+- publish or claim delivery.
 
-### Start with a public desktop webhook listener
+## Human acceptance
 
-Rejected because a file or pull-based import is safer and simpler for the initial local-first integration.
+Issue #29 remains open for:
 
-## Implementation sequence
-
-1. Add provider-neutral Website Watch domain types and source port under Signals and Market.
-2. Add deterministic snapshot, diff, source-health, and failure-state tests.
-3. Add strict Webdog webhook-payload JSON import with generated-summary separation.
-4. Add Signals desktop workflow for watched sites, targets, changes, evidence, review, and proposed-work conversion.
-5. Add third-party notices for any adapted Webdog code.
-6. Validate accessibility and unfamiliar-user completion.
-7. Evaluate a direct Context.dev adapter with OS-vault credentials and live-provider validation outside base CI.
-8. Evaluate a Webdog service adapter only after a documented stable API exists.
-
-## Exit criteria for Stage 1
-
-- website-change records remain inside Signals and Market;
-- no duplicate Alert, Destination, Approval, Evidence, Product Core, or Calendar authority exists;
-- Webdog-compatible JSON import is strict, versioned, credential-free, and fail-closed;
-- AI summaries remain generated suggestions;
-- missing or failed checks do not become no-change evidence;
-- screenshots and full content are bounded and provenance-bearing;
-- a reviewed change can become proposed work or a Calendar follow-up;
-- Product Core and ICP records cannot be silently changed;
-- copied or adapted code has complete MIT attribution;
-- deterministic CI requires no live Context.dev or Webdog service;
-- hands-on accessibility and unfamiliar-user acceptance are completed before the implementation issue closes.
-
-## Current conclusion
-
-Webdog is a strong source and design reference for Viable's future website and competitor monitoring capability.
-
-The correct architectural move is not to turn Viable into a second Webdog deployment. It is to absorb the durable monitoring mechanics, preserve licensing, and integrate Webdog or Context.dev as optional evidence providers inside Viable's existing Signals, review, Calendar, and learning loop.
+- keyboard acceptance;
+- screen-reader and assistive-technology acceptance;
+- unfamiliar-founder completion from watched-site creation through reviewed change and Calendar follow-up;
+- remediation of accessibility, clarity, evidence, retention, failure, and recovery gaps.
