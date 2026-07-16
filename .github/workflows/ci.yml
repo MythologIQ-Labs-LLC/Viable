@@ -19,4 +19,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run validate
+      - name: Scan repository secrets
+        run: npm run security:scan
+      - name: Check core TypeScript
+        run: npm run check
+      - name: Check desktop TypeScript
+        run: npm run desktop:web:check
+      - name: Build and test
+        run: npm test
