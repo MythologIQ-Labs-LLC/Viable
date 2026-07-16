@@ -2,187 +2,177 @@
 
 ## Purpose
 
-This sequence identifies the first complete product slices to build after the sanitized Event Radar migration and independent CI are complete.
+This sequence identifies the first complete product slices after the sanitized Event Radar migration and independent CI foundation.
 
 ## Slice 1: Product truth, ICP discovery, and marketability assessment
 
-Status: internal workflow implemented and automatedly validated; hands-on accessibility and unfamiliar-founder acceptance remain open under issue #2.
+Status: implemented and automatedly validated; hands-on accessibility and unfamiliar-founder acceptance remain open under issue #2.
 
 ### User outcome
 
-A founder creates one product workspace, verifies what the product does, identifies and compares credible ICP hypotheses, selects a primary ICP with evidence and disqualifiers, defines the offer, and receives an evidence-backed marketability assessment with prioritized next actions.
+A founder creates a product workspace, verifies product truth, compares credible ICP hypotheses, selects a primary ICP with evidence and disqualifiers, defines the offer, and receives an explained marketability assessment with owned next actions.
 
-### Required capabilities
+### Core capabilities
 
-- product workspace;
-- capabilities and limitations;
-- claims and proof ledger;
-- multiple ICP hypotheses;
-- users, buyers, decision-makers, approvers, influencers, champions, blockers, partners, maintainers, contributors, and disqualifiers;
-- problem intensity, urgency, product fit, time to value, access, proof, adoption friction, commercial viability, retention potential, strategic fit, and evidence quality;
-- anti-ICP and disqualification conditions;
-- explicit assumptions, contradictions, confidence, freshness, and owner;
-- ICP comparison and validation experiments;
-- selected, secondary, adjacent, rejected, and historical ICP candidates;
-- positioning and alternatives;
-- pricing, packaging, offers, and calls to action;
-- marketability dimensions;
-- evidence and confidence;
-- priority plan;
-- Product and Home desktop navigation.
-
-### Why first
-
-Every later campaign, asset, repository recommendation, outreach draft, video script, lead qualification rule, and sales conversation depends on accurate product truth and a defensible understanding of who the product is actually for.
-
-### Exit criteria
-
-- an unfamiliar founder can create and compare at least two plausible ICP hypotheses;
-- the selected ICP shows evidence, assumptions, contradictions, disqualifiers, and a next validation action;
-- generated suggestions remain distinct from observed evidence;
-- the marketability assessment explains every recommendation;
-- a product-truth or ICP gap can become an owned action, experiment, campaign, or product-feedback item.
+- product workspace and truth revision;
+- claims and reviewed evidence;
+- multiple ICP hypotheses and buying roles;
+- disqualifiers, anti-ICP conditions, assumptions, contradictions, confidence, freshness, and owner;
+- ICP comparison, selection, history, and validation experiments;
+- positioning, alternatives, offers, and calls to action;
+- explained marketability dimensions and owned actions;
+- Home and Product desktop navigation.
 
 ## Slice 2: Signals inbox with events and public repositories
 
-Status: internal workflow implemented and automatedly validated through PR #13; hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
+Status: implemented and automatedly validated through PR #13; hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
 
 ### User outcome
 
-A user connects or imports event and GitHub repository evidence, reviews new signals, and converts a signal into a product task, ICP validation action, campaign brief, content brief, or repository-growth action.
+A user imports event and public repository evidence, reviews source health and provenance, and converts useful signals into proposed owned work.
 
-### Required capabilities
+### Core capabilities
 
-- provider-neutral signals;
-- source health and partial failure;
-- event signal adapter from sanitized Event Radar functionality;
-- GitHub repository metadata and activity import;
+- provider-neutral signals and source health;
+- Event Intelligence adapter;
+- public GitHub metadata and sampled activity;
+- strict manual JSON import;
 - evidence drawer;
-- relationship to product truth, ICP hypotheses, campaigns, repositories, people, organizations, and opportunities;
-- accept, dismiss, tag, connect, assign, and convert actions;
-- Signals and Market desktop navigation.
-
-### Why second
-
-Events provide the inherited opportunity source, while public repositories immediately connect Viable to a high-value MythologIQ use case and the broader marketability thesis. Both also provide evidence that can strengthen, weaken, or challenge ICP assumptions.
+- relationships and proposed-work conversion;
+- explicit verified-empty, partial, unavailable, rate-limited, validation, transport, offline, and recovery states;
+- Signals and Market navigation.
 
 ## Slice 3: Campaign brief and canonical asset
 
-Status: guarded campaign, canonical-asset, channel-variant, review, invalidation, local-persistence, Campaigns and Studio desktop workflow, channel comparison, and downloadable manual-export journey implemented and automatedly validated through PR #18; hands-on accessibility and unfamiliar-user acceptance remain open under issue #6.
+Status: implemented and automatedly validated through PRs #16 and #18; hands-on accessibility and unfamiliar-user acceptance remain open under issue #6.
 
 ### User outcome
 
-A user converts product truth, the selected ICP or a deliberate test audience, and accepted signals into one approved campaign brief and creates a canonical content asset with evidence, claims, variants, and review state.
+A user converts Product Core truth, an approved ICP or deliberate test audience, and reviewed evidence into an approved campaign and canonical asset with channel variants.
 
-### Required capabilities
+### Core capabilities
 
-- campaign objective, ICP or audience;
-- problem, trigger, offer, message, proof, and call to action;
-- asset matrix;
-- canonical asset;
+- campaign objective, audience, problem, trigger, offer, message, proof, and call to action;
+- approved claims and reviewed evidence;
+- canonical asset and version history;
+- rights, accessibility, disclosures, and comments;
 - LinkedIn, website, and GitHub release variants;
-- claims, evidence, rights, accessibility, and ICP relationship;
-- comments, review, approval, and version history;
-- Campaigns and Studio desktop navigation.
-
-### Why third
-
-This proves that Viable can transform product truth, ICP context, and market evidence into useful, governed market action before external automation is added.
-
-### Remaining exit evidence
-
-- hands-on keyboard and assistive-technology review;
-- unfamiliar-user completion of the campaign-to-export journey without maintainer intervention;
-- remediation of any evidenced accessibility, clarity, or recovery gaps.
+- named campaign, asset, and variant review;
+- approval invalidation;
+- channel comparison;
+- credential-free manual export.
 
 ## Slice 4: Repository growth and launch room
 
-Status: guarded public-repository import, explained readiness assessment, owned growth plan, Product-integrated desktop workflow, campaign-linked launch room, maintainer coverage, manual export, baseline, and retrospective comparison implemented and automatedly validated through PRs #20 and #21; hands-on accessibility and unfamiliar-maintainer acceptance remain open under issue #3.
+Status: implemented and automatedly validated through PRs #20 and #21; hands-on accessibility and unfamiliar-maintainer acceptance remain open under issue #3.
 
 ### User outcome
 
-A maintainer can assess a public repository, fix the highest-impact readiness gaps, prepare a release, coordinate launch assets for the intended ICP or community, and review available activity and adoption evidence.
+A maintainer imports a public repository, receives an explained readiness assessment, creates an owned growth plan and governed launch room, exports a manual package, and compares available outcomes with a baseline.
 
-### Required capabilities
+### Core capabilities
 
-- repository readiness assessment;
-- README, description, homepage, topic, social-preview state, quick-start, release, community, and trust checks;
-- twelve explained readiness dimensions with evidence, confidence, impact, effort, owner, recommendation, and verification;
-- prioritized owned repository-growth plan;
-- launch checklist and approved campaign asset matrix;
-- explicit target ICP, community, or adopter segment;
-- maintainer coverage and observation window;
-- manual social, newsletter, community, website, and event export package;
-- explicit observed, verified-zero, unavailable, and not-collected metric states;
-- public release-download, star, fork, watcher, issue, and contributor imports where available;
-- launch baseline and retrospective comparison;
-- no promise of GitHub Trending.
+- bounded public GitHub import;
+- repository front-door, proof, trust, community, release, distribution, adoption, sustainability, and commercial-path evidence;
+- observed, verified-zero, unavailable, and not-collected metric states;
+- twelve explained readiness dimensions;
+- owned growth plan;
+- campaign-linked launch room;
+- checklist and maintainer coverage;
+- observation window and baseline;
+- credential-free manual export;
+- bounded retrospective;
+- no GitHub Trending promise.
 
-### Why fourth
+Authenticated GitHub traffic, private-repository, dependent, integration, and write adapters remain optional future work. Missing access must remain unavailable rather than zero.
 
-This creates a differentiated, measurable Viable use case that directly serves MythologIQ's public product portfolio and produces evidence that can refine repository, campaign, product, and ICP decisions.
+## Slice 5: Video production package and ViMax prototype
+
+Status: provider-neutral Video Production domain, pinned ViMax `v1.1.0` manual compatibility packet, structured artifact import, Studio desktop workflow, render review, and platform-variant review implemented and automatedly validated through PRs #23 and #24. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #4. Calendar and measurement handoff remains blocked on issue #7.
+
+### User outcome
+
+A user converts an approved campaign-linked canonical script into a reviewed video brief, exports a production-ready manual package, runs production separately, imports stage and artifact evidence, approves the render inside Viable, and prepares separately reviewed platform variants.
+
+### Implemented capabilities
+
+- exact approved campaign and canonical-script relationship;
+- exact script version, claim revision, and reviewed-evidence snapshot;
+- objective, audience, duration, platforms, aspect ratios, style, and prohibited elements;
+- storyboard and shot constraints;
+- source-asset rights, consent, allowed use, prohibited use, disclosures, optional hash, and expiration;
+- captions, audio-description, and accessibility requirements;
+- user-selected LLM, image, and video provider plans;
+- estimated cost, currency, credential mode, and data-handling notes;
+- named video-brief review;
+- provider-neutral manual package;
+- pinned ViMax `v1.1.0`, revision `1f8f650`, Python 3.12+, MIT compatibility record;
+- blank-credential Script2Video adapter packet and upstream notice;
+- completed, partial, failed, and cancelled run import;
+- structured stages, failures, relative artifact paths, MIME types, sizes, SHA-256 values, source relationships, and redacted logs;
+- completed render remaining draft until named approval;
+- separate render and platform-variant review;
+- LinkedIn, Instagram Reels, YouTube Shorts, and website variants;
+- current Product Core and Campaign authority revalidation at asynchronous boundaries;
+- loading, empty, offline, blocked, error, failure, recovery, and invalidation states;
+- no automatic publishing.
+
+### Implemented boundary
+
+Viable does not:
+
+- install or execute ViMax;
+- bundle Python or the upstream dependency graph;
+- store or inject provider credentials;
+- invoke an LLM, image, or video provider;
+- claim Windows or Linux execution validation;
+- claim macOS compatibility;
+- schedule, publish, deliver, or measure media.
+
+The upstream project lists Windows and Linux. Viable records those statements without treating them as execution evidence. macOS remains unverified.
 
 ### Remaining exit evidence
 
 - hands-on keyboard and assistive-technology review;
-- unfamiliar-maintainer completion from public import through retrospective without maintainer intervention;
-- remediation of any evidenced accessibility, clarity, evidence-state, or recovery gaps.
+- unfamiliar-user completion from approved script through reviewed platform variant;
+- remediation of accessibility, clarity, rights, failure, or recovery gaps;
+- authoritative Calendar and measurement handoff after issue #7.
 
-Authenticated GitHub traffic, referral, clone, dependent, integration, private-repository, and write-operation adapters remain later optional capabilities. Their absence must remain visible rather than becoming zero activity.
+A local CLI adapter remains deferred until a stable noninteractive contract supports health, version, cancellation, progress, structured errors, bounded storage, credential injection, artifact manifests, redacted logs, and cross-platform execution validation.
 
-## Slice 5: Video production package and ViMax prototype
+## Slice 6: Calendar, manual activation, outcome capture, and learning
 
-### User outcome
-
-A user converts an approved campaign asset into a production-ready short-video package, runs ViMax separately or through an optional local CLI adapter, and imports the output for review.
-
-### Required capabilities
-
-- video brief;
-- approved ICP or audience context;
-- approved script and claims;
-- storyboard and shot list;
-- asset rights and consent;
-- platform formats and captions;
-- provider-neutral video job manifest;
-- manual export and import;
-- optional ViMax CLI invocation using OS-vault credential injection;
-- render status, artifact manifest, and review state;
-- no automatic publishing.
-
-### Why fifth
-
-It validates the creative-production architecture without forcing Viable to bundle a large Python and provider-runtime dependency into the first desktop release.
-
-## Slice 6: Calendar, manual activation, and outcome capture
+Status: designed; not implemented under issue #7.
 
 ### User outcome
 
-A user schedules approved assets, exports channel-ready packages, records delivery URLs or outcomes, and completes a campaign or ICP validation retrospective.
+A user schedules approved assets, exports or activates channel-ready packages, records delivery evidence and outcomes, and completes campaign, repository, video, or ICP-validation retrospectives.
 
 ### Required capabilities
 
 - unified calendar;
 - approval checks;
-- manual channel export;
+- destination identity;
+- manual channel export and activation records;
 - delivery evidence;
 - basic performance imports;
-- experiment and retrospective;
+- experiment and retrospective records;
 - learning ledger;
-- ability to connect outcomes to ICP confidence without silently rewriting the canonical ICP.
+- ability to connect outcomes to ICP confidence without silently rewriting the canonical ICP;
+- campaign, repository-launch, and video-variant handoff.
 
 ### Why before publishing adapters
 
-The core operating loop must work without paid or restricted platform APIs. Publishing adapters then improve convenience rather than determining whether the product is useful.
+The complete operating loop must work without paid or restricted publishing APIs. External adapters should improve convenience rather than determine whether the product is useful.
 
 ## Release gates for every slice
 
 - product and authority boundaries documented;
-- no imported external organization content or credentials;
+- no imported external-organization secrets or confidential operational data;
 - secret scanning and dependency review;
-- loading, empty, error, partial-success, and recovery states;
+- loading, empty, error, partial, failure, and recovery states;
 - keyboard, screen-reader, text-scale, reduced-motion, caption, and non-color status support;
 - tests for prohibited state transitions;
 - backup and export impact reviewed;
-- README, PRD, ICP specification, status, architecture, roadmap, and user documentation synchronized;
-- unfamiliar-user acceptance completed for the slice's primary journey.
+- README, PRD, architecture, roadmap, current state, issue, and user documentation synchronized;
+- unfamiliar-user acceptance completed for the primary journey.
