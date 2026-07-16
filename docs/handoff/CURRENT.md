@@ -11,8 +11,10 @@ Detailed authority remains in the PRD, accepted ADRs, domain architecture, curre
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- Latest merged implementation PR: #31 at `c4cbc883d4b06c0352c4210e55a3b0e9dd0f5c0c`
-- Latest Website Watch core PR: #30 at `8d4f7fa24412c12a98eebc4cc1371bf403d56701`
+- Latest merged implementation PR: #33 at `02c8a05dc0edbf30e3fe2a3350660292015b4757`
+- Website Watch core PR: #30 at `8d4f7fa24412c12a98eebc4cc1371bf403d56701`
+- Website Watch desktop PR: #31 at `c4cbc883d4b06c0352c4210e55a3b0e9dd0f5c0c`
+- Website Watch documentation PR: #32 at `4fbcb77a835304dbca955cea2b964f469aedb630`
 - Current maturity: all six initial internal product slices and Website Watch Stage 1 are implemented and automatedly validated on `main`
 - Automated validation: secret scan, core and desktop TypeScript, complete deterministic Node suite, Rust formatting, Rust tests, Tauri bundle, and Debian package inspection
 - Human acceptance remains open for issues #2, #5, #6, #3, #4, #7, and #29
@@ -101,7 +103,9 @@ Event Intelligence and Website Watch are bounded Signals subsystems. Repository 
 - Missing, delayed, partial, unavailable, and not-collected metrics do not become zero.
 - A configured Website Watch target does not prove that a check occurred.
 - A failed website check cannot become verified no change.
-- The first website snapshot establishes a baseline and cannot prove no earlier change.
+- The first snapshot for every watch target establishes a baseline and cannot prove no earlier change.
+- A valid content observation with a failed screenshot remains partial evidence rather than a failed check.
+- Explicit snapshot deletion and retention pruning remove retained payload and screenshot access while preserving provenance.
 - Human-recorded evidence does not become provider verification.
 - AI change summaries and relevance recommendations do not become reviewed evidence.
 - Retrospectives may propose ICP or positioning review but cannot silently mutate Product Core.
@@ -151,33 +155,15 @@ Repository Growth, Video Production, Calendar and Learning, and Website Watch im
 | Slice 4 | #3 | Repository Growth and Launch | Implemented; human acceptance open |
 | Slice 5 | #4 | Video Production and ViMax package | Implemented Stage 1 and Calendar handoff; execution and human acceptance open |
 | Slice 6 | #7 | Calendar, Activation, Outcomes, Learning | Implemented; human acceptance open |
-| Signals extension | #29 | Website Watch and Webdog-compatible import | Implemented Stage 1; human acceptance open |
+| Signals extension | #29 | Website Watch and Webdog-compatible import | Implemented Stage 1 and hardened; human acceptance open |
 
 Do not restart issues #7 or #29 as unimplemented slices. Their automated core and desktop journeys are merged.
 
 Issue #29 is a post-sequence Signals expansion, not a seventh foundational slice and not a replacement for human acceptance or release work.
 
-## Implemented product capabilities
+## Website Watch implemented boundary
 
-### Product Core
-
-- local product workspace and truth revision;
-- reviewed evidence and approved claims;
-- ICP hypotheses, comparison, selection, history, disqualifiers, contradictions, and experiments;
-- explained marketability assessment and owned actions;
-- Home and Product desktop workflow.
-
-### Signals and Market
-
-- bounded Event Intelligence;
-- public GitHub evidence;
-- strict manual import;
-- source health and explicit partial failure;
-- provenance, freshness, confidence, and limitations;
-- named review and proposed-work conversion;
-- Market evidence summary.
-
-### Website Watch Stage 1
+Website Watch Stage 1 provides:
 
 - watched sites with canonical public URL, normalized domain, relationship, purpose, authorization, retention, owner, and active state;
 - site-link, page-content, and product-price target intent;
@@ -194,132 +180,25 @@ Issue #29 is a post-sequence Signals expansion, not a seventh foundational slice
 - Website Watch proposed work;
 - reviewed Calendar follow-up, experiment, opportunity, and approval-deadline planning;
 - local browser-profile persistence;
-- responsive and reduced-motion-safe presentation.
+- responsive, reduced-motion-safe, and explicit focus-visible presentation.
+
+PR #33 hardened:
+
+- per-target baseline behavior, including a new target on an existing watched site;
+- partial evidence when content succeeds and screenshot capture fails;
+- explicit provider failure-class coverage;
+- screenshot-reference removal during deletion and retention pruning;
+- keyboard focus visibility for Website Watch controls and links.
 
 Stage 1 does not crawl websites, call Context.dev, connect to a live Webdog service, run a worker, import live screenshots, open a public webhook listener, copy browser sessions, access private pages, execute AI triage, send notifications, publish, or mutate Product Core automatically.
 
-### Campaigns and Studio
+## External integration posture
 
-- Product Core-traceable campaign briefs;
-- selected ICP or deliberate test audience;
-- canonical assets and versions;
-- LinkedIn, website, and GitHub release variants;
-- rights, accessibility, disclosures, comments, and review;
-- claim-impact invalidation;
-- credential-free manual exports.
-
-### Repository Growth and Launch
-
-- bounded public GitHub import;
-- twelve explained readiness dimensions;
-- owned growth plans;
-- campaign-linked launch rooms;
-- maintainer coverage and release checklist;
-- explicit metric evidence states;
-- manual launch export;
-- baseline and bounded retrospective.
-
-### Video Production and Studio
-
-- approved campaign-linked canonical script selection;
-- exact script version and Product Core authority snapshot;
-- video briefs with storyboard, rights, consent, accessibility, disclosures, provider plans, costs, and data handling;
-- named brief review;
-- pinned ViMax `v1.1.0`, revision `1f8f650`, Python 3.12+, MIT compatibility record;
-- provider-neutral manual package;
-- blank-credential Script2Video packet;
-- structured stage, failure, artifact, hash, source, and redacted-log import;
-- completed, partial, failed, and cancelled render states;
-- named render review;
-- separately reviewed LinkedIn, Instagram Reels, YouTube Shorts, and website variants;
-- approved video variants available to Calendar;
-- current authority revalidation at asynchronous boundaries;
-- packaged Studio workflow with explicit empty, offline, blocked, failure, recovery, and invalidation states.
-
-### Calendar and Manual Activation
-
-- destinations with explicit ownership and non-secret account references;
-- planning entries for deadlines, opportunities, experiments, and follow-ups;
-- external actions sourced from approved Campaign variants, ready Repository Launch rooms, and approved Video variants;
-- reviewed Website Watch planning entries related to the source observation;
-- source-to-destination channel filtering;
-- exact source snapshots with claims, evidence, rights, accessibility, disclosures, and file or body relationships;
-- named destination-bound review;
-- separate schedule and activation states;
-- credential-free packages with idempotency keys;
-- ready, downloaded, interrupted, and recovered export operations;
-- delivered, failed, cancelled, and unknown outcomes;
-- human-recorded, provider-evidence, and provider-verified classifications;
-- provider response identifiers required before provider verification;
-- source and destination authority invalidation.
-
-### Analytics and Learning
-
-- measurement plans and baselines;
-- observation windows;
-- observed, verified-zero, delayed, partial, unavailable, and not-collected metric states;
-- performance-import provenance and limitations;
-- numeric comparison only for compatible evidence states;
-- continue, iterate, stop, and inconclusive retrospective decisions;
-- manual, first-touch, last-touch, influence, and unattributed model labels;
-- mandatory attribution uncertainty;
-- advisory ICP-confidence and positioning effects;
-- evidence, decision, change, outcome, follow-up, and reversible-next-action learning entries;
-- Calendar and Analytics desktop navigation;
-- explicit loading, empty, offline, blocked, error, interruption, recovery, invalidation, partial-evidence, and ready states.
-
-## ViMax decision
-
-OD-011 is resolved for Stage 1.
-
-ViMax is optional and removable. The implemented adapter does not install or execute ViMax, bundle Python, invoke providers, store credentials, claim Windows or Linux execution testing, claim macOS support, or publish automatically.
-
-The upstream project lists Windows and Linux. Viable records those as upstream statements only. macOS remains unverified.
-
-A local CLI adapter is deferred until a stable noninteractive contract supports health, version, cancellation, progress, structured errors, bounded storage, credential injection, artifacts, redacted logs, and cross-platform validation.
-
-## Delivery and attribution decisions
-
-OD-021 is resolved for the initial manual loop:
-
-- schedule intent is not delivery;
-- package export is not delivery;
-- delivery requires explicit evidence;
-- human-recorded evidence remains human recorded;
-- provider verification requires a provider response identifier.
-
-OD-022 is resolved for the initial retrospective labels:
-
-- manual;
-- first touch;
-- last touch;
-- influence;
-- unattributed.
-
-Every retrospective states attribution uncertainty. Viable does not claim an automated attribution engine.
-
-## Website Watch decision
-
-OD-025 is resolved and implemented for Stage 1.
-
-Viable:
-
-- owns a provider-neutral Website Watch domain inside Signals and Market;
-- implements strict Webdog-compatible manual import;
-- preserves Webdog provenance, source health, explicit limitations, generated-analysis separation, named review, retention, and deletion;
-- uses existing Signals and Calendar authority;
-- keeps Webdog and Context.dev optional;
-- preserves the Webdog MIT notice and reviewed revision.
-
-Viable does not:
-
-- merge Webdog's hosted application wholesale;
-- import its Next.js, PostgreSQL, Better Auth, Railway, team, share-link, notification, or credential model;
-- depend on undocumented internal Webdog routes or database schema;
-- treat alerts or outbound notifications as Viable delivery evidence;
-- store provider credentials in domain records;
-- describe AI summaries as evidence;
-- permit private-page scraping through copied browser sessions or access-control bypass.
+- Webdog is a reviewed MIT-licensed source and optional future service adapter.
+- Context.dev is an optional future live collection adapter.
+- The base product does not require either service.
+- Live collection requires OS-vault credential references, DNS and redirect validation, DNS-rebinding defenses, timeouts, response and redirect limits, cancellation, structured provider errors, bounded content and screenshot storage, retention and deletion, and separate live-provider validation.
+- Viable must not depend on undocumented Webdog routes, its internal PostgreSQL schema, copied browser sessions, or a public inbound desktop webhook listener.
 
 Authority:
 
@@ -375,7 +254,7 @@ Issue #29:
 - unfamiliar-founder completion from watched-site creation through reviewed change and Calendar follow-up;
 - remediation of accessibility, clarity, evidence, retention, failure, and recovery findings.
 
-Automated semantic contracts, responsive styling, reduced motion, deterministic tests, and native packaging do not replace human review.
+Automated semantic contracts, focus styling, responsive styling, reduced motion, deterministic tests, and native packaging do not replace human review.
 
 ## Next product priorities
 
@@ -392,7 +271,7 @@ Prioritize:
 7. prepare operational support and external beta documentation;
 8. reopen ViMax execution only when its machine-safe contract and operating-system validation plan exist.
 
-Direct publishing must not precede human acceptance of the complete manual activation and evidence loop.
+Direct publishing and live website collection must not precede human acceptance of the complete manual evidence and activation loop.
 
 ## CI and merge posture
 
