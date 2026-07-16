@@ -68,6 +68,8 @@ Events provide the inherited opportunity source, while public repositories immed
 
 ## Slice 3: Campaign brief and canonical asset
 
+Status: guarded campaign, canonical-asset, channel-variant, review, invalidation, local-persistence, and manual-export core implemented and automatedly validated through PR #16; desktop workflow and human acceptance remain open under issue #6.
+
 ### User outcome
 
 A user converts product truth, the selected ICP or a deliberate test audience, and accepted signals into one approved campaign brief and creates a canonical content asset with evidence, claims, variants, and review state.
