@@ -10,8 +10,9 @@ test("desktop exposes Campaigns and Studio workflows", async () => {
     read("apps/desktop/ui/campaigns-view.ts"),
     read("apps/desktop/web/index.html"),
   ]);
-  assert.match(shell, /data-nav/);
+  assert.match(shell, /dataset\.nav/);
   assert.match(shell, /CampaignsViewController/);
+  assert.match(shell, /button\.textContent !== text/);
   assert.match(html, /campaign-shell\.js/);
   for (const marker of [
     "One outcome. One audience. Traceable truth.",
