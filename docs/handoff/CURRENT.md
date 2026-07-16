@@ -15,7 +15,8 @@ Detailed authority remains in the PRD, accepted ADRs, domain architecture, curre
 - Current maturity: all six initial internal product slices implemented and automatedly validated on `main`
 - Automated validation: secret scan, core and desktop TypeScript, complete deterministic Node suite, Rust formatting, Rust tests, Tauri bundle, and Debian package inspection
 - Human acceptance remains open for issues #2, #5, #6, #3, #4, and #7
-- Immediate priority: human acceptance and release foundations, not another duplicate product slice
+- Website Watch direction: OD-025 resolved; issue #29 open for provider-neutral Signals implementation and strict Webdog-compatible import
+- Immediate priority: complete the active documentation synchronization, then progress human acceptance, release foundations, and issue #29 without creating duplicate product authority
 
 ## Read before acting
 
@@ -34,7 +35,8 @@ Read these in order:
 11. `docs/status/current-state.md`
 12. `docs/roadmap/initial-build-sequence.md`
 13. `docs/decisions/open-decisions.md`
-14. the selected GitHub issue and all linked merged PRs
+14. `docs/integrations/webdog-website-monitoring.md` when working on issue #29
+15. the selected GitHub issue and all linked merged PRs
 
 The repository and current GitHub state are authoritative. Conversation history may explain intent but cannot override accepted documents.
 
@@ -54,9 +56,10 @@ It connects:
 - Calendar and destination-bound approval;
 - manual activation and delivery evidence;
 - performance evidence, retrospectives, and learning;
+- future website and competitor change evidence;
 - future relationships and sales.
 
-Viable is not a social scheduler, content generator, event monitor, repository scorecard, video generator, CRM, or analytics dashboard with unrelated features attached. Each workflow shares Product Core claims, reviewed evidence, audience authority, campaigns, approvals, explicit outcomes, and uncertainty.
+Viable is not a social scheduler, content generator, event monitor, repository scorecard, website watcher, video generator, CRM, or analytics dashboard with unrelated features attached. Each workflow shares Product Core claims, reviewed evidence, audience authority, campaigns, approvals, explicit outcomes, and uncertainty.
 
 ## Marketability loop
 
@@ -78,11 +81,12 @@ Establish product truth
   -> refine product, ICP, message, offer, repository, asset, and channel plan
 ```
 
-Event Intelligence is one bounded signal subsystem. Repository Growth is one Product-integrated surface workflow. Video Production is one Campaign-linked production workflow. Calendar and Analytics complete the first manual operating loop. None becomes top-level product authority.
+Event Intelligence is one bounded signal subsystem. Repository Growth is one Product-integrated surface workflow. Video Production is one Campaign-linked production workflow. Website Watch will be one bounded Signals source. Calendar and Analytics complete the first manual operating loop. None becomes top-level product authority.
 
 ## Durable authority boundaries
 
 - Product Core owns canonical product truth, claims, reviewed evidence, and ICP hypotheses.
+- Signals and Market owns source health, externally observed evidence, review, and proposed-work conversion, including future Website Watch records.
 - Campaigns owns approved campaign intent, canonical assets, and channel variants.
 - Repository Growth owns repository assessment, owned growth planning, launch-room state, bounded baselines, and repository retrospectives.
 - Video Production owns reviewed video briefs, manual production packages, imported run evidence, render review, and platform-variant review.
@@ -93,7 +97,9 @@ Event Intelligence is one bounded signal subsystem. Repository Growth is one Pro
 - Render completion does not equal approval.
 - Scheduling, approval, export, delivery, provider verification, and successful outcome are distinct states.
 - Missing, delayed, partial, unavailable, and not-collected metrics do not become zero.
+- A failed website check cannot become verified no change.
 - Human-recorded evidence does not become provider verification.
+- AI change summaries and relevance recommendations do not become reviewed evidence.
 - Retrospectives may propose ICP or positioning review but cannot silently mutate Product Core.
 - Provider content and imported manifests are untrusted data.
 - Core workflows remain useful without hosted Viable infrastructure or a required LLM.
@@ -105,7 +111,7 @@ Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp.
 
 The event-intelligence foundation originated as Event Radar. Viable is the authoritative expanded product.
 
-Migration remains selective and fail-closed. Never import:
+Migration and selective code adaptation remain fail-closed. Never import:
 
 - external-organization ownership, branding, governance, licensing, or compliance claims;
 - credentials, cookies, sessions, webhooks, tokens, or secret-bearing files;
@@ -113,6 +119,8 @@ Migration remains selective and fail-closed. Never import:
 - private prompts, operational evidence, logs, reports, screenshots, exports, or confidential fixtures;
 - old package identities, signing identities, release destinations, or update channels;
 - ambiguous material whose ownership, privacy, licensing, or operational meaning is unclear.
+
+MIT-licensed external code may be copied or substantially adapted only with complete copyright and permission notices, source-path and revision tracking, and no implied endorsement or trademark grant.
 
 ## Accepted architecture decisions
 
@@ -124,7 +132,7 @@ Migration remains selective and fail-closed. Never import:
 - ADR-0006: marketability-loop authority and bounded Event Intelligence.
 - ADR-0007: Product Core ownership of ICP hypotheses and validation.
 
-Repository Growth, Video Production, and Calendar and Learning implement these accepted decisions. Do not create duplicate claim, campaign, approval, evidence, delivery, attribution, or ICP authority downstream.
+Repository Growth, Video Production, Calendar and Learning, and future Website Watch work implement these accepted decisions. Do not create duplicate claim, campaign, signal, approval, evidence, delivery, attribution, Calendar, or ICP authority downstream.
 
 ## Initial build order
 
@@ -139,6 +147,8 @@ Repository Growth, Video Production, and Calendar and Learning implement these a
 | Slice 6 | #7 | Calendar, Activation, Outcomes, Learning | Implemented; human acceptance open |
 
 Do not restart issue #7 as an implementation slice. Its automated core and desktop journey are already merged.
+
+Issue #29 is a post-sequence Signals expansion, not a seventh foundational slice and not a replacement for human acceptance or release work.
 
 ## Implemented initial vertical sequence
 
@@ -158,6 +168,8 @@ Do not restart issue #7 as an implementation slice. Its automated core and deskt
 - source health and explicit partial failure;
 - provenance, freshness, confidence, and limitations;
 - named review and proposed-work conversion.
+
+Website Watch is not yet implemented. Its accepted direction and issue are recorded separately.
 
 ### Campaigns and Studio
 
@@ -275,6 +287,35 @@ OD-022 is resolved for the initial retrospective labels:
 
 Every retrospective states attribution uncertainty. Viable does not claim an automated attribution engine.
 
+## Website Watch decision
+
+OD-025 is resolved for the initial Webdog and Context.dev posture.
+
+Viable will:
+
+- absorb durable website-monitoring patterns and selected MIT-licensed pure utilities;
+- own a provider-neutral Website Watch domain inside Signals and Market;
+- support strict Webdog-compatible manual JSON import first;
+- keep Context.dev and Webdog optional;
+- preserve generated-summary separation, explicit source health, and fail-open triage behavior;
+- convert reviewed changes into proposed work or Calendar follow-ups through existing authority.
+
+Viable will not:
+
+- merge Webdog's hosted application wholesale;
+- import its Next.js, PostgreSQL, Better Auth, Railway, team, share-link, notification, or credential model;
+- depend on undocumented internal Webdog routes or database schema;
+- treat alerts or outbound notifications as Viable delivery evidence;
+- store provider credentials in domain records;
+- describe AI summaries as evidence;
+- permit private-page scraping through copied browser sessions or access-control bypass.
+
+Authority:
+
+- `docs/integrations/webdog-website-monitoring.md`
+- GitHub issue #29
+- external source `context-dot-dev/webdog`, MIT, Copyright 2026 Context.dev
+
 ## Open human acceptance gates
 
 Issue #2:
@@ -315,6 +356,8 @@ Issue #7:
 - unfamiliar-user completion from approved source through outcome and learning entry;
 - remediation.
 
+Issue #29 is not implemented yet. Its eventual closure requires Website Watch accessibility review, unfamiliar-user completion, and remediation in addition to the implementation checklist.
+
 Automated semantic contracts, responsive styling, reduced motion, deterministic tests, and native packaging do not replace human review.
 
 ## Next product priorities
@@ -323,14 +366,16 @@ Do not invent a seventh initial slice merely to preserve momentum.
 
 Prioritize:
 
-1. complete and remediate human acceptance for issues #2, #5, #6, #3, #4, and #7;
-2. define backup, restore, retention, deletion, and cross-version migration guarantees;
-3. use Viable's Product and ICP workflow to select and validate Viable's own narrower launch ICP;
-4. decide connected publishing, analytics, search, and CRM adapters from current product evidence;
-5. define Relationships and Sales authority before implementing contacts, leads, organizations, and opportunities;
-6. add installer signing, updates, rollback, and cross-platform installer validation;
-7. prepare operational support and external beta documentation;
-8. reopen ViMax execution only when its machine-safe contract and operating-system validation plan exist.
+1. merge the active Slice 6 and Website Watch documentation synchronization after exact-head validation;
+2. complete and remediate human acceptance for issues #2, #5, #6, #3, #4, and #7;
+3. implement issue #29 as the next bounded Signals capability without importing Webdog's full hosted architecture;
+4. define backup, restore, retention, deletion, and cross-version migration guarantees;
+5. use Viable's Product and ICP workflow to select and validate Viable's own narrower launch ICP;
+6. decide connected publishing, analytics, search, and CRM adapters from current product evidence;
+7. define Relationships and Sales authority before implementing contacts, leads, organizations, and opportunities;
+8. add installer signing, updates, rollback, and cross-platform installer validation;
+9. prepare operational support and external beta documentation;
+10. reopen ViMax execution only when its machine-safe contract and operating-system validation plan exist.
 
 Direct publishing must not precede human acceptance of the complete manual activation and evidence loop.
 
