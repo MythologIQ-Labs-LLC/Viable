@@ -20,7 +20,7 @@ test("Studio exposes the complete manual video production journey", async () => 
     "Calendar handoff is not implemented",
   ]) assert.match(view, new RegExp(marker, "i"));
   assert.match(shell, /VideoProductionViewController/);
-  assert.match(shell, /data-video-action/);
+  assert.match(shell, /dataset\.videoAction/);
   assert.match(shell, /startsWith\("video-"\)/);
   assert.match(html, /video-production\.css/);
 });
