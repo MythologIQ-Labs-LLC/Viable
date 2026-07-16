@@ -24,6 +24,10 @@
     "../../src/campaigns/domain/**/*.ts",
     "../../src/campaigns/ports/**/*.ts",
     "../../src/campaigns/services/**/*.ts",
+    "../../src/repository-growth/domain/**/*.ts",
+    "../../src/repository-growth/ports/**/*.ts",
+    "../../src/repository-growth/services/**/*.ts",
+    "../../src/repository-growth/adapters/github-public-repository-growth-source.ts",
     "../../src/event-intelligence/domain/**/*.ts",
     "../../src/event-intelligence/ports/**/*.ts"
   ],
