@@ -207,13 +207,9 @@ export class WebsiteWatchService {
     const now = this.clock().toISOString();
     return this.persist({
       ...workspace,
-      snapshots: workspace.snapshots.map((snapshot) => snapshot.id === snapshotId ? {
-        ...snapshot,
-        payloadReference: `deleted:${snapshot.id}`,
-        limitations: [...new Set([...snapshot.limitations, "Snapshot payload and screenshot reference deleted by explicit user action"])],
-        deletedAt: now,
-        deletedBy: actor,
-      } : snapshot),
+      snapshots: workspace.snapshots.map((snapshot) => snapshot.id === snapshotId
+        ? redactSnapshot(snapshot, actor, now, "Snapshot payload and screenshot reference deleted by explicit user action")
+        : snapshot),
       updatedAt: now,
     });
   }
@@ -225,13 +221,7 @@ export class WebsiteWatchService {
     const nowMs = this.clock().getTime();
     const snapshots = workspace.snapshots.map((snapshot) => {
       if (!snapshot.deleteAfter || snapshot.deletedAt || Date.parse(snapshot.deleteAfter) > nowMs) return snapshot;
-      return {
-        ...snapshot,
-        payloadReference: `deleted:${snapshot.id}`,
-        limitations: [...new Set([...snapshot.limitations, "Snapshot payload and screenshot reference deleted by retention policy"])],
-        deletedAt: now,
-        deletedBy: actor,
-      };
+      return redactSnapshot(snapshot, actor, now, "Snapshot payload and screenshot reference deleted by retention policy");
     });
     return this.persist({ ...workspace, snapshots, updatedAt: now });
   }
@@ -245,7 +235,6 @@ export class WebsiteWatchService {
       throw new Error("Change-detected Website Watch outcomes require at least one observation");
     }
     assertNoSecretMaterial(raw);
-    const existingSiteIds = new Set(workspace.sites.map((site) => site.id));
     const sites = mergeById(workspace.sites, raw.sites.map((site) => ({ ...site, workspaceId: workspace.workspaceId })));
     const siteIds = new Set(sites.map((site) => site.id));
     const targets = raw.targets.map((target) => {
@@ -272,7 +261,7 @@ export class WebsiteWatchService {
     if (raw.status === "verified_no_change") {
       for (const snapshot of incomingSnapshots) {
         const prior = priorSnapshotsByTarget.get(snapshot.targetId) ?? [];
-        if (prior.length === 0 && !existingSiteIds.has(snapshot.watchedSiteId)) {
+        if (prior.length === 0) {
           effectiveStatus = "partial";
           baselineObservations.push({
             id: `baseline:${snapshot.id}`,
@@ -285,7 +274,7 @@ export class WebsiteWatchService {
             diffPreview: "",
             evidenceState: "baseline",
             confidence: "medium",
-            limitations: ["First snapshot establishes a baseline and cannot prove that no earlier change occurred", ...raw.limitations],
+            limitations: ["First snapshot for this target establishes a baseline and cannot prove that no earlier change occurred", ...raw.limitations],
             reviewState: "suggested",
             generatedAnalysisIds: [],
             observedAt: snapshot.retrievedAt,
@@ -353,4 +342,15 @@ function mergeById<T extends { id: string }>(existing: readonly T[], incoming: r
   const values = new Map(existing.map((item) => [item.id, item]));
   for (const item of incoming) values.set(item.id, item);
   return [...values.values()];
+}
+
+function redactSnapshot(snapshot: WebsiteSnapshot, deletedBy: string, deletedAt: string, limitation: string): WebsiteSnapshot {
+  const { screenshotReference: _removedScreenshot, ...retained } = snapshot;
+  return {
+    ...retained,
+    payloadReference: `deleted:${snapshot.id}`,
+    limitations: [...new Set([...snapshot.limitations, limitation])],
+    deletedAt,
+    deletedBy,
+  };
 }
