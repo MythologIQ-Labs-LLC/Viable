@@ -225,6 +225,8 @@ Owns:
 
 Canonical assets are separate from channel payloads.
 
+Implementation status: PR #16 implements the first guarded Campaigns and Assets domain foundation. Campaign briefs snapshot approved Product Core claims and reviewed evidence; canonical assets remain separate from LinkedIn, website, and GitHub release variants; material changes and Product Core claim changes invalidate approval; and manual export manifests remain explicitly unapproved for publishing and undelivered. Campaigns and Studio desktop workflows are not yet implemented.
+
 ### 7.5 Approval and External Action
 
 Owns:
