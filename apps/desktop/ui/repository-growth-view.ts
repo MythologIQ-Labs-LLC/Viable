@@ -49,10 +49,10 @@ export class RepositoryGrowthViewController {
     this.productStore,
     this.campaignStore,
   );
-  private workspace?: RepositoryGrowthWorkspace;
-  private campaigns?: CampaignWorkspace;
-  private failure?: string;
-  private selectedRepositoryId?: string;
+  private workspace: RepositoryGrowthWorkspace | undefined;
+  private campaigns: CampaignWorkspace | undefined;
+  private failure: string | undefined;
+  private selectedRepositoryId: string | undefined;
 
   constructor(
     readonly workspaceId: string,
