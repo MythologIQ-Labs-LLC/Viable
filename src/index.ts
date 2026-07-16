@@ -39,4 +39,4 @@ export * from "./video-production/adapters/local-json-video-production-store.js"
 export * from "./video-production/adapters/vimax-v1-1-manual-adapter.js";
 export * from "./video-production/domain/video-production.js";
 export * from "./video-production/ports/video-production-store.js";
-export * from "./video-production/services/video-production-service.js";
+export * from "./video-production/services/guarded-video-production-service.js";
