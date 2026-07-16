@@ -44,6 +44,7 @@ Each decision should be resolved through the appropriate PRD update, ADR, issue,
 | OD-022 | Which attribution models ship first? | Slice 6 ships manual, first-touch, last-touch, influence, and unattributed labels as user-selected retrospective models. Every result requires explicit uncertainty. No automatic attribution engine is claimed. | Reopen before automated or multi-touch attribution computation | `docs/architecture/activation-and-learning-domain.md` and issue #7 | Resolved |
 | OD-023 | When does Viable support remote or managed workers? | Local execution and manual export are preferred until a remote workload has clear user value, isolation, cost, cancellation, and privacy controls. | Before hosted generation or automation | ADR | Deferred |
 | OD-024 | What is the long-term relationship between Event Radar and Viable? | Viable is the authoritative expanded product. Event Intelligence is a bounded subsystem. The prior product repository is not a runtime dependency. | After sanitized migration and release planning | Product and repository decision | Open |
+| OD-025 | How should Webdog and Context.dev support website monitoring? | Absorb Webdog's durable monitoring patterns and selected MIT-licensed pure utilities into a Viable-owned provider-neutral Website Watch domain. Keep Webdog and Context.dev optional adapters inside Signals and Market. Do not merge Webdog's hosted Next.js, PostgreSQL, authentication, credential, notification, or deployment model into Viable. | Reopen when a live Context.dev adapter or stable Webdog service API is proposed | `docs/integrations/webdog-website-monitoring.md` | Resolved |
 
 ## Required decision format
 
@@ -75,5 +76,6 @@ Review this register:
 - `../adr/README.md`
 - `../architecture/viable-platform.md`
 - `../architecture/activation-and-learning-domain.md`
+- `../integrations/webdog-website-monitoring.md`
 - `../roadmap/product-roadmap.md`
 - `../status/current-state.md`
