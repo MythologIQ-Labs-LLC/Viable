@@ -97,24 +97,38 @@ This proves that Viable can transform product truth, ICP context, and market evi
 
 ## Slice 4: Repository growth and launch room
 
+Status: guarded public-repository import, explained readiness assessment, owned growth plan, Product-integrated desktop workflow, campaign-linked launch room, maintainer coverage, manual export, baseline, and retrospective comparison implemented and automatedly validated through PRs #20 and #21; hands-on accessibility and unfamiliar-maintainer acceptance remain open under issue #3.
+
 ### User outcome
 
-A maintainer can assess a public repository, fix the highest-impact readiness gaps, prepare a release, coordinate launch assets for the intended ICP or community, and review traffic and adoption outcomes.
+A maintainer can assess a public repository, fix the highest-impact readiness gaps, prepare a release, coordinate launch assets for the intended ICP or community, and review available activity and adoption evidence.
 
 ### Required capabilities
 
 - repository readiness assessment;
-- README, description, homepage, topic, social preview, quick-start, release, community, and trust checks;
-- launch checklist and asset matrix;
+- README, description, homepage, topic, social-preview state, quick-start, release, community, and trust checks;
+- twelve explained readiness dimensions with evidence, confidence, impact, effort, owner, recommendation, and verification;
+- prioritized owned repository-growth plan;
+- launch checklist and approved campaign asset matrix;
 - explicit target ICP, community, or adopter segment;
-- manual social and community exports;
-- traffic, referral, clone, release-download, star, fork, issue, discussion, and contributor imports where available;
-- launch retrospective;
+- maintainer coverage and observation window;
+- manual social, newsletter, community, website, and event export package;
+- explicit observed, verified-zero, unavailable, and not-collected metric states;
+- public release-download, star, fork, watcher, issue, and contributor imports where available;
+- launch baseline and retrospective comparison;
 - no promise of GitHub Trending.
 
 ### Why fourth
 
-This creates a differentiated, measurable Viable use case that directly serves MythologIQ's public product portfolio and produces adoption evidence that can refine ICP assumptions.
+This creates a differentiated, measurable Viable use case that directly serves MythologIQ's public product portfolio and produces evidence that can refine repository, campaign, product, and ICP decisions.
+
+### Remaining exit evidence
+
+- hands-on keyboard and assistive-technology review;
+- unfamiliar-maintainer completion from public import through retrospective without maintainer intervention;
+- remediation of any evidenced accessibility, clarity, evidence-state, or recovery gaps.
+
+Authenticated GitHub traffic, referral, clone, dependent, integration, private-repository, and write-operation adapters remain later optional capabilities. Their absence must remain visible rather than becoming zero activity.
 
 ## Slice 5: Video production package and ViMax prototype
 

@@ -18,11 +18,13 @@
 
 ## Summary
 
-Viable is currently in the third internal product-slice stage.
+Viable is currently in the fourth internal product-slice stage.
 
-The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, and native Viable shell are established. Product workspace, product-truth revision, evidence review, canonical ICP hypothesis comparison and selection, explained marketability assessment, owned readiness actions, bounded market signals, and governed campaign production are implemented.
+The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, native Viable shell, bounded Signals Inbox, governed campaign production, and public repository growth workflow are established.
 
-Merged PR #11 connects Product Core services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox and Signals and Market desktop views. Merged PR #16 adds the guarded Campaign Brief and Canonical Asset domain, review, invalidation, persistence, and manual-export foundation. Merged PR #18 connects that authority to local-first Campaigns and Studio desktop workflows with Product Core claim prerequisites, campaign review, canonical-asset versioning, channel comparison, claim-impact invalidation, and downloadable manual export manifests. Exact-head Node, TypeScript, Rust, release-build, and Debian package validation passed. Hands-on assistive-technology review and unfamiliar-user acceptance remain open for issues #2, #5, and #6. No claim should imply that publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
+Merged PR #11 connects Product Core services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox and Signals and Market desktop views. Merged PRs #16 and #18 add the guarded Campaign Brief and Canonical Asset core and connect it to Campaigns and Studio. Merged PR #20 adds the guarded repository-growth domain, bounded public GitHub import, explained readiness assessment, owned growth planning, campaign-linked launch rooms, manual exports, baselines, and retrospective comparison. Merged PR #21 connects that authority beneath Product in the packaged desktop application and improves CI diagnostics. Exact-head Node, TypeScript, Rust, release-build, and Debian package validation passed for the implemented slices.
+
+Hands-on assistive-technology review and unfamiliar-user acceptance remain open for issues #2, #5, #6, and #3. No claim should imply that authenticated GitHub traffic collection, GitHub write operations, direct publishing, video generation, lead management, sales, general analytics, signed installers, or end-user release readiness are operational.
 
 ## Implemented in this repository
 
@@ -50,7 +52,7 @@ Merged PR #11 connects Product Core services to the Home and Product desktop wor
 - documentation verification, closure, and traceability reports;
 - fail-closed sanitized source-migration issue;
 - implementation issues for all six initial build slices;
-- Product and ICP, Signals Inbox, and Campaigns and Studio user guides;
+- Product and ICP, Signals Inbox, Campaigns and Studio, and Public Repository Growth user guides;
 - MythologIQ Labs proprietary license.
 
 ### Foundational accepted decisions
@@ -87,6 +89,7 @@ Merged PR #11 connects Product Core services to the Home and Product desktop wor
 - enforced Product Core ICP mutation boundary;
 - independent Tauri 2 desktop shell with Viable identity;
 - strict TypeScript, Node, Rust, desktop, secret-scan, and Debian package validation;
+- granular CI steps with retained desktop-typecheck diagnostics on failure;
 - local Product Core workspace and product-truth revisions;
 - claims and evidence review with generated-suggestion separation;
 - canonical ICP hypotheses, roles, dimensions, disqualifiers, contradictions, comparison, review, selection, revision history, and validation experiments;
@@ -108,7 +111,17 @@ Merged PR #11 connects Product Core services to the Home and Product desktop wor
 - selected-ICP and deliberate test-audience campaign creation with synchronized evidence defaults;
 - campaign, asset, and channel-variant review queues with explicit blocked, empty, offline, error, and recovery presentation;
 - channel comparison across LinkedIn, website, and GitHub release variants;
-- downloadable manual export manifests that explicitly remain unapproved for publishing and undelivered.
+- downloadable campaign export manifests that explicitly remain unapproved for publishing and undelivered;
+- bounded public GitHub repository-growth import covering repository metadata, README, community profile, selected trust files, releases, downloads, and contributor sampling;
+- explicit observed, verified-zero, unavailable, and not-collected repository metric states;
+- deterministic repository readiness assessment across twelve documented dimensions with evidence, confidence, impact, effort, recommendation, owner, and verification;
+- prioritized owned repository-growth actions;
+- Product-integrated repository-growth desktop workflow rather than a disconnected top-level tool;
+- repository launch rooms linked to approved campaigns, canonical assets, and LinkedIn, website, and GitHub release variants;
+- Product Core claim and evidence revalidation at launch-room and export time;
+- release checklist, maintainer coverage, observation window, and baseline capture;
+- credential-free manual repository launch manifests that remain unapproved for publishing and undelivered;
+- retrospective comparisons that calculate deltas only for compatible numeric evidence states.
 
 The migration excluded external organization content, branding, governance, destinations, accounts, prompts, logs, reports, confidential fixtures, and secret-bearing material. Source-repository names remain only where required for migration provenance and exclusion evidence.
 
@@ -117,7 +130,7 @@ Event Intelligence enters through its bounded context and shared evidence contra
 ## Designed but not implemented
 
 - social and search source adapters;
-- public repository assessment and launch room;
+- authenticated GitHub traffic, referral, clone, dependent, integration, private-repository, and write-operation adapters;
 - broader content and creative studio asset families;
 - website, SEO, AEO, and conversion analysis;
 - destination-bound approval and external-action execution state machine;
@@ -125,7 +138,7 @@ Event Intelligence enters through its bounded context and shared evidence contra
 - lead and organization records;
 - sales enablement;
 - video production workflow and ViMax adapter;
-- measurement, attribution, experiments, ICP confidence feedback, and learning ledger;
+- general measurement, attribution, experiments, ICP confidence feedback, and learning ledger beyond the bounded repository retrospective;
 - local worker management;
 - hosted synchronization or multi-user collaboration.
 
@@ -134,14 +147,14 @@ Event Intelligence enters through its bounded context and shared evidence contra
 | Integration area | Status |
 |---|---|
 | Event sources | Public ICS implemented and validated; additional adapters not implemented |
-| GitHub public repository evidence | Public metadata and sampled activity implemented and validated; full repository-growth assessment remains issue #3 |
-| LinkedIn | Local campaign variant and manual export implemented; provider feasibility and adapter not implemented |
+| GitHub public repository evidence | Bounded public metadata, README, community, release, contributor, readiness, launch-room, manual-export, baseline, and retrospective workflow implemented and validated; authenticated traffic and write adapters not implemented |
+| LinkedIn | Local campaign and repository-launch variant and manual export implemented; provider feasibility and adapter not implemented |
 | Facebook and Instagram | Feasibility and adapters not implemented |
 | X | Feasibility and adapter not implemented |
 | TikTok and YouTube | Feasibility and adapters not implemented |
 | Website CMS | Local website variant and manual export implemented; CMS adapter not implemented |
 | GitHub release publishing | Local release variant and manual export implemented; publishing adapter not implemented |
-| Search Console and analytics | Not implemented |
+| Search Console and general analytics | Not implemented |
 | CRM and lead capture | Not implemented |
 | ViMax | Candidate assessed; adapter not implemented |
 
@@ -171,9 +184,9 @@ Remaining work concerns product decisions, schemas, implementation, validation, 
 1. Complete hands-on accessibility and unfamiliar-founder acceptance for issue #2, then remediate any evidenced gaps.
 2. Complete hands-on accessibility and unfamiliar-user acceptance for issue #5, then remediate evidenced gaps.
 3. Complete hands-on accessibility and unfamiliar-user acceptance for issue #6, then remediate evidenced gaps.
-4. Implement Public Repository Growth and Launch under issue #3.
-5. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
-6. Implement Calendar, Manual Activation, Outcome Capture, and Learning under issue #7 before direct publishing adapters.
+4. Complete hands-on accessibility and unfamiliar-maintainer acceptance for issue #3, then remediate evidenced gaps.
+5. Prototype the ViMax production-package boundary under issue #4.
+6. Implement Calendar, Manual Activation, broader Outcome Capture, and Learning under issue #7 before direct publishing adapters.
 7. Add signing and cross-platform installer validation before end-user release.
 
 ## Release posture
