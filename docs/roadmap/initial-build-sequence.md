@@ -4,6 +4,8 @@
 
 This sequence identifies the first complete product slices after the sanitized Event Radar migration and independent CI foundation.
 
+All six initial slices are implemented and automatedly validated. Human acceptance and external release foundations remain incomplete.
+
 ## Slice 1: Product truth, ICP discovery, and marketability assessment
 
 Status: implemented and automatedly validated; hands-on accessibility and unfamiliar-founder acceptance remain open under issue #2.
@@ -88,11 +90,11 @@ Authenticated GitHub traffic, private-repository, dependent, integration, and wr
 
 ## Slice 5: Video production package and ViMax prototype
 
-Status: provider-neutral Video Production domain, pinned ViMax `v1.1.0` manual compatibility packet, structured artifact import, Studio desktop workflow, render review, and platform-variant review implemented and automatedly validated through PRs #23 and #24. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #4. Calendar and measurement handoff remains blocked on issue #7.
+Status: provider-neutral Video Production domain, pinned ViMax `v1.1.0` manual compatibility packet, structured artifact import, Studio desktop workflow, render review, platform-variant review, and Calendar and measurement handoff implemented and automatedly validated through PRs #23, #24, #26, and #27. Actual ViMax execution, Windows and Linux runtime validation, hands-on accessibility, and unfamiliar-user acceptance remain open under issue #4.
 
 ### User outcome
 
-A user converts an approved campaign-linked canonical script into a reviewed video brief, exports a production-ready manual package, runs production separately, imports stage and artifact evidence, approves the render inside Viable, and prepares separately reviewed platform variants.
+A user converts an approved campaign-linked canonical script into a reviewed video brief, exports a production-ready manual package, runs production separately, imports stage and artifact evidence, approves the render inside Viable, prepares separately reviewed platform variants, and can schedule those approved variants through Calendar.
 
 ### Implemented capabilities
 
@@ -114,6 +116,7 @@ A user converts an approved campaign-linked canonical script into a reviewed vid
 - separate render and platform-variant review;
 - LinkedIn, Instagram Reels, YouTube Shorts, and website variants;
 - current Product Core and Campaign authority revalidation at asynchronous boundaries;
+- approved video variants available as Calendar activation sources;
 - loading, empty, offline, blocked, error, failure, recovery, and invalidation states;
 - no automatic publishing.
 
@@ -125,45 +128,107 @@ Viable does not:
 - bundle Python or the upstream dependency graph;
 - store or inject provider credentials;
 - invoke an LLM, image, or video provider;
-- claim Windows or Linux execution validation;
+- claim Windows or Linux ViMax execution validation;
 - claim macOS compatibility;
-- schedule, publish, deliver, or measure media.
+- publish automatically.
 
 The upstream project lists Windows and Linux. Viable records those statements without treating them as execution evidence. macOS remains unverified.
 
 ### Remaining exit evidence
 
+- an actual ViMax run consumes the adapted package without embedded secrets;
+- Windows and Linux ViMax execution behavior is tested;
 - hands-on keyboard and assistive-technology review;
-- unfamiliar-user completion from approved script through reviewed platform variant;
-- remediation of accessibility, clarity, rights, failure, or recovery gaps;
-- authoritative Calendar and measurement handoff after issue #7.
+- unfamiliar-user completion from approved script through reviewed and scheduled platform variant;
+- remediation of accessibility, clarity, rights, failure, or recovery gaps.
 
 A local CLI adapter remains deferred until a stable noninteractive contract supports health, version, cancellation, progress, structured errors, bounded storage, credential injection, artifact manifests, redacted logs, and cross-platform execution validation.
 
 ## Slice 6: Calendar, manual activation, outcome capture, and learning
 
-Status: designed; not implemented under issue #7.
+Status: guarded Calendar, destination, manual activation, delivery-evidence, metric-state, retrospective, learning-ledger, Calendar desktop, Analytics desktop, export-recovery, and native package workflows implemented and automatedly validated through PRs #26 and #27. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #7.
 
 ### User outcome
 
-A user schedules approved assets, exports or activates channel-ready packages, records delivery evidence and outcomes, and completes campaign, repository, video, or ICP-validation retrospectives.
+A user schedules approved campaign, repository-launch, or video assets; creates and downloads a credential-free manual package; records delivery, failure, cancellation, or unknown evidence; imports explicit performance evidence; and completes a retrospective that creates a learning entry with one reversible next action.
 
-### Required capabilities
+### Implemented capabilities
 
-- unified calendar;
-- approval checks;
-- destination identity;
-- manual channel export and activation records;
-- delivery evidence;
-- basic performance imports;
-- experiment and retrospective records;
-- learning ledger;
-- ability to connect outcomes to ICP confidence without silently rewriting the canonical ICP;
-- campaign, repository-launch, and video-variant handoff.
+- destination identity, ownership confirmation, channel, non-secret account reference, manual capability, rate-limit notes, retry policy, and data-handling notes;
+- unified Calendar for external activation, approval deadlines, event opportunities, experiments, and follow-ups;
+- exact source snapshots from Campaigns, Repository Growth, and Video Production;
+- destination-channel filtering;
+- current claim, evidence, rights, accessibility, disclosure, consent, and source-version revalidation;
+- named destination-bound external-action review;
+- separate schedule and activation states;
+- credential-free manual packages with idempotency keys;
+- explicit ready-for-download, downloaded, interrupted, and recovered export states;
+- delivered, failed, cancelled, and unknown outcomes;
+- human-recorded, provider-evidence, and provider-verified evidence classifications;
+- provider response identifier required before provider verification can be claimed;
+- baselines and observation windows;
+- observed, verified-zero, delayed, partial, unavailable, and not-collected metric states;
+- performance-import provenance and limitations;
+- numeric comparison only for compatible observed and verified-zero evidence;
+- continue, iterate, stop, and inconclusive retrospective decisions;
+- explicit attribution model and uncertainty;
+- advisory ICP-confidence and positioning effects without canonical mutation;
+- evidence, decision, change, outcome, follow-up, and reversible-next-action learning entries;
+- Calendar and Analytics navigation;
+- loading, empty, offline, blocked, error, partial, invalidated, interrupted-export, recovery, and ready states;
+- no direct publishing.
 
-### Why before publishing adapters
+### Implemented boundary
 
-The complete operating loop must work without paid or restricted publishing APIs. External adapters should improve convenience rather than determine whether the product is useful.
+```text
+scheduled
+  != approved for delivery
+  != exported
+  != delivered
+  != provider verified
+  != successful outcome
+```
+
+Missing, delayed, partial, unavailable, and not-collected metrics remain distinct from verified zero.
+
+Manual evidence remains distinct from provider verification.
+
+Learning records may propose Product Core or ICP review but cannot silently apply changes.
+
+### Remaining exit evidence
+
+- hands-on keyboard and assistive-technology review;
+- unfamiliar-user completion from approved source through scheduled package, outcome evidence, performance import, retrospective, and learning entry;
+- remediation of accessibility, clarity, evidence-classification, attribution, and recovery gaps.
+
+## Initial vertical sequence result
+
+The first six internal slices now form a complete automated manual loop:
+
+```text
+Product truth and ICP
+  -> evidence and signals
+  -> campaign and canonical assets
+  -> repository and video production workflows
+  -> destination-bound Calendar review
+  -> manual activation package
+  -> delivery or failure evidence
+  -> baseline and metric evidence
+  -> retrospective and learning
+```
+
+The loop works without direct publishing APIs, connected analytics, a required hosted model, or ViMax execution.
+
+## Next product priorities
+
+1. Complete human accessibility and unfamiliar-user acceptance for issues #2, #5, #6, #3, #4, and #7.
+2. Remediate evidenced usability, clarity, rights, failure, and recovery gaps.
+3. Define backup, restore, retention, deletion, and schema-migration guarantees.
+4. Use Viable's own Product and ICP workflow to select and validate a narrower launch ICP.
+5. Decide the first connected publishing, analytics, search, and CRM adapters from current evidence.
+6. Define Relationships and Sales authority before implementing contacts, leads, accounts, and opportunities.
+7. Add installer signing, updates, rollback, and cross-platform validation before external beta.
+8. Reopen ViMax local execution only after a stable machine-safe contract and operating-system validation plan exist.
 
 ## Release gates for every slice
 
