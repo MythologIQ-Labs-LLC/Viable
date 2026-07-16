@@ -35,6 +35,11 @@
     "../../src/video-production/ports/**/*.ts",
     "../../src/video-production/services/**/*.ts",
     "../../src/video-production/adapters/vimax-v1-1-manual-adapter.ts",
+    "../../src/website-watch/domain/**/*.ts",
+    "../../src/website-watch/ports/**/*.ts",
+    "../../src/website-watch/services/**/*.ts",
+    "../../src/website-watch/utilities/**/*.ts",
+    "../../src/website-watch/adapters/webdog-manual-import-source.ts",
     "../../src/event-intelligence/domain/**/*.ts",
     "../../src/event-intelligence/ports/**/*.ts"
   ],
