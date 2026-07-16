@@ -64,4 +64,23 @@ jobs:
         if: steps.desktop_typecheck.outputs.status != '0'
         run: exit 1
       - name: Build and test
-        run: npm test
+        id: build_test
+        shell: bash
+        run: |
+          set +e
+          npm test > build-test.log 2>&1
+          status=$?
+          cat build-test.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload build and test diagnostics
+        if: steps.build_test.outputs.status != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-test-diagnostics
+          path: build-test.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce build and test result
+        if: steps.build_test.outputs.status != '0'
+        run: exit 1
