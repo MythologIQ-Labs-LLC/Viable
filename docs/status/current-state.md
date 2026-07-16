@@ -18,11 +18,11 @@
 
 ## Summary
 
-Viable is currently in the first internal product-slice stage.
+Viable is currently in the second internal product-slice stage.
 
 The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, and native Viable shell are established. Product workspace, product-truth revision, evidence review, canonical ICP hypothesis comparison and selection, explained marketability assessment, and owned readiness actions are implemented.
 
-Merged PR #11 connects those canonical services to the Home and Product desktop workflow and passed automated Node, TypeScript, Rust, release-build, and Debian package validation. Hands-on assistive-technology review and unfamiliar-founder acceptance remain open. No claim should imply that Signals, campaigns, assets, outreach, publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
+Merged PR #11 connects those canonical services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox, Event Intelligence import, public GitHub repository evidence, manual signal import, source health, reviewed-signal conversion, and Signals and Market desktop views. Both slices passed automated Node, TypeScript, Rust, release-build, and Debian package validation. Hands-on assistive-technology and unfamiliar-user acceptance remain open. No claim should imply that campaigns, assets, outreach, publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
 
 ## Implemented in this repository
 
@@ -91,7 +91,13 @@ Merged PR #11 connects those canonical services to the Home and Product desktop 
 - canonical ICP hypotheses, roles, dimensions, disqualifiers, contradictions, comparison, review, selection, revision history, and validation experiments;
 - explained marketability findings and owned readiness actions;
 - Home and Product desktop workflow with loading, empty, local/offline, stale, contradiction, error, and recovery states;
-- keyboard-focus, semantic, scalable-text, reduced-motion, responsive, and non-color status contracts.
+- keyboard-focus, semantic, scalable-text, reduced-motion, responsive, and non-color status contracts;
+- provider-neutral signal, source registration, source-health, provenance, relationship, and conversion contracts;
+- Event Intelligence signal import preserving partial and failed outcomes;
+- public unauthenticated GitHub repository metadata and sampled-activity evidence;
+- strict manual JSON signal import;
+- named signal review, deduplication, save, tag, assignment, relationship, and proposed-work conversion;
+- Signals and Market desktop workflow with evidence drawer and explicit failure states.
 
 The migration excluded external organization content, branding, governance, destinations, accounts, prompts, logs, reports, confidential fixtures, and secret-bearing material. Source-repository names remain only where required for migration provenance and exclusion evidence.
 
@@ -99,7 +105,6 @@ Event Intelligence enters through its bounded context and shared evidence contra
 
 ## Designed but not implemented
 
-- market and research inbox;
 - social and search source adapters;
 - public repository assessment and launch room;
 - campaign planning;
@@ -120,7 +125,7 @@ Event Intelligence enters through its bounded context and shared evidence contra
 | Integration area | Status |
 |---|---|
 | Event sources | Public ICS implemented and validated; additional adapters not implemented |
-| GitHub public repository analysis | Designed; not implemented |
+| GitHub public repository evidence | Public metadata and sampled activity implemented and validated; full repository-growth assessment remains issue #3 |
 | LinkedIn | Feasibility and adapter not implemented |
 | Facebook and Instagram | Feasibility and adapters not implemented |
 | X | Feasibility and adapter not implemented |
@@ -154,7 +159,7 @@ Remaining work concerns product decisions, schemas, implementation, validation, 
 ## Immediate next milestones
 
 1. Complete hands-on accessibility and unfamiliar-founder acceptance for issue #2, then remediate any evidenced gaps.
-2. Implement Signals Inbox under issue #5.
+2. Complete hands-on accessibility and unfamiliar-user acceptance for issue #5, then remediate evidenced gaps.
 3. Implement Campaign Brief and Canonical Asset under issue #6.
 4. Implement Public Repository Growth and Launch under issue #3.
 5. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
