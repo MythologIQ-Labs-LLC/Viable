@@ -35,7 +35,7 @@ test("repository desktop workflow preserves evidence and safety boundaries", asy
   for (const marker of [
     "Missing access is not zero",
     "Partial repository evidence",
-    "does not predict GitHub Trending",
+    "do not predict GitHub Trending",
     "No approved launch asset family is available",
     "does not publish",
     "unavailable",
