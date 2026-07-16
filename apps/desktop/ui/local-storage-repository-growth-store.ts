@@ -4,9 +4,18 @@ import type { RepositoryGrowthStore } from "../../../src/repository-growth/ports
 const PREFIX = "viable.repository-growth.";
 
 export class LocalStorageRepositoryGrowthStore implements RepositoryGrowthStore {
-  async load(workspaceId: string): Promise<RepositoryGrowthWorkspace | undefined> {
+  async load(workspaceId: string): Promise<RepositoryGrowthWorkspace> {
     const value = localStorage.getItem(`${PREFIX}${workspaceId}`);
-    return value ? JSON.parse(value) as RepositoryGrowthWorkspace : undefined;
+    return value ? JSON.parse(value) as RepositoryGrowthWorkspace : {
+      workspaceId,
+      repositories: [],
+      assessments: [],
+      plans: [],
+      launchRooms: [],
+      exports: [],
+      retrospectives: [],
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   async save(workspace: RepositoryGrowthWorkspace): Promise<void> {

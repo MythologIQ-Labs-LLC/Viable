@@ -1,0 +1,124 @@
+.activation-workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.activation-workspace .status-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.activation-workspace .calendar-list,
+.activation-workspace .card-list,
+.activation-workspace .comparison-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.activation-workspace .calendar-card,
+.activation-workspace .card-list > article {
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+.activation-workspace .calendar-meta,
+.activation-workspace .learning-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0.8rem 0;
+}
+
+.activation-workspace .calendar-meta span,
+.activation-workspace .learning-grid > div,
+.activation-workspace .comparison-list > div,
+.activation-workspace .metric-evidence {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border-radius: 0.65rem;
+  background: var(--surface-subtle);
+  overflow-wrap: anywhere;
+}
+
+.activation-workspace .calendar-meta strong,
+.activation-workspace .learning-grid dt {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.activation-workspace .learning-grid dd {
+  margin: 0;
+}
+
+.activation-workspace .metric-evidence > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.activation-workspace form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.activation-workspace .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+}
+
+.activation-workspace input[readonly] {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.analytics-workspace .comparison-list span,
+.analytics-workspace .comparison-list small,
+.activation-workspace small {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 64rem) {
+  .activation-workspace .calendar-meta,
+  .activation-workspace .learning-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 52rem) {
+  .activation-workspace .calendar-meta,
+  .activation-workspace .learning-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activation-workspace .card-heading,
+  .activation-workspace .metric-evidence > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .activation-workspace .status-stack {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activation-workspace *,
+  .activation-workspace *::before,
+  .activation-workspace *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

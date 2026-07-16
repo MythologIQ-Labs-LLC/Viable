@@ -4,9 +4,17 @@ import type { VideoProductionStore } from "../../../src/video-production/ports/v
 const PREFIX = "viable.video-production.";
 
 export class LocalStorageVideoProductionStore implements VideoProductionStore {
-  async load(workspaceId: string): Promise<VideoProductionWorkspace | undefined> {
+  async load(workspaceId: string): Promise<VideoProductionWorkspace> {
     const value = localStorage.getItem(`${PREFIX}${workspaceId}`);
-    return value ? JSON.parse(value) as VideoProductionWorkspace : undefined;
+    return value ? JSON.parse(value) as VideoProductionWorkspace : {
+      workspaceId,
+      tools: [],
+      briefs: [],
+      packages: [],
+      artifacts: [],
+      variants: [],
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   async save(workspace: VideoProductionWorkspace): Promise<void> {
