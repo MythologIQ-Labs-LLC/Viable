@@ -10,13 +10,14 @@
 | ICP product authority | `docs/product/icp-discovery-and-validation.md` |
 | Platform architecture | `docs/architecture/viable-platform.md` |
 | Video Production architecture | `docs/architecture/video-production-domain.md` |
+| Activation and learning architecture | `docs/architecture/activation-and-learning-domain.md` |
 | ADRs | `docs/adr/README.md` |
 | Open decisions | `docs/decisions/open-decisions.md` |
 | Current handoff | `docs/handoff/CURRENT.md` |
 
 ## Summary
 
-Viable is currently in the fifth internal product-slice stage.
+Viable is currently in the sixth internal product-slice stage.
 
 The following internal workflows are implemented and automatedly validated:
 
@@ -24,15 +25,16 @@ The following internal workflows are implemented and automatedly validated:
 2. Signals Inbox with bounded event and public repository evidence;
 3. Campaign Brief and Canonical Asset production;
 4. Public Repository Growth and Launch;
-5. provider-neutral Video Production packages and Studio review.
+5. provider-neutral Video Production packages and Studio review;
+6. Calendar, manual activation, outcome evidence, performance import, retrospectives, and learning.
 
-Merged PR #23 implemented the governed Video Production domain, pinned ViMax `v1.1.0` compatibility metadata, blank-credential manual package, structured artifact import, render and variant review, rights and consent records, and asynchronous authority revalidation.
+Merged PR #26 implemented the guarded Calendar, destination, manual activation, delivery evidence, metric state, retrospective, and learning-ledger core.
 
-Merged PR #24 connected that authority beneath Studio in the packaged Tauri desktop application. Exact-head validation passed secret scanning, core and desktop TypeScript, 67 deterministic Node tests, Rust formatting, Rust tests, Tauri bundle construction, and Debian package inspection.
+Merged PR #27 connected that authority to Calendar and Analytics in the packaged Tauri desktop application. Exact-head validation passed repository secret scanning, core and desktop TypeScript, the complete deterministic Node suite, Rust formatting, Rust tests, Tauri bundle construction, and Debian package inspection.
 
-Human accessibility and unfamiliar-user acceptance remain open for issues #2, #5, #6, #3, and #4.
+Human accessibility and unfamiliar-user acceptance remain open for issues #2, #5, #6, #3, #4, and #7.
 
-Viable is not an end-user release. No claim should imply that direct ViMax execution, provider credentials, Calendar, publishing, delivery evidence, leads, sales, general analytics, signed installers, or release readiness are operational.
+Viable is not an end-user release. No claim should imply that direct publishing, connected provider delivery verification, automatic analytics import, actual ViMax execution, leads, sales, signed installers, or external release readiness are operational.
 
 ## Implemented documentation authority
 
@@ -45,6 +47,7 @@ Viable is not an end-user release. No claim should imply that direct ViMax execu
 - ICP domain architecture;
 - Repository Growth domain architecture;
 - Video Production domain architecture;
+- Calendar, Activation, Outcome, and Learning architecture;
 - initial build sequence and product roadmaps;
 - open-source repository growth model;
 - implemented ViMax Stage 1 integration assessment;
@@ -53,7 +56,7 @@ Viable is not an end-user release. No claim should imply that direct ViMax execu
 - canonical glossary;
 - open decisions register;
 - restart handoff;
-- user guides for Product and ICP, Signals, Campaigns and Studio, Repository Growth, and Video Production.
+- user guides for Product and ICP, Signals, Campaigns and Studio, Repository Growth, Video Production, Calendar, manual activation, outcomes, and learning.
 
 ## Accepted foundational decisions
 
@@ -65,7 +68,7 @@ Viable is not an end-user release. No claim should imply that direct ViMax execu
 - marketability-loop authority with bounded Event Intelligence;
 - Product Core ownership of canonical ICP hypotheses.
 
-Repository Growth and Video Production implement these accepted boundaries. They did not require new ADRs.
+Repository Growth, Video Production, and Calendar and Learning implement these accepted boundaries. They did not require new ADRs.
 
 ## Initial build issue coverage
 
@@ -76,8 +79,8 @@ Repository Growth and Video Production implement these accepted boundaries. They
 | Signals Inbox | #5 | Implemented; human acceptance open |
 | Campaign Brief and Canonical Asset | #6 | Implemented; human acceptance open |
 | Public Repository Growth and Launch | #3 | Implemented; human acceptance open |
-| Video Production and ViMax package prototype | #4 | Implemented Stage 1; human acceptance and issue #7 handoff open |
-| Calendar, Manual Activation, Outcome Capture, and Learning | #7 | Designed; not implemented |
+| Video Production and ViMax package prototype | #4 | Implemented Stage 1; actual ViMax execution and human acceptance open |
+| Calendar, Manual Activation, Outcome Capture, and Learning | #7 | Implemented; human acceptance open |
 
 ## Implemented runtime foundation
 
@@ -155,41 +158,100 @@ Repository Growth and Video Production implement these accepted boundaries. They
 - pinned ViMax `v1.1.0`, revision `1f8f650`, Python 3.12+, MIT, Windows/Linux upstream, macOS-unverified tool record;
 - provider-neutral manual package;
 - blank-credential Script2Video compatibility packet;
-- upstream MIT notice obligations;
-- structured run import with stages, failures, relative paths, MIME types, sizes, SHA-256 values, source relationships, and redacted logs;
+- structured run import and artifact relationships;
 - completed, partial, failed, and cancelled render states;
-- separate draft, review, approval, changes-requested, rejection, and invalidation states;
-- named render review;
-- LinkedIn, Instagram Reels, YouTube Shorts, and website platform variants;
-- separate platform-variant review;
-- current Product Core and Campaign authority revalidation at package, import, artifact, and variant boundaries;
-- local Studio workflow with loading, empty, offline, blocked, failure, recovery, and invalidation states.
+- named render and platform-variant review;
+- local Studio workflow with blocked, error, recovery, and invalidation states.
+
+### Calendar and Manual Activation
+
+- destination registry with label, channel, non-secret account reference, owner, ownership confirmation, capability, rate-limit, retry, and data-handling notes;
+- active and disabled destination states;
+- planning entries for approval deadlines, event opportunities, experiments, and follow-ups;
+- external activation entries from approved Campaign variants, ready Repository Launch rooms, and approved Video variants;
+- exact source snapshots with claims, evidence, rights, accessibility, disclosures, payload, and file relationships;
+- source-to-destination channel filtering;
+- separate draft, review, scheduled, invalidated, rejected, and cancelled schedule states;
+- separate not-ready, ready-for-manual-activation, delivered, failed, cancelled, and unknown activation states;
+- named destination-bound external-action review;
+- Product Core and upstream-source authority revalidation before review and export;
+- credential-free manual activation packages with idempotency keys;
+- explicit ready-for-download, downloaded, interrupted, and recovered export states;
+- human-recorded, provider-evidence, and provider-verified outcome classifications;
+- delivered, failed, cancelled, and unknown outcome records;
+- delivery URL, publication identifier, provider response, failure class, failure detail, evidence reference, owner, and time;
+- authority-impact invalidation without erasing historical delivery evidence.
+
+### Analytics and Learning
+
+- measurement plans;
+- baseline observations recorded before retrospective analysis;
+- observation windows;
+- observed, verified-zero, delayed, partial, unavailable, and not-collected metric states;
+- complete, partial, delayed, unavailable, and failed performance-import states;
+- human-recorded, provider-export, and provider-API source classifications;
+- numeric comparison only for compatible observed and verified-zero states;
+- continue, iterate, stop, and inconclusive retrospective decisions;
+- manual, first-touch, last-touch, influence, and unattributed model labels;
+- mandatory attribution uncertainty;
+- evidence, decision, change, outcome, follow-up, and reversible-next-action learning entries;
+- advisory ICP-confidence and positioning effects without automatic Product Core mutation;
+- Calendar and Analytics desktop navigation;
+- loading, empty, offline, blocked, error, interruption, recovery, invalidation, partial-evidence, and ready states.
+
+## Activation and evidence boundary
+
+The implemented manual loop preserves these distinctions:
+
+```text
+scheduled
+  != exported
+  != delivered
+  != provider verified
+  != successful outcome
+```
+
+A delivered transition requires:
+
+- current approved source and destination at package creation;
+- named external-action approval;
+- credential-free package;
+- completed export handoff;
+- evidence references;
+- delivery URL, publication identifier, or provider response identifier.
+
+Provider verification requires a provider response identifier.
+
+Human-recorded evidence remains explicitly human recorded.
+
+## Metric boundary
+
+Unavailable or missing evidence never becomes zero.
+
+- `observed` requires a finite non-zero value;
+- `verified_zero` requires explicit evidence and value zero;
+- `delayed` prohibits a value;
+- `partial` requires a limitation and may contain a bounded value;
+- `unavailable` prohibits a value and requires a limitation;
+- `not_collected` prohibits a value and requires a limitation.
+
+A retrospective calculates a numeric delta only for compatible numeric states.
 
 ## ViMax boundary
 
-ViMax is optional and removable.
+ViMax remains optional and removable.
 
-The implemented Stage 1 adapter:
+The Stage 1 adapter does not install or execute ViMax, invoke providers, inject credentials, or claim cross-platform ViMax runtime validation.
 
-- does not contain ViMax;
-- does not install Python;
-- does not execute ViMax;
-- does not invoke a provider;
-- does not inject or store credentials;
-- does not claim Windows or Linux execution validation;
-- does not claim macOS compatibility;
-- does not schedule, publish, deliver, or measure media.
+A local CLI adapter remains deferred until a stable noninteractive contract and operating-system test plan exist.
 
-The upstream project lists Windows and Linux. Viable records those as upstream statements only. macOS remains unverified.
-
-A local CLI adapter remains deferred until a stable noninteractive contract supports version checks, cancellation, progress, structured errors, bounded storage, credential injection, artifact manifests, redacted logs, and cross-platform execution testing.
+Issue #7 now provides the Calendar and measurement handoff for approved video variants. That does not satisfy actual ViMax execution or Windows and Linux ViMax runtime testing.
 
 ## Designed but not implemented
 
-- Calendar and editorial scheduling;
-- approved external-action execution state machine;
-- delivery evidence;
-- direct social, website, or GitHub publishing;
+- direct social, website, or GitHub publishing adapters;
+- automatic provider delivery verification;
+- connected analytics and search imports;
 - local ViMax execution or managed worker;
 - model-provider execution;
 - Windows, Linux, or macOS ViMax runtime validation;
@@ -198,8 +260,11 @@ A local CLI adapter remains deferred until a stable noninteractive contract supp
 - website, SEO, AEO, and conversion analysis;
 - lead and organization records;
 - sales enablement;
-- general measurement, attribution, experiments, ICP-confidence feedback, and learning ledger;
+- automated attribution computation;
+- automatic ICP or Product Core mutation from learning;
 - hosted synchronization and multi-user collaboration;
+- backup and restore guarantees;
+- retention and deletion policy implementation;
 - signed installers and update system.
 
 ## External integration status
@@ -208,13 +273,13 @@ A local CLI adapter remains deferred until a stable noninteractive contract supp
 |---|---|
 | Event sources | Public ICS implemented; additional adapters not implemented |
 | GitHub public evidence | Bounded public evidence, readiness, launch, export, baseline, and retrospective implemented; authenticated metrics and writes not implemented |
-| LinkedIn | Local text and video variant records exist; publishing adapter not implemented |
-| Instagram Reels | Local video variant record exists; publishing adapter not implemented |
-| YouTube Shorts | Local video variant record exists; publishing adapter not implemented |
-| Website CMS | Local text and video variant records exist; CMS adapter not implemented |
-| GitHub release publishing | Local release variant exists; publishing adapter not implemented |
+| LinkedIn | Local text and video variants, destination records, packages, and human outcome evidence implemented; publishing adapter not implemented |
+| Instagram Reels | Local video variant and manual destination workflow implemented; publishing adapter not implemented |
+| YouTube Shorts | Local video variant and manual destination workflow implemented; publishing adapter not implemented |
+| Website CMS | Local text and video variants, destination records, and manual evidence implemented; CMS adapter not implemented |
+| GitHub release publishing | Local release variant, launch room, destination record, and manual evidence implemented; publishing adapter not implemented |
 | ViMax | Stage 1 manual package and import implemented; execution adapter deferred |
-| Search and general analytics | Not implemented |
+| Search and general analytics | Manual metric import implemented; connected adapters not implemented |
 | CRM and lead capture | Not implemented |
 
 ## Human acceptance gates
@@ -229,23 +294,32 @@ Issue #3 remains open for Repository Growth accessibility and unfamiliar-maintai
 
 Issue #4 remains open for:
 
+- actual ViMax run consuming the adapted package;
+- Windows and Linux ViMax execution validation;
 - hands-on keyboard and assistive-technology review;
-- unfamiliar-user completion from approved script through reviewed platform variant;
-- remediation from those reviews;
-- Calendar and measurement handoff after issue #7.
+- unfamiliar-user completion from approved script through reviewed and scheduled platform variant;
+- remediation from those reviews.
+
+Issue #7 remains open for:
+
+- hands-on keyboard and assistive-technology review;
+- unfamiliar-user completion from approved source through outcome and learning entry;
+- remediation from those reviews.
 
 Automated semantics, responsive styling, reduced-motion support, deterministic tests, and native packaging are not substitutes for those reviews.
 
 ## Immediate next milestones
 
-1. Complete and remediate human acceptance for issues #2, #5, #6, #3, and #4.
-2. Implement issue #7: Calendar, Manual Activation, Outcome Capture, and Learning.
-3. Connect approved campaign, repository, and video assets to authoritative calendar and delivery-evidence records.
-4. Add backup, restore, retention, installer signing, update, and cross-platform release validation before external beta.
-5. Reopen ViMax execution only when the required machine-safe contract and operating-system validation plan exist.
+1. Complete and remediate human acceptance for issues #2, #5, #6, #3, #4, and #7.
+2. Define and validate backup, restore, retention, deletion, and schema-migration guarantees.
+3. Use Viable's Product and ICP workflow to select and validate its own narrower launch ICP.
+4. Decide the first connected publishing, analytics, search, and CRM adapters from product evidence.
+5. Define Relationships and Sales authority before implementing lead or opportunity records.
+6. Add installer signing, updates, rollback, and cross-platform release validation before external beta.
+7. Reopen ViMax execution only when the required machine-safe contract and operating-system validation plan exist.
 
 ## Release posture
 
 Viable is not ready for an end-user product release.
 
-The repository supports controlled internal development and automated package validation. A public or commercial release requires security and privacy review, tested backup and restore, explicit retention, installer signing and update behavior, hands-on accessibility, unfamiliar-user acceptance, validated external-action evidence, and operational support documentation.
+The repository supports controlled internal development and automated package validation. A public or commercial release requires security and privacy review, tested backup and restore, explicit retention, installer signing and update behavior, hands-on accessibility, unfamiliar-user acceptance, validated operator workflows, and operational support documentation.
