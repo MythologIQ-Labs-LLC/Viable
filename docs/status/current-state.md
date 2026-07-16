@@ -22,7 +22,7 @@ Viable is currently in the second internal product-slice stage.
 
 The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, and native Viable shell are established. Product workspace, product-truth revision, evidence review, canonical ICP hypothesis comparison and selection, explained marketability assessment, and owned readiness actions are implemented.
 
-Merged PR #11 connects those canonical services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox, Event Intelligence import, public GitHub repository evidence, manual signal import, source health, reviewed-signal conversion, and Signals and Market desktop views. Both slices passed automated Node, TypeScript, Rust, release-build, and Debian package validation. Hands-on assistive-technology and unfamiliar-user acceptance remain open. No claim should imply that campaigns, assets, outreach, publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
+Merged PR #11 connects those canonical services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox and Signals and Market desktop views. Merged PR #16 adds the guarded Campaign Brief and Canonical Asset domain, review, invalidation, persistence, and manual-export foundation. Automated Node, TypeScript, Rust, release-build, and Debian package validation has passed for the implemented slices. Campaigns and Studio desktop workflows, hands-on assistive-technology review, and unfamiliar-user acceptance remain open. No claim should imply that publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
 
 ## Implemented in this repository
 
@@ -97,7 +97,12 @@ Merged PR #11 connects those canonical services to the Home and Product desktop 
 - public unauthenticated GitHub repository metadata and sampled-activity evidence;
 - strict manual JSON signal import;
 - named signal review, deduplication, save, tag, assignment, relationship, and proposed-work conversion;
-- Signals and Market desktop workflow with evidence drawer and explicit failure states.
+- Signals and Market desktop workflow with evidence drawer and explicit failure states;
+- Product Core-traceable campaign briefs with one primary outcome and audience;
+- separate canonical assets and LinkedIn, website, and GitHub release variants;
+- named review, changes-requested, rejection, approval, and approval-invalidation transitions;
+- canonical version history, comments, rights, accessibility, disclosure, and claim-impact detection;
+- manual export manifests that explicitly remain unapproved for publishing and undelivered.
 
 The migration excluded external organization content, branding, governance, destinations, accounts, prompts, logs, reports, confidential fixtures, and secret-bearing material. Source-repository names remain only where required for migration provenance and exclusion evidence.
 
@@ -107,9 +112,8 @@ Event Intelligence enters through its bounded context and shared evidence contra
 
 - social and search source adapters;
 - public repository assessment and launch room;
-- campaign planning;
-- canonical assets and channel variants;
-- content and creative studio;
+- Campaigns and Studio desktop workflows;
+- broader content and creative studio asset families;
 - website, SEO, AEO, and conversion analysis;
 - approval and external-action state machine;
 - approved social publishing;
@@ -160,7 +164,7 @@ Remaining work concerns product decisions, schemas, implementation, validation, 
 
 1. Complete hands-on accessibility and unfamiliar-founder acceptance for issue #2, then remediate any evidenced gaps.
 2. Complete hands-on accessibility and unfamiliar-user acceptance for issue #5, then remediate evidenced gaps.
-3. Implement Campaign Brief and Canonical Asset under issue #6.
+3. Connect the guarded Campaign Brief and Canonical Asset core to Campaigns and Studio desktop workflows under issue #6.
 4. Implement Public Repository Growth and Launch under issue #3.
 5. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
 6. Implement Calendar, Manual Activation, Outcome Capture, and Learning under issue #7 before direct publishing adapters.
