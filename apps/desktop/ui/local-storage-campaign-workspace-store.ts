@@ -4,9 +4,16 @@ import type { CampaignWorkspaceStore } from "../../../src/campaigns/ports/campai
 const PREFIX = "viable.campaign-workspace.";
 
 export class LocalStorageCampaignWorkspaceStore implements CampaignWorkspaceStore {
-  async load(workspaceId: string): Promise<CampaignWorkspace | undefined> {
+  async load(workspaceId: string): Promise<CampaignWorkspace> {
     const value = localStorage.getItem(`${PREFIX}${workspaceId}`);
-    return value ? JSON.parse(value) as CampaignWorkspace : undefined;
+    return value ? JSON.parse(value) as CampaignWorkspace : {
+      workspaceId,
+      campaigns: [],
+      assets: [],
+      variants: [],
+      exports: [],
+      updatedAt: new Date(0).toISOString(),
+    };
   }
 
   async save(workspace: CampaignWorkspace): Promise<void> {
