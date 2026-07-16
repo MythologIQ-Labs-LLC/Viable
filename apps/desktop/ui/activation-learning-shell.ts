@@ -18,7 +18,7 @@ function activateNavigation(): void {
   if (!nav) return;
   let calendar = nav.querySelector<HTMLButtonElement>('button[data-nav="calendar"]');
   if (!calendar) {
-    calendar = [...nav.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.trim().startsWith("Calendar"));
+    calendar = [...nav.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.trim().startsWith("Calendar")) ?? null;
   }
   if (calendar) activate(calendar, "calendar", "Calendar");
   let analytics = nav.querySelector<HTMLButtonElement>('button[data-nav="analytics"]');
