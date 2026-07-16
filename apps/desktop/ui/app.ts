@@ -3,6 +3,7 @@ import { ICP_DIMENSIONS, type IcpDimension, type IcpHypothesis, type IcpRoles } 
 import type { MarketabilityDimension, ReadinessFinding } from "../../../src/product-core/domain/assessment.js";
 import type { ProductWorkspace } from "../../../src/product-core/domain/workspace.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
+import { SignalsViewController } from "./signals-view.js";
 
 const store = new LocalStorageProductWorkspaceStore();
 const service = new ProductCoreService(store);
@@ -15,7 +16,8 @@ const main = requiredElement("#main");
 const live = requiredElement("#live-region");
 
 let workspace: ProductWorkspace | undefined;
-let page: "home" | "product" = "home";
+let page: "home" | "product" | "signals" | "market" = "home";
+let signalsController: SignalsViewController | undefined;
 let lastFailure: string | undefined;
 
 const dimensionLabels: Record<IcpDimension, string> = {
@@ -56,6 +58,14 @@ function setBusy(busy: boolean): void {
 async function refresh(): Promise<void> {
   const id = store.activeWorkspaceId();
   workspace = id ? await store.load(id) : undefined;
+  if (workspace) {
+    if (!signalsController || signalsController.workspaceId !== workspace.id) {
+      signalsController = new SignalsViewController(workspace.id, workspace.createdBy);
+    }
+    await signalsController.load();
+  } else {
+    signalsController = undefined;
+  }
   render();
 }
 async function act(task: () => Promise<void>, success: string): Promise<void> {
@@ -82,7 +92,8 @@ function nav(): string {
     <nav aria-label="Primary">
       <button type="button" data-nav="home" aria-current="${page === "home" ? "page" : "false"}">Home</button>
       <button type="button" data-nav="product" aria-current="${page === "product" ? "page" : "false"}">Product</button>
-      <button type="button" disabled>Signals <span>Planned</span></button>
+      <button type="button" data-nav="signals" aria-current="${page === "signals" ? "page" : "false"}">Signals</button>
+      <button type="button" data-nav="market" aria-current="${page === "market" ? "page" : "false"}">Market</button>
       <button type="button" disabled>Campaigns <span>Planned</span></button>
       <button type="button" disabled>Studio <span>Planned</span></button>
       <button type="button" disabled>Calendar <span>Planned</span></button>
@@ -249,7 +260,13 @@ function productView(value: ProductWorkspace): string {
 
 function render(): void {
   document.querySelector<HTMLElement>("#sidebar")!.innerHTML = nav();
-  main.innerHTML = workspace ? (page === "home" ? homeView(workspace) : productView(workspace)) : emptyWorkspace();
+  main.innerHTML = workspace
+    ? page === "home"
+      ? homeView(workspace)
+      : page === "product"
+        ? productView(workspace)
+        : signalsController?.render(page) ?? '<section class="state loading" role="status"><strong>Loading Signals Inbox</strong></section>'
+    : emptyWorkspace();
 }
 
 function rolesFrom(form: FormData): IcpRoles {
@@ -264,7 +281,26 @@ document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
   if (!button) return;
   const targetPage = button.dataset.nav;
-  if (targetPage === "home" || targetPage === "product") { page = targetPage; render(); main.focus(); return; }
+  if (targetPage === "home" || targetPage === "product" || targetPage === "signals" || targetPage === "market") {
+    page = targetPage;
+    if (targetPage === "signals" || targetPage === "market") {
+      void signalsController?.load().then(() => { render(); main.focus(); });
+    } else {
+      render();
+      main.focus();
+    }
+    return;
+  }
+  if (button.dataset.signalAction && signalsController) {
+    void signalsController.click(button).then((message) => {
+      render();
+      if (message) announce(message);
+    }).catch((error: unknown) => {
+      render();
+      announce(`Signal action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    });
+    return;
+  }
   const action = button.dataset.action;
   if (action === "retry-render") { lastFailure = undefined; void refresh(); }
   if (action === "reset-workspace") { if (confirm("Delete this local workspace from this desktop profile?")) { store.clearActiveWorkspace(); workspace = undefined; page = "home"; render(); announce("Local workspace deleted"); } }
@@ -291,6 +327,17 @@ document.addEventListener("submit", (event) => {
   const formElement = event.target as HTMLFormElement;
   const kind = formElement.dataset.form;
   const form = new FormData(formElement);
+  if (kind?.startsWith("signals-") && signalsController) {
+    void signalsController.submit(formElement).then((message) => {
+      render();
+      if (message) announce(message);
+      formElement.reset();
+    }).catch((error: unknown) => {
+      render();
+      announce(`Signal operation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    });
+    return;
+  }
   if (kind === "create-workspace") void act(async () => {
     workspace = await service.createWorkspace({ identity: { name: String(form.get("name")), description: String(form.get("description")), lifecycle: String(form.get("lifecycle")) as "concept", supportedEnvironments: lines(form.get("environments")) }, createdBy: String(form.get("createdBy")) });
     page = "product";
