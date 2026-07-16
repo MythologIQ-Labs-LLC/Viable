@@ -105,7 +105,7 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 ## Source migration
 
 - GitHub issue #1 is the implementation authority for the sanitized Event Radar product-code migration.
-- [Product provenance and ownership](product/product-provenance-and-ownership.md) defines the durable migration and ownership boundary.
+- [Product provenance and ownership](product/provenance-and-ownership.md) defines the durable migration and ownership boundary.
 - No external-organization content, credentials, account identifiers, destinations, prompts, logs, reports, confidential fixtures, or secret-bearing material may be imported.
 - Imported event functionality must respect ADR-0006 and remain a bounded subsystem inside the wider marketability architecture.
 
