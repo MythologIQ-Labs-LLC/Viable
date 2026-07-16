@@ -3,14 +3,28 @@
   "compilerOptions": {
     "rootDir": "../..",
     "outDir": "web/generated",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "types": []
   },
   "include": [
     "ui/**/*.ts",
     "../../src/product-core/domain/**/*.ts",
     "../../src/product-core/ports/**/*.ts",
-    "../../src/product-core/services/**/*.ts"
+    "../../src/product-core/services/**/*.ts",
+    "../../src/signals/domain/**/*.ts",
+    "../../src/signals/ports/**/*.ts",
+    "../../src/signals/services/**/*.ts",
+    "../../src/signals/adapters/event-intelligence-signal-source.ts",
+    "../../src/signals/adapters/github-public-repository-source.ts",
+    "../../src/signals/adapters/manual-json-signal-source.ts",
+    "../../src/event-intelligence/domain/**/*.ts",
+    "../../src/event-intelligence/ports/**/*.ts"
   ],
-  "exclude": ["web/generated"]
+  "exclude": [
+    "web/generated"
+  ]
 }
