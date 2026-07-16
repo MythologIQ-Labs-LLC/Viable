@@ -1,3 +1,7 @@
+export * from "./campaigns/adapters/local-json-campaign-workspace-store.js";
+export * from "./campaigns/domain/campaign.js";
+export * from "./campaigns/ports/campaign-workspace-store.js";
+export * from "./campaigns/services/campaign-service.js";
 export * from "./approvals/named-human-approval.js";
 export * from "./event-intelligence/adapters/ics-source.js";
 export * from "./event-intelligence/adapters/local-json-run-store.js";
