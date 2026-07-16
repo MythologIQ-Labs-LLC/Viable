@@ -28,6 +28,10 @@
     "../../src/repository-growth/ports/**/*.ts",
     "../../src/repository-growth/services/**/*.ts",
     "../../src/repository-growth/adapters/github-public-repository-growth-source.ts",
+    "../../src/video-production/domain/**/*.ts",
+    "../../src/video-production/ports/**/*.ts",
+    "../../src/video-production/services/**/*.ts",
+    "../../src/video-production/adapters/vimax-v1-1-manual-adapter.ts",
     "../../src/event-intelligence/domain/**/*.ts",
     "../../src/event-intelligence/ports/**/*.ts"
   ],
