@@ -5,7 +5,7 @@
 
 ### A local-first marketability operating system for products, public repositories, founders, and small teams
 
-[![Status: Internal Slice 2](https://img.shields.io/badge/Status-internal_slice_2-2ea043)](#current-state)
+[![Status: Internal Slice 3](https://img.shields.io/badge/Status-internal_slice_3-2ea043)](#current-state)
 [![Approach: Local first](https://img.shields.io/badge/Approach-local_first-8957e5)](#product-principles)
 [![ICP: Evidence based](https://img.shields.io/badge/ICP-evidence_based-0b7285)](#identify-the-proper-icp)
 [![External action: Human approved](https://img.shields.io/badge/External_action-human_approved-b42335)](docs/adr/0005-human-approval-for-external-action.md)
@@ -15,7 +15,7 @@
 </div>
 
 > [!IMPORTANT]
-> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. Its internal desktop foundation, bounded Event Intelligence, Product Core, canonical ICP workflow, marketability assessment, bounded Signals Inbox, and guarded campaign and canonical-asset core are implemented and automatedly validated. Campaigns and Studio desktop workflows, publishing, leads, sales, analytics, signed installers, and end-user acceptance remain incomplete.
+> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. Its internal desktop foundation, bounded Event Intelligence, Product Core, canonical ICP workflow, marketability assessment, bounded Signals Inbox, guarded campaign and canonical-asset authority, and Campaigns and Studio desktop workflows are implemented and automatedly validated. Publishing, leads, sales, analytics, signed installers, hands-on accessibility acceptance, unfamiliar-user acceptance, and end-user release readiness remain incomplete.
 
 Viable helps founders and product teams determine what is true about a product, identify and validate the proper ideal customer profile, assess marketability, understand the market, create coordinated assets, approve external action, capture qualified demand, support sales, and learn from measurable outcomes.
 
@@ -127,27 +127,42 @@ Signals preserve provenance, freshness, confidence, access limitations, and part
 
 ### Positioning and campaigns
 
-Campaign planning includes:
+The implemented internal Campaigns workflow creates one focused campaign brief with:
 
-- ICP or intentional test audience;
-- problem, urgency, trigger, desired outcome, and objection;
-- category, alternatives, differentiation, and message hierarchy;
-- offer, proof, and call to action;
-- launch, evergreen, event-driven, account-focused, partnership, nurture, and repository campaigns;
-- asset matrices, dependencies, owners, approval, measurement, and retrospective.
+- a reviewed selected ICP or an intentional test audience;
+- one primary outcome and one primary audience;
+- problem, trigger, offer, message hierarchy, proof, and call to action;
+- approved Product Core claims and reviewed evidence snapshots;
+- LinkedIn, website, and GitHub release channel plans;
+- asset plan, dependencies, owner, success measures, review, and approval state.
+
+Broader launch, evergreen, event-driven, account-focused, partnership, nurture, repository, measurement, and retrospective campaign behavior remains planned.
+
+See [Campaigns and Studio desktop workflow](docs/user/campaigns-and-studio.md).
 
 ### Content and creative studio
 
-Viable is planned to support coordinated asset families rather than copying one paragraph into every platform:
+The implemented internal Studio workflow supports:
+
+- one canonical asset linked to an approved campaign;
+- human-authored or generated-suggestion origin state;
+- claims, evidence, rights, accessibility, disclosure, comments, and version history;
+- named review, rejection, changes requested, approval, and approval invalidation;
+- separate LinkedIn, website, and GitHub release variants;
+- channel body, constraints, review state, and side-by-side comparison;
+- manual JSON export only after all required approvals pass;
+- an explicit manifest stating that publishing is not approved and delivery has not occurred.
+
+Viable is planned to expand coordinated asset families beyond those implemented variants rather than copying one paragraph into every platform:
 
 - website and landing-page copy;
 - articles, guides, FAQs, comparisons, case studies, and thought leadership;
-- LinkedIn, Facebook, Instagram, X, Threads, Bluesky, Mastodon, and other supported variants;
+- Facebook, Instagram, X, Threads, Bluesky, Mastodon, and other supported variants;
 - newsletters, lifecycle email, sales email, and outreach drafts;
 - one-pagers, battlecards, pitch decks, demo scripts, proposals, and launch kits;
 - image briefs, carousels, diagrams, thumbnails, and ad concepts;
 - short-video briefs, hooks, scripts, storyboards, shot lists, captions, voiceover, edit plans, rights manifests, and platform variants;
-- claims, evidence, rights, accessibility, comments, version history, review, approval, delivery, and performance.
+- delivery, performance, and broader asset-family coordination.
 
 ### Website, SEO, AEO, and conversion
 
@@ -263,7 +278,7 @@ Durable architecture is documented in:
 
 ## Current state
 
-Viable is currently in the second internal product-slice stage.
+Viable is currently in the third internal product-slice stage.
 
 | Area | Status |
 |---|---|
@@ -281,8 +296,9 @@ Viable is currently in the second internal product-slice stage.
 | Independent runtime and native desktop | Foundation operational and validated |
 | Product truth, ICP, and assessment | Internal workflow implemented and automatedly validated; unfamiliar-founder acceptance pending |
 | Signals Inbox and Market evidence | Internal event, public GitHub, and manual-import workflow implemented and automatedly validated; human acceptance pending |
-| Campaign and canonical-asset authority core | Product Core-traceable domain, review transitions, invalidation, and manual export manifest implemented and automatedly validated |
-| Campaigns and Studio desktop workflows, leads, sales, and analytics | Designed; not implemented |
+| Campaign and canonical-asset authority core | Product Core-traceable domain, review transitions, invalidation, persistence, and manual export manifest implemented and automatedly validated |
+| Campaigns and Studio desktop workflows | Local campaign, canonical asset, channel comparison, review, and manual export journey implemented and automatedly validated; human acceptance pending |
+| Leads, sales, and analytics | Designed; not implemented |
 | Publishing and generation adapters | Not implemented |
 | Installer | Internal Debian package validated; end-user release not ready |
 
@@ -358,6 +374,7 @@ That handoff records:
 - [Current state](docs/status/current-state.md)
 - [Product and ICP desktop workflow](docs/user/product-and-icp-workflow.md)
 - [Signals Inbox and Market evidence workflow](docs/user/signals-inbox.md)
+- [Campaigns and Studio desktop workflow](docs/user/campaigns-and-studio.md)
 
 ## License
 
