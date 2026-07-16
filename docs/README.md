@@ -83,6 +83,7 @@ Integration access, pricing, scopes, provider terms, and review requirements mus
 ## User guides
 
 - [Product and ICP desktop workflow](user/product-and-icp-workflow.md)
+- [Signals Inbox and Market evidence workflow](user/signals-inbox.md)
 
 ## Status and reviews
 

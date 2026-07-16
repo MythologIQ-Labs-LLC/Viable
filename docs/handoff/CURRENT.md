@@ -11,9 +11,9 @@ It preserves the product context required to begin a new session without dependi
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- Latest merged implementation PR: #11 at `bfd40c351b461016f246216026d0da963f1c2f76`
-- Current maturity: internal Slice 1 implementation on `main` with automated desktop validation
-- Current implementation priority: complete human accessibility and unfamiliar-founder acceptance for issue #2 while beginning the bounded Signals Inbox under issue #5
+- Latest merged implementation PR: #13 at `a77a3a2a2ca30b8b7b55a48a8840bcb2aec164b0`
+- Current maturity: internal Slice 2 implementation on `main` with automated desktop validation
+- Current implementation priority: complete human acceptance for issues #2 and #5 while beginning Campaign Brief and Canonical Asset under issue #6
 
 ## Read before acting
 
@@ -238,7 +238,23 @@ Still required before issue #2 closes:
 - unfamiliar-founder completion of the primary journey without maintainer intervention;
 - any remediation evidenced by those reviews.
 
-Later slices remain unimplemented: Signals, campaigns, canonical assets, repository launch, ViMax production package, calendar and outcome learning, publishing, leads, sales, and analytics.
+Merged to `main` and automatedly validated through PR #13:
+
+- provider-neutral signal, source-health, provenance, relationship, and conversion contracts;
+- bounded Event Intelligence import;
+- public unauthenticated GitHub repository metadata and sampled-activity evidence;
+- strict manual JSON signal import;
+- Signals and Market desktop navigation;
+- named signal review, save, tag, assignment, connection, and conversion to proposed owned work;
+- explicit verified-empty, partial, rate-limit, unavailable, validation, transport, offline, and recovery states.
+
+Still required before issue #5 closes:
+
+- hands-on keyboard and screen-reader review;
+- unfamiliar-user completion of the primary Signals journey;
+- any remediation evidenced by those reviews.
+
+Later slices remain unimplemented: campaigns, canonical assets, repository launch, ViMax production package, calendar and outcome learning, publishing, leads, sales, and analytics.
 
 Do not claim planned behavior is operational until code, tests, acceptance, and current-state updates exist.
 
@@ -277,7 +293,7 @@ Especially important:
 
 ## Exact new-session prompt
 
-> Continue work on `MythologIQ-Labs-LLC/Viable`. First read `README.md`, `docs/handoff/CURRENT.md`, `docs/product/PRD.md`, `docs/product/icp-discovery-and-validation.md`, `docs/adr/README.md`, `docs/architecture/viable-platform.md`, `docs/architecture/icp-domain.md`, `docs/status/current-state.md`, `docs/roadmap/initial-build-sequence.md`, and `docs/decisions/open-decisions.md`. Inspect merged PRs #8 through #11 and issues #1 through #7 before proposing or changing implementation. Treat Viable as a MythologIQ-owned local-first marketability operating system that explicitly helps founders identify, validate, and refine the proper ICP. Preserve the fail-closed source-migration boundary and do not import external organization content, credentials, accounts, destinations, private operational data, or ambiguous licensing. Keep Event Intelligence bounded, Product Core authoritative for ICP, and named human approval mandatory for external action. Distinguish designed behavior from implemented and validated behavior. Then report the current state, unresolved decisions, and the single next highest-value action before proceeding.
+> Continue work on `MythologIQ-Labs-LLC/Viable`. First read `README.md`, `docs/handoff/CURRENT.md`, `docs/product/PRD.md`, `docs/product/icp-discovery-and-validation.md`, `docs/adr/README.md`, `docs/architecture/viable-platform.md`, `docs/architecture/icp-domain.md`, `docs/status/current-state.md`, `docs/roadmap/initial-build-sequence.md`, and `docs/decisions/open-decisions.md`. Inspect merged PRs #8 through #13 and issues #1 through #7 before proposing or changing implementation. Treat Viable as a MythologIQ-owned local-first marketability operating system that explicitly helps founders identify, validate, and refine the proper ICP. Preserve the fail-closed source-migration boundary and do not import external organization content, credentials, accounts, destinations, private operational data, or ambiguous licensing. Keep Event Intelligence bounded, Product Core authoritative for ICP, and named human approval mandatory for external action. Distinguish designed behavior from implemented and validated behavior. Then report the current state, unresolved decisions, and the single next highest-value action before proceeding.
 
 ## Historical session detail
 

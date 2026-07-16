@@ -6,6 +6,8 @@ This sequence identifies the first complete product slices to build after the sa
 
 ## Slice 1: Product truth, ICP discovery, and marketability assessment
 
+Status: internal workflow implemented and automatedly validated; hands-on accessibility and unfamiliar-founder acceptance remain open under issue #2.
+
 ### User outcome
 
 A founder creates one product workspace, verifies what the product does, identifies and compares credible ICP hypotheses, selects a primary ICP with evidence and disqualifiers, defines the offer, and receives an evidence-backed marketability assessment with prioritized next actions.
@@ -42,6 +44,8 @@ Every later campaign, asset, repository recommendation, outreach draft, video sc
 - a product-truth or ICP gap can become an owned action, experiment, campaign, or product-feedback item.
 
 ## Slice 2: Signals inbox with events and public repositories
+
+Status: internal workflow implemented and automatedly validated through PR #13; hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
 
 ### User outcome
 
