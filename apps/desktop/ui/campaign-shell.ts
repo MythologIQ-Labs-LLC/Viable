@@ -30,11 +30,27 @@ function activate(button: HTMLButtonElement, target: "campaigns" | "studio", tex
   button.setAttribute("aria-current", page === target ? "page" : "false");
 }
 
-function decorateChoices(): void {
+function prepareCampaignForms(): void {
   if (!main) return;
   for (const label of main.querySelectorAll<HTMLLabelElement>("label")) {
     if (label.querySelector('input[type="checkbox"]')) label.classList.add("choice");
   }
+  const form = main.querySelector<HTMLFormElement>('form[data-form="campaign-create-brief"]');
+  if (!form) return;
+  for (const evidence of form.querySelectorAll<HTMLInputElement>('input[name="evidenceIds"]')) evidence.checked = true;
+  const audience = form.querySelector<HTMLSelectElement>('select[name="audienceKind"]');
+  const icp = form.querySelector<HTMLSelectElement>('select[name="icpHypothesisId"]');
+  if (!audience || !icp) return;
+  const synchronize = (): void => {
+    const usesSelectedIcp = audience.value === "selected_icp";
+    icp.disabled = !usesSelectedIcp;
+    if (usesSelectedIcp && !icp.value) {
+      const option = [...icp.options].find((candidate) => Boolean(candidate.value));
+      if (option) icp.value = option.value;
+    }
+  };
+  audience.addEventListener("change", synchronize);
+  synchronize();
 }
 
 async function open(target: "campaigns" | "studio"): Promise<void> {
@@ -65,7 +81,7 @@ async function open(target: "campaigns" | "studio"): Promise<void> {
 function render(): void {
   if (!main || !page) return;
   main.innerHTML = controller?.render(page) ?? `<section class="state loading" role="status"><strong>Loading campaign workflow</strong></section>`;
-  decorateChoices();
+  prepareCampaignForms();
   activateNavigation();
 }
 
@@ -101,6 +117,10 @@ document.addEventListener("submit", (event) => {
   if (!form.dataset.form?.startsWith("campaign-") || !controller || !page) return;
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (form.dataset.form === "campaign-create-brief" && !form.querySelector('input[name="channels"]:checked')) {
+    announce("Select at least one campaign channel");
+    return;
+  }
   main?.setAttribute("aria-busy", "true");
   void controller.submit(form).then((message) => {
     render();
