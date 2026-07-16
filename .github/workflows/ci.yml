@@ -24,6 +24,25 @@ jobs:
       - name: Check core TypeScript
         run: npm run check
       - name: Check desktop TypeScript
-        run: npm run desktop:web:check
+        id: desktop_typecheck
+        shell: bash
+        run: |
+          set +e
+          npm run desktop:web:check > desktop-typecheck.log 2>&1
+          status=$?
+          cat desktop-typecheck.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload desktop typecheck diagnostics
+        if: steps.desktop_typecheck.outputs.status != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-typecheck-diagnostics
+          path: desktop-typecheck.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce desktop TypeScript result
+        if: steps.desktop_typecheck.outputs.status != '0'
+        run: exit 1
       - name: Build and test
         run: npm test
