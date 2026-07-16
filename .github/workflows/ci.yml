@@ -65,3 +65,10 @@ jobs:
         run: exit 1
       - name: Build and test
         run: npm test
+      - name: Upload video service source
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-service-source
+          path: src/video-production/services/video-production-service.ts
+          if-no-files-found: error
+          retention-days: 1
