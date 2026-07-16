@@ -1,3 +1,6 @@
+export * from "./activation-learning/adapters/local-json-activation-learning-store.js";
+export * from "./activation-learning/ports/activation-learning-store.js";
+export * from "./activation-learning/services/activation-learning-service.js";
 export * from "./campaigns/adapters/local-json-campaign-workspace-store.js";
 export * from "./campaigns/domain/campaign.js";
 export * from "./campaigns/ports/campaign-workspace-store.js";
