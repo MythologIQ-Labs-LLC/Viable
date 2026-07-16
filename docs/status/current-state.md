@@ -22,7 +22,7 @@ Viable is currently in the first internal product-slice stage.
 
 The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, and native Viable shell are established. Product workspace, product-truth revision, evidence review, canonical ICP hypothesis comparison and selection, explained marketability assessment, and owned readiness actions are implemented.
 
-PR #11 connects those canonical services to the Home and Product desktop workflow and passes automated Node, TypeScript, Rust, release-build, and Debian package validation. Hands-on assistive-technology review and unfamiliar-founder acceptance remain open. No claim should imply that Signals, campaigns, assets, outreach, publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
+Merged PR #11 connects those canonical services to the Home and Product desktop workflow and passed automated Node, TypeScript, Rust, release-build, and Debian package validation. Hands-on assistive-technology review and unfamiliar-founder acceptance remain open. No claim should imply that Signals, campaigns, assets, outreach, publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
 
 ## Implemented in this repository
 
