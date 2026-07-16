@@ -12,6 +12,9 @@
   },
   "include": [
     "ui/**/*.ts",
+    "../../src/activation-learning/domain/**/*.ts",
+    "../../src/activation-learning/ports/**/*.ts",
+    "../../src/activation-learning/services/**/*.ts",
     "../../src/product-core/domain/**/*.ts",
     "../../src/product-core/ports/**/*.ts",
     "../../src/product-core/services/**/*.ts",
