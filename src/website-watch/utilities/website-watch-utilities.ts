@@ -1,6 +1,3 @@
-import { createHash } from "node:crypto";
-import { isIP } from "node:net";
-
 export type WebsiteWatchFailureStatus =
   | "unavailable"
   | "rate_limited"
@@ -25,8 +22,78 @@ const secretValuePatterns = [
   /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*[^\s,;]{8,}/i,
 ];
 
+const sha256Constants = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
+
 export function hashSnapshot(value: string): string {
-  return createHash("sha256").update(value, "utf8").digest("hex");
+  const source = new TextEncoder().encode(value);
+  const bitLength = source.length * 8;
+  const paddedLength = Math.ceil((source.length + 9) / 64) * 64;
+  const bytes = new Uint8Array(paddedLength);
+  bytes.set(source);
+  bytes[source.length] = 0x80;
+  const view = new DataView(bytes.buffer);
+  const high = Math.floor(bitLength / 0x1_0000_0000);
+  const low = bitLength >>> 0;
+  view.setUint32(paddedLength - 8, high, false);
+  view.setUint32(paddedLength - 4, low, false);
+
+  const state = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
+  const words = new Uint32Array(64);
+  for (let offset = 0; offset < bytes.length; offset += 64) {
+    for (let index = 0; index < 16; index += 1) words[index] = view.getUint32(offset + index * 4, false);
+    for (let index = 16; index < 64; index += 1) {
+      const a = words[index - 15] ?? 0;
+      const b = words[index - 2] ?? 0;
+      const s0 = rotateRight(a, 7) ^ rotateRight(a, 18) ^ (a >>> 3);
+      const s1 = rotateRight(b, 17) ^ rotateRight(b, 19) ^ (b >>> 10);
+      words[index] = ((words[index - 16] ?? 0) + s0 + (words[index - 7] ?? 0) + s1) >>> 0;
+    }
+    let a = state[0] ?? 0;
+    let b = state[1] ?? 0;
+    let c = state[2] ?? 0;
+    let d = state[3] ?? 0;
+    let e = state[4] ?? 0;
+    let f = state[5] ?? 0;
+    let g = state[6] ?? 0;
+    let h = state[7] ?? 0;
+    for (let index = 0; index < 64; index += 1) {
+      const sigma1 = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+      const choice = (e & f) ^ (~e & g);
+      const first = (h + sigma1 + choice + (sha256Constants[index] ?? 0) + (words[index] ?? 0)) >>> 0;
+      const sigma0 = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+      const majority = (a & b) ^ (a & c) ^ (b & c);
+      const second = (sigma0 + majority) >>> 0;
+      h = g;
+      g = f;
+      f = e;
+      e = (d + first) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (first + second) >>> 0;
+    }
+    state[0] = ((state[0] ?? 0) + a) >>> 0;
+    state[1] = ((state[1] ?? 0) + b) >>> 0;
+    state[2] = ((state[2] ?? 0) + c) >>> 0;
+    state[3] = ((state[3] ?? 0) + d) >>> 0;
+    state[4] = ((state[4] ?? 0) + e) >>> 0;
+    state[5] = ((state[5] ?? 0) + f) >>> 0;
+    state[6] = ((state[6] ?? 0) + g) >>> 0;
+    state[7] = ((state[7] ?? 0) + h) >>> 0;
+  }
+  return [...state].map((word) => word.toString(16).padStart(8, "0")).join("");
 }
 
 export function boundedLineDiff(
@@ -125,7 +192,7 @@ export function normalizeDomain(input: string): string {
   const value = input.trim().toLocaleLowerCase("en-US");
   const candidate = value.includes("://") ? value : `https://${value}`;
   const url = new URL(candidate);
-  return url.hostname.replace(/\.$/, "");
+  return stripIpv6Brackets(url.hostname.replace(/\.$/, ""));
 }
 
 export function validatePublicHttpUrl(input: string, label = "URL"): URL {
@@ -135,15 +202,11 @@ export function validatePublicHttpUrl(input: string, label = "URL"): URL {
   } catch {
     throw new Error(`${label} must be a valid absolute URL`);
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error(`${label} must use HTTP or HTTPS`);
-  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error(`${label} must use HTTP or HTTPS`);
   if (url.username || url.password) throw new Error(`${label} must not contain embedded credentials`);
   if (url.port && !/^\d{1,5}$/.test(url.port)) throw new Error(`${label} contains an invalid port`);
-  const hostname = url.hostname.replace(/\.$/, "").toLocaleLowerCase("en-US");
-  if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost")) {
-    throw new Error(`${label} must not target localhost`);
-  }
+  const hostname = stripIpv6Brackets(url.hostname.replace(/\.$/, "").toLocaleLowerCase("en-US"));
+  if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost")) throw new Error(`${label} must not target localhost`);
   if (isBlockedAddress(hostname)) throw new Error(`${label} must not target loopback, private, link-local, or reserved addresses`);
   for (const key of url.searchParams.keys()) {
     if (secretKeyPattern.test(key)) throw new Error(`${label} must not contain credential-like query parameters`);
@@ -185,6 +248,10 @@ export function classifyProviderError(error: unknown, aborted = false, offline =
   return "transport_failed";
 }
 
+function rotateRight(value: number, shift: number): number {
+  return (value >>> shift) | (value << (32 - shift));
+}
+
 function providerStatus(error: unknown): number {
   if (!error || typeof error !== "object") return 0;
   const value = error as { status?: unknown; statusCode?: unknown; code?: unknown };
@@ -194,23 +261,72 @@ function providerStatus(error: unknown): number {
   return 0;
 }
 
+function stripIpv6Brackets(hostname: string): string {
+  return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
+}
+
 function isBlockedAddress(hostname: string): boolean {
-  const ipVersion = isIP(hostname);
-  if (ipVersion === 4) {
-    const parts = hostname.split(".").map(Number);
-    const a = parts[0] ?? -1;
-    const b = parts[1] ?? -1;
-    if (a === 0 || a === 10 || a === 127) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a >= 224) return true;
+  const ipv4 = parseIpv4(hostname);
+  if (ipv4) return isBlockedIpv4(ipv4);
+  const ipv6 = parseIpv6(hostname);
+  if (ipv6) {
+    const [first = 0, second = 0] = ipv6;
+    if (ipv6.every((value) => value === 0)) return true;
+    if (ipv6.slice(0, 7).every((value) => value === 0) && ipv6[7] === 1) return true;
+    if ((first & 0xfe00) === 0xfc00) return true;
+    if ((first & 0xffc0) === 0xfe80) return true;
+    if ((first & 0xff00) === 0xff00) return true;
+    if (first === 0x2001 && second === 0x0db8) return true;
+    if (ipv6.slice(0, 5).every((value) => value === 0) && ipv6[5] === 0xffff) {
+      return isBlockedIpv4([(ipv6[6] ?? 0) >>> 8, (ipv6[6] ?? 0) & 0xff, (ipv6[7] ?? 0) >>> 8, (ipv6[7] ?? 0) & 0xff]);
+    }
     return false;
   }
-  if (ipVersion === 6) {
-    const value = hostname.toLocaleLowerCase("en-US");
-    return value === "::" || value === "::1" || value.startsWith("fc") || value.startsWith("fd") || value.startsWith("fe8") || value.startsWith("fe9") || value.startsWith("fea") || value.startsWith("feb");
-  }
   return hostname === "metadata.google.internal" || hostname.endsWith(".internal");
+}
+
+function parseIpv4(value: string): [number, number, number, number] | undefined {
+  const parts = value.split(".");
+  if (parts.length !== 4) return undefined;
+  const numbers = parts.map((part) => /^\d{1,3}$/.test(part) ? Number(part) : Number.NaN);
+  if (numbers.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return undefined;
+  return [numbers[0] ?? 0, numbers[1] ?? 0, numbers[2] ?? 0, numbers[3] ?? 0];
+}
+
+function isBlockedIpv4(parts: readonly number[]): boolean {
+  const a = parts[0] ?? -1;
+  const b = parts[1] ?? -1;
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 0 && (parts[2] ?? -1) === 0) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 198 && (b === 18 || b === 19)) return true;
+  if (a === 198 && b === 51 && (parts[2] ?? -1) === 100) return true;
+  if (a === 203 && b === 0 && (parts[2] ?? -1) === 113) return true;
+  if (a >= 224) return true;
+  return false;
+}
+
+function parseIpv6(value: string): number[] | undefined {
+  if (!value.includes(":")) return undefined;
+  let normalized = value.toLocaleLowerCase("en-US");
+  const embedded = normalized.match(/(?:^|:)(\d{1,3}(?:\.\d{1,3}){3})$/)?.[1];
+  if (embedded) {
+    const ipv4 = parseIpv4(embedded);
+    if (!ipv4) return undefined;
+    const replacement = `${((ipv4[0] << 8) | ipv4[1]).toString(16)}:${((ipv4[2] << 8) | ipv4[3]).toString(16)}`;
+    normalized = normalized.slice(0, normalized.length - embedded.length) + replacement;
+  }
+  const halves = normalized.split("::");
+  if (halves.length > 2) return undefined;
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves[1] ? halves[1].split(":") : [];
+  if (halves.length === 1 && left.length !== 8) return undefined;
+  const missing = 8 - left.length - right.length;
+  if (missing < 0 || (halves.length === 2 && missing < 1)) return undefined;
+  const strings = [...left, ...Array.from({ length: missing }, () => "0"), ...right];
+  if (strings.length !== 8 || strings.some((part) => !/^[0-9a-f]{1,4}$/.test(part))) return undefined;
+  return strings.map((part) => Number.parseInt(part, 16));
 }
