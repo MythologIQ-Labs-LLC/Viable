@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-07-15 |
+| Last reviewed | 2026-07-16 |
 | Product requirements | `docs/product/PRD.md` |
 | ICP product authority | `docs/product/icp-discovery-and-validation.md` |
 | Architecture | `docs/architecture/viable-platform.md` |
@@ -18,11 +18,11 @@
 
 ## Summary
 
-Viable is currently in the second internal product-slice stage.
+Viable is currently in the third internal product-slice stage.
 
-The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, and native Viable shell are established. Product workspace, product-truth revision, evidence review, canonical ICP hypothesis comparison and selection, explained marketability assessment, and owned readiness actions are implemented.
+The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, and native Viable shell are established. Product workspace, product-truth revision, evidence review, canonical ICP hypothesis comparison and selection, explained marketability assessment, owned readiness actions, bounded market signals, and governed campaign production are implemented.
 
-Merged PR #11 connects those canonical services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox and Signals and Market desktop views. Merged PR #16 adds the guarded Campaign Brief and Canonical Asset domain, review, invalidation, persistence, and manual-export foundation. Automated Node, TypeScript, Rust, release-build, and Debian package validation has passed for the implemented slices. Campaigns and Studio desktop workflows, hands-on assistive-technology review, and unfamiliar-user acceptance remain open. No claim should imply that publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
+Merged PR #11 connects Product Core services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox and Signals and Market desktop views. Merged PR #16 adds the guarded Campaign Brief and Canonical Asset domain, review, invalidation, persistence, and manual-export foundation. Merged PR #18 connects that authority to local-first Campaigns and Studio desktop workflows with Product Core claim prerequisites, campaign review, canonical-asset versioning, channel comparison, claim-impact invalidation, and downloadable manual export manifests. Exact-head Node, TypeScript, Rust, release-build, and Debian package validation passed. Hands-on assistive-technology review and unfamiliar-user acceptance remain open for issues #2, #5, and #6. No claim should imply that publishing, video generation, lead management, sales, analytics, signed installers, or end-user release readiness are operational.
 
 ## Implemented in this repository
 
@@ -50,6 +50,7 @@ Merged PR #11 connects those canonical services to the Home and Product desktop 
 - documentation verification, closure, and traceability reports;
 - fail-closed sanitized source-migration issue;
 - implementation issues for all six initial build slices;
+- Product and ICP, Signals Inbox, and Campaigns and Studio user guides;
 - MythologIQ Labs proprietary license.
 
 ### Foundational accepted decisions
@@ -102,7 +103,12 @@ Merged PR #11 connects those canonical services to the Home and Product desktop 
 - separate canonical assets and LinkedIn, website, and GitHub release variants;
 - named review, changes-requested, rejection, approval, and approval-invalidation transitions;
 - canonical version history, comments, rights, accessibility, disclosure, and claim-impact detection;
-- manual export manifests that explicitly remain unapproved for publishing and undelivered.
+- local Campaigns and Studio navigation and browser-profile campaign workspace persistence;
+- evidence-backed Product Core claim proposal and named approval inside the campaign prerequisite journey;
+- selected-ICP and deliberate test-audience campaign creation with synchronized evidence defaults;
+- campaign, asset, and channel-variant review queues with explicit blocked, empty, offline, error, and recovery presentation;
+- channel comparison across LinkedIn, website, and GitHub release variants;
+- downloadable manual export manifests that explicitly remain unapproved for publishing and undelivered.
 
 The migration excluded external organization content, branding, governance, destinations, accounts, prompts, logs, reports, confidential fixtures, and secret-bearing material. Source-repository names remain only where required for migration provenance and exclusion evidence.
 
@@ -112,10 +118,9 @@ Event Intelligence enters through its bounded context and shared evidence contra
 
 - social and search source adapters;
 - public repository assessment and launch room;
-- Campaigns and Studio desktop workflows;
 - broader content and creative studio asset families;
 - website, SEO, AEO, and conversion analysis;
-- approval and external-action state machine;
+- destination-bound approval and external-action execution state machine;
 - approved social publishing;
 - lead and organization records;
 - sales enablement;
@@ -130,11 +135,12 @@ Event Intelligence enters through its bounded context and shared evidence contra
 |---|---|
 | Event sources | Public ICS implemented and validated; additional adapters not implemented |
 | GitHub public repository evidence | Public metadata and sampled activity implemented and validated; full repository-growth assessment remains issue #3 |
-| LinkedIn | Feasibility and adapter not implemented |
+| LinkedIn | Local campaign variant and manual export implemented; provider feasibility and adapter not implemented |
 | Facebook and Instagram | Feasibility and adapters not implemented |
 | X | Feasibility and adapter not implemented |
 | TikTok and YouTube | Feasibility and adapters not implemented |
-| Website CMS | Not implemented |
+| Website CMS | Local website variant and manual export implemented; CMS adapter not implemented |
+| GitHub release publishing | Local release variant and manual export implemented; publishing adapter not implemented |
 | Search Console and analytics | Not implemented |
 | CRM and lead capture | Not implemented |
 | ViMax | Candidate assessed; adapter not implemented |
@@ -164,7 +170,7 @@ Remaining work concerns product decisions, schemas, implementation, validation, 
 
 1. Complete hands-on accessibility and unfamiliar-founder acceptance for issue #2, then remediate any evidenced gaps.
 2. Complete hands-on accessibility and unfamiliar-user acceptance for issue #5, then remediate evidenced gaps.
-3. Connect the guarded Campaign Brief and Canonical Asset core to Campaigns and Studio desktop workflows under issue #6.
+3. Complete hands-on accessibility and unfamiliar-user acceptance for issue #6, then remediate evidenced gaps.
 4. Implement Public Repository Growth and Launch under issue #3.
 5. Prototype the ViMax production-package boundary under issue #4 after campaign and asset authority exists.
 6. Implement Calendar, Manual Activation, Outcome Capture, and Learning under issue #7 before direct publishing adapters.
