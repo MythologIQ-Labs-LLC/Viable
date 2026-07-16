@@ -11,9 +11,9 @@ It preserves the product context required to begin a new session without dependi
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- Latest merged implementation PR: #16 at `af37be157bab0c86025c375aa7118e0b16bbf208`
-- Current maturity: internal Slice 2 desktop workflow plus the guarded Slice 3 campaign and canonical-asset core on `main`
-- Current implementation priority: connect Campaigns and Studio desktop workflows under issue #6 while human acceptance remains open for issues #2 and #5
+- Latest merged implementation PR: #18 at `394a68b4962adbeb81e80f2c0b83d5c847ff7b64`
+- Current maturity: internal Slice 3 Campaigns and Studio desktop workflow on `main` with automated repository, native, bundle, and Debian-package validation
+- Current implementation priority: complete human acceptance for issues #2, #5, and #6 while beginning Public Repository Growth and Launch under issue #3
 
 ## Read before acting
 
@@ -262,12 +262,25 @@ Merged to `main` and automatedly validated through PR #16:
 - rights, accessibility, disclosure, comments, version history, and claim-impact invalidation;
 - manual export manifests that remain unapproved for publishing and undelivered.
 
+Merged to `main` and automatedly validated through PR #18:
+
+- active Campaigns and Studio desktop navigation;
+- local browser-profile campaign workspace persistence;
+- evidence-backed Product Core claim proposal and named approval inside the campaign prerequisite journey;
+- selected-ICP or deliberate test-audience campaign creation with one outcome and one audience;
+- named campaign, canonical-asset, and channel-variant review queues;
+- canonical asset rights, accessibility, disclosure, comments, and version history;
+- separate LinkedIn, website, and GitHub release variants with channel comparison;
+- Product Core claim-impact revalidation and downstream approval invalidation;
+- explicit loading, empty, blocked, offline, error, and recovery states;
+- downloadable manual export manifests that remain unapproved for publishing and undelivered;
+- exact-head secret scan, TypeScript checks, Node tests, Rust formatting, Rust tests, release bundle, and Debian package inspection.
+
 Still required before issue #6 closes:
 
-- Campaigns and Studio desktop workflows;
-- loading, empty, error, offline, and recovery behavior in those workflows;
-- hands-on accessibility review and unfamiliar-user acceptance;
-- synchronized user documentation after the primary journey exists.
+- hands-on keyboard and assistive-technology review;
+- unfamiliar-user completion of the campaign-to-export journey without maintainer intervention;
+- any remediation evidenced by those reviews.
 
 Later slices remain unimplemented: repository launch, ViMax production package, calendar and outcome learning, publishing, leads, sales, and analytics.
 
@@ -308,7 +321,7 @@ Especially important:
 
 ## Exact new-session prompt
 
-> Continue work on `MythologIQ-Labs-LLC/Viable`. First read `README.md`, `docs/handoff/CURRENT.md`, `docs/product/PRD.md`, `docs/product/icp-discovery-and-validation.md`, `docs/adr/README.md`, `docs/architecture/viable-platform.md`, `docs/architecture/icp-domain.md`, `docs/status/current-state.md`, `docs/roadmap/initial-build-sequence.md`, and `docs/decisions/open-decisions.md`. Inspect merged PRs #8 through #16 and issues #1 through #7 before proposing or changing implementation. Treat Viable as a MythologIQ-owned local-first marketability operating system that explicitly helps founders identify, validate, and refine the proper ICP. Preserve the fail-closed source-migration boundary and do not import external organization content, credentials, accounts, destinations, private operational data, or ambiguous licensing. Keep Event Intelligence bounded, Product Core authoritative for ICP, and named human approval mandatory for external action. Distinguish designed behavior from implemented and validated behavior. Then report the current state, unresolved decisions, and the single next highest-value action before proceeding.
+> Continue work on `MythologIQ-Labs-LLC/Viable`. First read `README.md`, `docs/handoff/CURRENT.md`, `docs/product/PRD.md`, `docs/product/icp-discovery-and-validation.md`, `docs/adr/README.md`, `docs/architecture/viable-platform.md`, `docs/architecture/icp-domain.md`, `docs/status/current-state.md`, `docs/roadmap/initial-build-sequence.md`, and `docs/decisions/open-decisions.md`. Inspect merged PRs #8 through #18 and issues #1 through #7 before proposing or changing implementation. Treat Viable as a MythologIQ-owned local-first marketability operating system that explicitly helps founders identify, validate, and refine the proper ICP. Preserve the fail-closed source-migration boundary and do not import external organization content, credentials, accounts, destinations, private operational data, or ambiguous licensing. Keep Event Intelligence bounded, Product Core authoritative for ICP, canonical assets separate from channel variants, and named human approval mandatory for external action. Distinguish designed behavior from implemented, automatedly validated, and human-accepted behavior. Complete human acceptance for issues #2, #5, and #6 when reviewers are available; otherwise select Public Repository Growth and Launch under issue #3 as the next implementation slice. Then report the current state, unresolved decisions, and the single next highest-value action before proceeding.
 
 ## Historical session detail
 
