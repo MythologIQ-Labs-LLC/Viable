@@ -15,7 +15,7 @@
 </div>
 
 > [!IMPORTANT]
-> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. Its internal desktop foundation, bounded Event Intelligence, Product Core, canonical ICP workflow, and marketability assessment are implemented and automatedly validated. Signals, campaigns, assets, publishing, leads, sales, analytics, signed installers, and end-user acceptance remain incomplete.
+> Viable is a MythologIQ Labs, LLC product created and led by Kevin R. Knapp. Its internal desktop foundation, bounded Event Intelligence, Product Core, canonical ICP workflow, marketability assessment, and bounded Signals Inbox are implemented and automatedly validated. Campaigns, assets, publishing, leads, sales, analytics, signed installers, and end-user acceptance remain incomplete.
 
 Viable helps founders and product teams determine what is true about a product, identify and validate the proper ideal customer profile, assess marketability, understand the market, create coordinated assets, approve external action, capture qualified demand, support sales, and learn from measurable outcomes.
 
@@ -280,7 +280,8 @@ Viable is currently in the first internal product-slice stage.
 | Sanitized Event Radar capability migration | Initial bounded migration implemented and validated |
 | Independent runtime and native desktop | Foundation operational and validated |
 | Product truth, ICP, and assessment | Internal workflow implemented and automatedly validated; unfamiliar-founder acceptance pending |
-| Signals, campaigns, Studio, leads, sales, and analytics | Designed; not implemented |
+| Signals Inbox and Market evidence | Internal event, public GitHub, and manual-import workflow implemented and automatedly validated; human acceptance pending |
+| Campaigns, Studio, leads, sales, and analytics | Designed; not implemented |
 | Publishing and generation adapters | Not implemented |
 | Installer | Internal Debian package validated; end-user release not ready |
 
@@ -355,6 +356,7 @@ That handoff records:
 - [Research, content, and outreach safety](docs/governance/research-and-outreach-safety.md)
 - [Current state](docs/status/current-state.md)
 - [Product and ICP desktop workflow](docs/user/product-and-icp-workflow.md)
+- [Signals Inbox and Market evidence workflow](docs/user/signals-inbox.md)
 
 ## License
 
