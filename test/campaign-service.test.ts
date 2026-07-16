@@ -50,7 +50,7 @@ const productWorkspace = (): ProductWorkspace => ({
     dimensions: Object.fromEntries([
       "problemIntensity", "urgency", "productFit", "timeToValue", "access", "proof",
       "adoptionFriction", "commercialViability", "retentionPotential", "strategicFit", "evidenceQuality",
-    ].map((dimension) => [dimension, { rating: 3, rationale: "Reviewed evidence", evidenceIds: ["evidence-1"], confidence: "high" }])) as ProductWorkspace["icpHypotheses"][number]["dimensions"],
+    ].map((dimension) => [dimension, { rating: 3, rationale: "Reviewed evidence", evidenceIds: ["evidence-1"], confidence: "high" }])) as unknown as ProductWorkspace["icpHypotheses"][number]["dimensions"],
     disqualifiers: ["No product authority"], antiIcpConditions: ["Bulk spam"],
     assumptions: [], contradictions: [], evidenceIds: ["evidence-1"], confidence: "high", owner: "Founder",
     lastReviewedAt: "2026-07-16T00:00:00.000Z", nextValidationAction: "Run pilot",
