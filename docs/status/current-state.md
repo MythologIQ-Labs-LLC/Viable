@@ -8,189 +8,244 @@
 | Last reviewed | 2026-07-16 |
 | Product requirements | `docs/product/PRD.md` |
 | ICP product authority | `docs/product/icp-discovery-and-validation.md` |
-| Architecture | `docs/architecture/viable-platform.md` |
-| ICP domain architecture | `docs/architecture/icp-domain.md` |
+| Platform architecture | `docs/architecture/viable-platform.md` |
+| Video Production architecture | `docs/architecture/video-production-domain.md` |
 | ADRs | `docs/adr/README.md` |
 | Open decisions | `docs/decisions/open-decisions.md` |
-| Session handoff | `docs/handoff/session-context-2026-07-15.md` |
-| Verification report | `docs/reviews/documentation-verification-2026-07-15.md` |
-| Verification closure | `docs/reviews/documentation-verification-closure-2026-07-15.md` |
+| Current handoff | `docs/handoff/CURRENT.md` |
 
 ## Summary
 
-Viable is currently in the fourth internal product-slice stage.
+Viable is currently in the fifth internal product-slice stage.
 
-The formal product and architecture baseline, sanitized Event Intelligence foundation, Product Core domain, native Viable shell, bounded Signals Inbox, governed campaign production, and public repository growth workflow are established.
+The following internal workflows are implemented and automatedly validated:
 
-Merged PR #11 connects Product Core services to the Home and Product desktop workflow. Merged PR #13 adds the bounded Signals Inbox and Signals and Market desktop views. Merged PRs #16 and #18 add the guarded Campaign Brief and Canonical Asset core and connect it to Campaigns and Studio. Merged PR #20 adds the guarded repository-growth domain, bounded public GitHub import, explained readiness assessment, owned growth planning, campaign-linked launch rooms, manual exports, baselines, and retrospective comparison. Merged PR #21 connects that authority beneath Product in the packaged desktop application and improves CI diagnostics. Exact-head Node, TypeScript, Rust, release-build, and Debian package validation passed for the implemented slices.
+1. Product Truth, ICP Discovery, and Marketability Assessment;
+2. Signals Inbox with bounded event and public repository evidence;
+3. Campaign Brief and Canonical Asset production;
+4. Public Repository Growth and Launch;
+5. provider-neutral Video Production packages and Studio review.
 
-Hands-on assistive-technology review and unfamiliar-user acceptance remain open for issues #2, #5, #6, and #3. No claim should imply that authenticated GitHub traffic collection, GitHub write operations, direct publishing, video generation, lead management, sales, general analytics, signed installers, or end-user release readiness are operational.
+Merged PR #23 implemented the governed Video Production domain, pinned ViMax `v1.1.0` compatibility metadata, blank-credential manual package, structured artifact import, render and variant review, rights and consent records, and asynchronous authority revalidation.
 
-## Implemented in this repository
+Merged PR #24 connected that authority beneath Studio in the packaged Tauri desktop application. Exact-head validation passed secret scanning, core and desktop TypeScript, 67 deterministic Node tests, Rust formatting, Rust tests, Tauri bundle construction, and Debian package inspection.
 
-### Product and architecture documentation
+Human accessibility and unfamiliar-user acceptance remain open for issues #2, #5, #6, #3, and #4.
 
-- Platinum-grade product README foundation;
-- formal Product Requirements Document with requirement IDs, MVP, quality attributes, metrics, and release gates;
-- explicit ICP discovery and validation product specification;
-- product scope;
+Viable is not an end-user release. No claim should imply that direct ViMax execution, provider credentials, Calendar, publishing, delivery evidence, leads, sales, general analytics, signed installers, or release readiness are operational.
+
+## Implemented documentation authority
+
+- Platinum-grade product README;
+- formal Product Requirements Document;
+- ICP discovery and validation specification;
 - marketability operating model;
-- accepted foundational ADR set and ADR template;
-- complete platform architectural design;
-- ICP domain architectural design;
-- phased product roadmap;
-- experience design roadmap;
-- initial build sequence;
+- accepted foundational ADR set;
+- platform architecture;
+- ICP domain architecture;
+- Repository Growth domain architecture;
+- Video Production domain architecture;
+- initial build sequence and product roadmaps;
 - open-source repository growth model;
-- ViMax integration assessment;
-- research, content, and outreach safety boundaries;
+- implemented ViMax Stage 1 integration assessment;
+- governance and safety boundaries;
 - product provenance and ownership policy;
-- canonical domain glossary;
+- canonical glossary;
 - open decisions register;
-- durable session-context handoff;
-- documentation index and authority order;
-- documentation verification, closure, and traceability reports;
-- fail-closed sanitized source-migration issue;
-- implementation issues for all six initial build slices;
-- Product and ICP, Signals Inbox, Campaigns and Studio, and Public Repository Growth user guides;
-- MythologIQ Labs proprietary license.
+- restart handoff;
+- user guides for Product and ICP, Signals, Campaigns and Studio, Repository Growth, and Video Production.
 
-### Foundational accepted decisions
+## Accepted foundational decisions
 
 - local-first workspace authority;
 - provider-neutral capability adapters;
-- product truth and claims-ledger authority;
-- evidence provenance and explicit partial failure;
+- Product Core claim authority;
+- reviewed evidence and explicit partial failure;
 - named human approval for externally consequential action;
-- marketability-loop authority with Event Intelligence as a bounded subsystem;
-- ICP hypotheses and validation belong to Product Core and cannot be silently rewritten by downstream contexts.
+- marketability-loop authority with bounded Event Intelligence;
+- Product Core ownership of canonical ICP hypotheses.
 
-### Initial build issue coverage
+Repository Growth and Video Production implement these accepted boundaries. They did not require new ADRs.
 
-| Slice | Issue |
-|---|---|
-| Sanitized event foundation and migration | #1 |
-| Product Truth, ICP Discovery, and Marketability Assessment | #2 |
-| Signals Inbox with event and repository evidence | #5 |
-| Campaign Brief and Canonical Asset | #6 |
-| Public Repository Growth and Launch | #3 |
-| ViMax production-package prototype | #4 |
-| Calendar, Manual Activation, Outcome Capture, and Learning | #7 |
+## Initial build issue coverage
+
+| Slice | Issue | Automated state |
+|---|---|---|
+| Sanitized event foundation and migration | #1 | Implemented and closed |
+| Product Truth, ICP Discovery, and Marketability Assessment | #2 | Implemented; human acceptance open |
+| Signals Inbox | #5 | Implemented; human acceptance open |
+| Campaign Brief and Canonical Asset | #6 | Implemented; human acceptance open |
+| Public Repository Growth and Launch | #3 | Implemented; human acceptance open |
+| Video Production and ViMax package prototype | #4 | Implemented Stage 1; human acceptance and issue #7 handoff open |
+| Calendar, Manual Activation, Outcome Capture, and Learning | #7 | Designed; not implemented |
 
 ## Implemented runtime foundation
 
-- product-generic event candidates with provenance;
-- explicit source outcomes that distinguish verified empty from failure;
-- public ICS event-source adapter;
-- deterministic scoring with recorded reasons;
-- partial-failure-aware collection and deduplication;
-- local atomic JSON persistence;
+### Shared platform
+
+- Tauri 2 desktop shell with Viable identity;
+- local browser-profile persistence for current desktop workflows;
+- atomic local JSON adapters for reusable domain services;
 - named human approval primitive;
-- enforced Product Core ICP mutation boundary;
-- independent Tauri 2 desktop shell with Viable identity;
-- strict TypeScript, Node, Rust, desktop, secret-scan, and Debian package validation;
-- granular CI steps with retained desktop-typecheck diagnostics on failure;
-- local Product Core workspace and product-truth revisions;
-- claims and evidence review with generated-suggestion separation;
-- canonical ICP hypotheses, roles, dimensions, disqualifiers, contradictions, comparison, review, selection, revision history, and validation experiments;
-- explained marketability findings and owned readiness actions;
-- Home and Product desktop workflow with loading, empty, local/offline, stale, contradiction, error, and recovery states;
-- keyboard-focus, semantic, scalable-text, reduced-motion, responsive, and non-color status contracts;
-- provider-neutral signal, source registration, source-health, provenance, relationship, and conversion contracts;
-- Event Intelligence signal import preserving partial and failed outcomes;
-- public unauthenticated GitHub repository metadata and sampled-activity evidence;
-- strict manual JSON signal import;
-- named signal review, deduplication, save, tag, assignment, relationship, and proposed-work conversion;
-- Signals and Market desktop workflow with evidence drawer and explicit failure states;
-- Product Core-traceable campaign briefs with one primary outcome and audience;
-- separate canonical assets and LinkedIn, website, and GitHub release variants;
-- named review, changes-requested, rejection, approval, and approval-invalidation transitions;
-- canonical version history, comments, rights, accessibility, disclosure, and claim-impact detection;
-- local Campaigns and Studio navigation and browser-profile campaign workspace persistence;
-- evidence-backed Product Core claim proposal and named approval inside the campaign prerequisite journey;
-- selected-ICP and deliberate test-audience campaign creation with synchronized evidence defaults;
-- campaign, asset, and channel-variant review queues with explicit blocked, empty, offline, error, and recovery presentation;
-- channel comparison across LinkedIn, website, and GitHub release variants;
-- downloadable campaign export manifests that explicitly remain unapproved for publishing and undelivered;
-- bounded public GitHub repository-growth import covering repository metadata, README, community profile, selected trust files, releases, downloads, and contributor sampling;
-- explicit observed, verified-zero, unavailable, and not-collected repository metric states;
-- deterministic repository readiness assessment across twelve documented dimensions with evidence, confidence, impact, effort, recommendation, owner, and verification;
-- prioritized owned repository-growth actions;
-- Product-integrated repository-growth desktop workflow rather than a disconnected top-level tool;
-- repository launch rooms linked to approved campaigns, canonical assets, and LinkedIn, website, and GitHub release variants;
-- Product Core claim and evidence revalidation at launch-room and export time;
-- release checklist, maintainer coverage, observation window, and baseline capture;
-- credential-free manual repository launch manifests that remain unapproved for publishing and undelivered;
-- retrospective comparisons that calculate deltas only for compatible numeric evidence states.
+- strict TypeScript and Node tests;
+- Rust formatting and tests;
+- Tauri bundle and Debian package validation;
+- secret scanning;
+- failure-only core TypeScript, desktop TypeScript, and build-test diagnostic artifacts.
 
-The migration excluded external organization content, branding, governance, destinations, accounts, prompts, logs, reports, confidential fixtures, and secret-bearing material. Source-repository names remain only where required for migration provenance and exclusion evidence.
+### Product Core
 
-Event Intelligence enters through its bounded context and shared evidence contracts. It does not redefine the top-level Viable product model or mutate canonical ICP state.
+- product workspace and product-truth revision;
+- capabilities and limitations;
+- claims and reviewed evidence;
+- generated-suggestion separation;
+- canonical ICP hypotheses, roles, dimensions, disqualifiers, contradictions, experiments, selection, history, and change conditions;
+- explained marketability assessment and owned readiness actions;
+- Home and Product desktop workflow.
+
+### Signals and Market
+
+- provider-neutral sources and source health;
+- provenance, freshness, confidence, and limitations;
+- bounded Event Intelligence import;
+- public GitHub repository metadata and activity evidence;
+- strict manual JSON import;
+- named review, save, tag, assign, connect, and proposed-work conversion;
+- visible verified-empty, partial, unavailable, rate-limited, validation-failed, transport-failed, offline, and recovery states.
+
+### Campaigns and Studio
+
+- Product Core-traceable campaign briefs;
+- selected ICP or deliberate test audience;
+- one primary audience and outcome;
+- canonical assets and channel variants;
+- claims, evidence, rights, accessibility, disclosures, comments, and version history;
+- named campaign, asset, and variant review;
+- approval invalidation;
+- LinkedIn, website, and GitHub release variants;
+- channel comparison;
+- credential-free manual campaign exports that remain unapproved for publishing and undelivered.
+
+### Public Repository Growth and Launch
+
+- bounded public GitHub import;
+- metadata, README, community, trust, release, and contributor evidence;
+- observed, verified-zero, unavailable, and not-collected metric states;
+- twelve explained readiness dimensions;
+- owned growth actions;
+- Product-integrated desktop workflow;
+- campaign-linked launch rooms;
+- Product Core authority revalidation;
+- release checklist and maintainer coverage;
+- observation window and baseline;
+- manual launch package;
+- bounded retrospective comparison.
+
+### Video Production and Studio
+
+- provider-neutral video brief;
+- exact approved campaign and canonical-script relationship;
+- exact script version, claim revision, and reviewed-evidence snapshot;
+- duration, platforms, aspect ratios, style, prohibited elements, captions, audio description, accessibility, and disclosures;
+- storyboard and shot constraints;
+- source-asset rights, allowed use, prohibited use, sensitive kind, consent, optional hash, and expiration;
+- user-selected LLM, image, and video provider plans;
+- estimated cost, currency, data-handling notes, and credential mode;
+- named video-brief review;
+- pinned ViMax `v1.1.0`, revision `1f8f650`, Python 3.12+, MIT, Windows/Linux upstream, macOS-unverified tool record;
+- provider-neutral manual package;
+- blank-credential Script2Video compatibility packet;
+- upstream MIT notice obligations;
+- structured run import with stages, failures, relative paths, MIME types, sizes, SHA-256 values, source relationships, and redacted logs;
+- completed, partial, failed, and cancelled render states;
+- separate draft, review, approval, changes-requested, rejection, and invalidation states;
+- named render review;
+- LinkedIn, Instagram Reels, YouTube Shorts, and website platform variants;
+- separate platform-variant review;
+- current Product Core and Campaign authority revalidation at package, import, artifact, and variant boundaries;
+- local Studio workflow with loading, empty, offline, blocked, failure, recovery, and invalidation states.
+
+## ViMax boundary
+
+ViMax is optional and removable.
+
+The implemented Stage 1 adapter:
+
+- does not contain ViMax;
+- does not install Python;
+- does not execute ViMax;
+- does not invoke a provider;
+- does not inject or store credentials;
+- does not claim Windows or Linux execution validation;
+- does not claim macOS compatibility;
+- does not schedule, publish, deliver, or measure media.
+
+The upstream project lists Windows and Linux. Viable records those as upstream statements only. macOS remains unverified.
+
+A local CLI adapter remains deferred until a stable noninteractive contract supports version checks, cancellation, progress, structured errors, bounded storage, credential injection, artifact manifests, redacted logs, and cross-platform execution testing.
 
 ## Designed but not implemented
 
-- social and search source adapters;
-- authenticated GitHub traffic, referral, clone, dependent, integration, private-repository, and write-operation adapters;
-- broader content and creative studio asset families;
+- Calendar and editorial scheduling;
+- approved external-action execution state machine;
+- delivery evidence;
+- direct social, website, or GitHub publishing;
+- local ViMax execution or managed worker;
+- model-provider execution;
+- Windows, Linux, or macOS ViMax runtime validation;
+- social and search research adapters beyond implemented sources;
+- authenticated GitHub traffic and write adapters;
 - website, SEO, AEO, and conversion analysis;
-- destination-bound approval and external-action execution state machine;
-- approved social publishing;
 - lead and organization records;
 - sales enablement;
-- video production workflow and ViMax adapter;
-- general measurement, attribution, experiments, ICP confidence feedback, and learning ledger beyond the bounded repository retrospective;
-- local worker management;
-- hosted synchronization or multi-user collaboration.
+- general measurement, attribution, experiments, ICP-confidence feedback, and learning ledger;
+- hosted synchronization and multi-user collaboration;
+- signed installers and update system.
 
 ## External integration status
 
 | Integration area | Status |
 |---|---|
-| Event sources | Public ICS implemented and validated; additional adapters not implemented |
-| GitHub public repository evidence | Bounded public metadata, README, community, release, contributor, readiness, launch-room, manual-export, baseline, and retrospective workflow implemented and validated; authenticated traffic and write adapters not implemented |
-| LinkedIn | Local campaign and repository-launch variant and manual export implemented; provider feasibility and adapter not implemented |
-| Facebook and Instagram | Feasibility and adapters not implemented |
-| X | Feasibility and adapter not implemented |
-| TikTok and YouTube | Feasibility and adapters not implemented |
-| Website CMS | Local website variant and manual export implemented; CMS adapter not implemented |
-| GitHub release publishing | Local release variant and manual export implemented; publishing adapter not implemented |
-| Search Console and general analytics | Not implemented |
+| Event sources | Public ICS implemented; additional adapters not implemented |
+| GitHub public evidence | Bounded public evidence, readiness, launch, export, baseline, and retrospective implemented; authenticated metrics and writes not implemented |
+| LinkedIn | Local text and video variant records exist; publishing adapter not implemented |
+| Instagram Reels | Local video variant record exists; publishing adapter not implemented |
+| YouTube Shorts | Local video variant record exists; publishing adapter not implemented |
+| Website CMS | Local text and video variant records exist; CMS adapter not implemented |
+| GitHub release publishing | Local release variant exists; publishing adapter not implemented |
+| ViMax | Stage 1 manual package and import implemented; execution adapter deferred |
+| Search and general analytics | Not implemented |
 | CRM and lead capture | Not implemented |
-| ViMax | Candidate assessed; adapter not implemented |
 
-All platform capabilities, pricing, permissions, scopes, review requirements, and data-handling terms must be verified again when implementation begins.
+## Human acceptance gates
 
-## Documentation conformance
+Issue #2 remains open for Product and ICP accessibility and unfamiliar-founder acceptance.
 
-The documentation baseline passes structural review for:
+Issue #5 remains open for Signals accessibility and unfamiliar-user acceptance.
 
-- formal product requirements;
-- first-class ICP discovery and validation requirements;
-- durable architecture decisions;
-- full product architecture;
-- ICP domain authority and lifecycle;
-- outcome-based roadmap sequencing;
-- experience design coverage;
-- issue traceability for the six initial build slices;
-- ownership and source-migration boundaries;
-- explicit unresolved-decision tracking;
-- safe session restart context;
-- honest implementation-state separation.
+Issue #6 remains open for Campaigns and Studio accessibility and unfamiliar-user acceptance.
 
-Remaining work concerns product decisions, schemas, implementation, validation, operations, security, privacy, packaging, user research, ICP validation evidence, and usability evidence rather than missing baseline documentation structure.
+Issue #3 remains open for Repository Growth accessibility and unfamiliar-maintainer acceptance.
+
+Issue #4 remains open for:
+
+- hands-on keyboard and assistive-technology review;
+- unfamiliar-user completion from approved script through reviewed platform variant;
+- remediation from those reviews;
+- Calendar and measurement handoff after issue #7.
+
+Automated semantics, responsive styling, reduced-motion support, deterministic tests, and native packaging are not substitutes for those reviews.
 
 ## Immediate next milestones
 
-1. Complete hands-on accessibility and unfamiliar-founder acceptance for issue #2, then remediate any evidenced gaps.
-2. Complete hands-on accessibility and unfamiliar-user acceptance for issue #5, then remediate evidenced gaps.
-3. Complete hands-on accessibility and unfamiliar-user acceptance for issue #6, then remediate evidenced gaps.
-4. Complete hands-on accessibility and unfamiliar-maintainer acceptance for issue #3, then remediate evidenced gaps.
-5. Prototype the ViMax production-package boundary under issue #4.
-6. Implement Calendar, Manual Activation, broader Outcome Capture, and Learning under issue #7 before direct publishing adapters.
-7. Add signing and cross-platform installer validation before end-user release.
+1. Complete and remediate human acceptance for issues #2, #5, #6, #3, and #4.
+2. Implement issue #7: Calendar, Manual Activation, Outcome Capture, and Learning.
+3. Connect approved campaign, repository, and video assets to authoritative calendar and delivery-evidence records.
+4. Add backup, restore, retention, installer signing, update, and cross-platform release validation before external beta.
+5. Reopen ViMax execution only when the required machine-safe contract and operating-system validation plan exist.
 
 ## Release posture
 
 Viable is not ready for an end-user product release.
 
-The repository may be used for product design, architecture, implementation planning, and controlled development. A public or commercial release requires working code, deterministic and native validation, security and privacy review, sanitized assets, tested backup and restore, user and operator documentation, installer validation, validated ICP workflow behavior, hands-on accessibility review, and unfamiliar-user acceptance testing.
+The repository supports controlled internal development and automated package validation. A public or commercial release requires security and privacy review, tested backup and restore, explicit retention, installer signing and update behavior, hands-on accessibility, unfamiliar-user acceptance, validated external-action evidence, and operational support documentation.

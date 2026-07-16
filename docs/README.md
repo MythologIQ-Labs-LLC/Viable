@@ -11,7 +11,7 @@ When documents conflict, use this order:
 3. platform and domain architectural designs;
 4. current implementation state;
 5. product and experience roadmaps;
-6. product operating-model and supporting design documents;
+6. product operating-model and integration documents;
 7. README summaries;
 8. issues and pull requests for scoped implementation work.
 
@@ -28,9 +28,10 @@ For a new session or contributor, read:
 5. [Platform architectural design](architecture/viable-platform.md)
 6. [ICP domain architectural design](architecture/icp-domain.md)
 7. [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
-8. [Current state](status/current-state.md)
-9. [Initial build sequence](roadmap/initial-build-sequence.md)
-10. [Open decisions](decisions/open-decisions.md)
+8. [Video Production domain architectural design](architecture/video-production-domain.md)
+9. [Current state](status/current-state.md)
+10. [Initial build sequence](roadmap/initial-build-sequence.md)
+11. [Open decisions](decisions/open-decisions.md)
 
 Supporting review records:
 
@@ -57,6 +58,7 @@ Supporting review records:
 - [Platform architectural design](architecture/viable-platform.md)
 - [ICP domain architectural design](architecture/icp-domain.md)
 - [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
+- [Video Production domain architectural design](architecture/video-production-domain.md)
 - [ADR index](adr/README.md)
 - [ADR template](adr/TEMPLATE.md)
 
@@ -70,13 +72,13 @@ Supporting review records:
 
 - [Open decisions register](decisions/open-decisions.md)
 
-Resolved durable decisions belong in ADRs, the PRD, or another named authority. Open questions must not silently become implementation facts.
+Resolved durable decisions belong in ADRs, the PRD, domain architecture, or a named integration decision. Open questions must not silently become implementation facts.
 
 ## Integrations
 
-- [ViMax video generation assessment](integrations/vimax-video-generation.md)
+- [ViMax video generation assessment and implemented Stage 1 boundary](integrations/vimax-video-generation.md)
 
-Integration access, pricing, scopes, provider terms, and review requirements must be revalidated when implementation begins.
+Integration access, versions, pricing, scopes, licenses, provider terms, runtime assumptions, and review requirements must be revalidated when implementation begins or materially changes.
 
 ## Governance and safety
 
@@ -88,6 +90,7 @@ Integration access, pricing, scopes, provider terms, and review requirements mus
 - [Signals Inbox and Market evidence workflow](user/signals-inbox.md)
 - [Campaigns and Studio desktop workflow](user/campaigns-and-studio.md)
 - [Public Repository Growth and Launch workflow](user/repository-growth.md)
+- [Video Production in Studio](user/video-production.md)
 
 ## Status and reviews
 
@@ -99,7 +102,7 @@ Integration access, pricing, scopes, provider terms, and review requirements mus
 
 - GitHub issue #1 is the implementation authority for the sanitized Event Radar product-code migration.
 - [Product provenance and ownership](product/provenance-and-ownership.md) defines the durable migration and ownership boundary.
-- No external organization content, credentials, account identifiers, destinations, prompts, logs, reports, confidential fixtures, or secret-bearing material may be imported.
+- No external-organization content, credentials, account identifiers, destinations, prompts, logs, reports, confidential fixtures, or secret-bearing material may be imported.
 - Imported event functionality must respect ADR-0006 and remain a bounded subsystem inside the wider marketability architecture.
 
 ## Documentation expectations
@@ -117,6 +120,6 @@ Documentation must distinguish:
 - known limitations;
 - decisions that require current revalidation.
 
-A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, and user documentation that it affects.
+A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, integration assessments, and user documentation that it affects.
 
-The current handoff should be refreshed when a major product boundary, accepted decision, issue sequence, migration posture, or open decision changes materially.
+The current handoff should be refreshed when a major product boundary, accepted decision, issue sequence, migration posture, integration posture, or open decision changes materially.
