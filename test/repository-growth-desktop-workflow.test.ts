@@ -28,18 +28,23 @@ test("Product exposes the complete repository growth journey", async () => {
 });
 
 test("repository desktop workflow preserves evidence and safety boundaries", async () => {
-  const view = await read("apps/desktop/ui/repository-growth-view.ts");
+  const [view, service] = await Promise.all([
+    read("apps/desktop/ui/repository-growth-view.ts"),
+    read("src/repository-growth/services/repository-growth-service.ts"),
+  ]);
   for (const marker of [
     "Missing access is not zero",
     "Partial repository evidence",
     "does not predict GitHub Trending",
     "No approved launch asset family is available",
-    "No direct publishing",
-    "credentialsIncluded: false",
+    "does not publish",
     "unavailable",
     "Return to saved repository workspace",
     "An empty workspace is not evidence",
   ]) assert.match(view, new RegExp(marker, "i"));
+  assert.match(service, /credentialsIncluded: false/);
+  assert.match(service, /approvedForPublishing: false/);
+  assert.match(service, /delivered: false/);
 });
 
 test("desktop TypeScript compiles repository growth authority and source adapter", async () => {
