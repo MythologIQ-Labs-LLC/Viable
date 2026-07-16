@@ -1,6 +1,6 @@
 import type { SourceStatus } from "../../event-intelligence/domain/source-outcome.js";
 
-export type SignalKind = "event" | "repository" | "repository_activity" | "manual";
+export type SignalKind = "event" | "repository" | "repository_activity" | "website_change" | "manual";
 export type SignalStatus = "new" | "accepted" | "saved" | "dismissed" | "converted";
 export type EvidenceState = "suggested" | "reviewed" | "rejected";
 export type Confidence = "low" | "medium" | "high";
@@ -15,7 +15,7 @@ export type SignalRelationship = Readonly<{
 }>;
 
 export type SignalProvenance = Readonly<{
-  provider: "event_intelligence" | "github_public" | "manual_import";
+  provider: "event_intelligence" | "github_public" | "webdog_import" | "manual_import";
   sourceId: string;
   retrievedAt: string;
   sourceUrl?: string;
@@ -45,7 +45,7 @@ export type SignalRecord = Readonly<{
   reviewedAt?: string;
 }>;
 
-export type SourceKind = "event_intelligence" | "github_public" | "manual_import";
+export type SourceKind = "event_intelligence" | "github_public" | "webdog_import" | "manual_import";
 
 export type SourceRegistration = Readonly<{
   id: string;
@@ -73,7 +73,8 @@ export type SourceHealth = Readonly<{
 
 export type ConversionKind =
   | "product_action" | "icp_validation_action" | "campaign_brief"
-  | "content_brief" | "repository_growth_action" | "product_feedback";
+  | "content_brief" | "repository_growth_action" | "website_watch_action"
+  | "product_feedback";
 
 export type SignalConversion = Readonly<{
   id: string;
