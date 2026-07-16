@@ -47,6 +47,21 @@
   white-space: pre-wrap;
 }
 
+.diff-preview:focus-visible,
+.website-watch button:focus-visible,
+.website-watch input:focus-visible,
+.website-watch select:focus-visible,
+.website-watch textarea:focus-visible,
+.website-watch summary:focus-visible,
+.website-watch a:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+
+.website-watch summary {
+  cursor: pointer;
+}
+
 .generated-analysis {
   border: 1px dashed var(--warning);
   border-radius: 0.75rem;
