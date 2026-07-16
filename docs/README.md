@@ -84,6 +84,7 @@ Integration access, pricing, scopes, provider terms, and review requirements mus
 
 - [Product and ICP desktop workflow](user/product-and-icp-workflow.md)
 - [Signals Inbox and Market evidence workflow](user/signals-inbox.md)
+- [Campaigns and Studio desktop workflow](user/campaigns-and-studio.md)
 
 ## Status and reviews
 

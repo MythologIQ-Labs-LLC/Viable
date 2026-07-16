@@ -6,7 +6,7 @@
 |---|---|
 | Status | Approved architecture baseline; implementation incomplete |
 | Version | 1.0 |
-| Last reviewed | 2026-07-15 |
+| Last reviewed | 2026-07-16 |
 | Product requirements | `docs/product/PRD.md` |
 | Architecture decisions | `docs/adr/README.md` |
 | Current state | `docs/status/current-state.md` |
@@ -225,7 +225,7 @@ Owns:
 
 Canonical assets are separate from channel payloads.
 
-Implementation status: PR #16 implements the first guarded Campaigns and Assets domain foundation. Campaign briefs snapshot approved Product Core claims and reviewed evidence; canonical assets remain separate from LinkedIn, website, and GitHub release variants; material changes and Product Core claim changes invalidate approval; and manual export manifests remain explicitly unapproved for publishing and undelivered. Campaigns and Studio desktop workflows are not yet implemented.
+Implementation status: PR #16 implements the first guarded Campaigns and Assets domain foundation. PR #18 connects that authority to local Campaigns and Studio desktop workflows with evidence-backed Product Core claim prerequisites, selected-ICP or deliberate test-audience campaign creation, named review queues, canonical asset versioning, separate LinkedIn, website, and GitHub release variants, channel comparison, Product Core claim-impact invalidation, explicit failure and recovery presentation, and downloadable manual export manifests. Those manifests remain explicitly unapproved for publishing and undelivered. Hands-on accessibility and unfamiliar-user acceptance remain open, and destination-bound publishing or delivery adapters are not implemented.
 
 ### 7.5 Approval and External Action
 
@@ -665,4 +665,4 @@ Before adding a major subsystem or integration:
 
 ## 22. Implementation status
 
-The architecture is broader than the current repository implementation. `docs/status/current-state.md` is authoritative for implemented, migrating, designed, and external capabilities. No architecture section should be interpreted as proof that its runtime exists or has been validated.
+The architecture is broader than the current repository implementation. `docs/status/current-state.md` is authoritative for implemented, automatedly validated, human-accepted, designed, and external capabilities. No architecture section should be interpreted as proof that its runtime exists or has completed human acceptance.
