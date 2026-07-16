@@ -11,11 +11,11 @@ Detailed authority remains in the PRD, accepted ADRs, domain architecture, curre
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- Latest merged implementation PR: #24 at `64419fa83fa485a77a255715f9a2de2d7ccc253b`
-- Current maturity: internal Slice 5 provider-neutral Video Production and Studio workflow on `main`
-- Automated validation: secret scan, core and desktop TypeScript, 67 Node tests, Rust formatting, Rust tests, Tauri bundle, and Debian package inspection
-- Next implementation slice: issue #7, Calendar, Manual Activation, Outcome Capture, and Learning
-- Human acceptance remains open for issues #2, #5, #6, #3, and #4
+- Latest merged implementation PR: #27 at `f8991875a94b6c0a6dc6302a51bf5bc3e7cdfcea`
+- Current maturity: all six initial internal product slices implemented and automatedly validated on `main`
+- Automated validation: secret scan, core and desktop TypeScript, complete deterministic Node suite, Rust formatting, Rust tests, Tauri bundle, and Debian package inspection
+- Human acceptance remains open for issues #2, #5, #6, #3, #4, and #7
+- Immediate priority: human acceptance and release foundations, not another duplicate product slice
 
 ## Read before acting
 
@@ -30,10 +30,11 @@ Read these in order:
 7. `docs/architecture/icp-domain.md`
 8. `docs/architecture/repository-growth-domain.md`
 9. `docs/architecture/video-production-domain.md`
-10. `docs/status/current-state.md`
-11. `docs/roadmap/initial-build-sequence.md`
-12. `docs/decisions/open-decisions.md`
-13. the selected GitHub issue and all linked merged PRs
+10. `docs/architecture/activation-and-learning-domain.md`
+11. `docs/status/current-state.md`
+12. `docs/roadmap/initial-build-sequence.md`
+13. `docs/decisions/open-decisions.md`
+14. the selected GitHub issue and all linked merged PRs
 
 The repository and current GitHub state are authoritative. Conversation history may explain intent but cannot override accepted documents.
 
@@ -50,10 +51,12 @@ It connects:
 - campaigns and canonical assets;
 - public repository growth;
 - governed video production;
-- approval and external action;
-- future relationships, sales, measurement, and learning.
+- Calendar and destination-bound approval;
+- manual activation and delivery evidence;
+- performance evidence, retrospectives, and learning;
+- future relationships and sales.
 
-Viable is not a social scheduler, content generator, event monitor, repository scorecard, video generator, CRM, or analytics dashboard with unrelated features attached. Each workflow shares Product Core claims, reviewed evidence, audience authority, campaigns, approvals, and explicit outcomes.
+Viable is not a social scheduler, content generator, event monitor, repository scorecard, video generator, CRM, or analytics dashboard with unrelated features attached. Each workflow shares Product Core claims, reviewed evidence, audience authority, campaigns, approvals, explicit outcomes, and uncertainty.
 
 ## Marketability loop
 
@@ -66,28 +69,32 @@ Establish product truth
   -> create canonical assets
   -> adapt assets to channels and production formats
   -> assess product surfaces such as public repositories
-  -> review and approve external action
+  -> review destination-bound external action
   -> schedule and activate manually or through supported adapters
-  -> capture demand and delivery evidence
-  -> measure outcomes
+  -> record delivery, failure, cancellation, or unknown evidence
+  -> compare explicit metric evidence with a baseline
+  -> complete a retrospective
+  -> choose one reversible next action
   -> refine product, ICP, message, offer, repository, asset, and channel plan
 ```
 
-Event Intelligence is one bounded signal subsystem. Repository Growth is one Product-integrated surface workflow. Video Production is one Campaign-linked production workflow. None becomes top-level product authority.
+Event Intelligence is one bounded signal subsystem. Repository Growth is one Product-integrated surface workflow. Video Production is one Campaign-linked production workflow. Calendar and Analytics complete the first manual operating loop. None becomes top-level product authority.
 
 ## Durable authority boundaries
 
 - Product Core owns canonical product truth, claims, reviewed evidence, and ICP hypotheses.
 - Campaigns owns approved campaign intent, canonical assets, and channel variants.
-- Repository Growth owns repository assessment, owned growth planning, launch-room state, bounded baselines, and retrospectives.
+- Repository Growth owns repository assessment, owned growth planning, launch-room state, bounded baselines, and repository retrospectives.
 - Video Production owns reviewed video briefs, manual production packages, imported run evidence, render review, and platform-variant review.
-- Issue #7 must own authoritative Calendar, activation, delivery evidence, outcome capture, and broader learning records.
+- Approval and External Action owns destinations, Calendar timing, destination-bound review, manual activation packages, export handoff, and delivery or failure evidence.
+- Measurement and Learning owns measurement plans, metric evidence states, performance imports, retrospectives, attribution uncertainty, and learning-ledger entries.
 - Generated suggestions remain distinct from reviewed evidence.
 - A generator, collector, scheduler, adapter, or production tool cannot approve its own output.
 - Render completion does not equal approval.
-- Approval does not equal scheduling, publishing, delivery, or measurement.
-- Missing access or unavailable metrics do not become zero.
-- Manual export does not equal external action.
+- Scheduling, approval, export, delivery, provider verification, and successful outcome are distinct states.
+- Missing, delayed, partial, unavailable, and not-collected metrics do not become zero.
+- Human-recorded evidence does not become provider verification.
+- Retrospectives may propose ICP or positioning review but cannot silently mutate Product Core.
 - Provider content and imported manifests are untrusted data.
 - Core workflows remain useful without hosted Viable infrastructure or a required LLM.
 - Viable does not support spam, fake growth, surveillance, unsupported claims, bypassed access, or manufactured adoption.
@@ -117,7 +124,7 @@ Migration remains selective and fail-closed. Never import:
 - ADR-0006: marketability-loop authority and bounded Event Intelligence.
 - ADR-0007: Product Core ownership of ICP hypotheses and validation.
 
-Repository Growth and Video Production implement these accepted decisions. Do not create duplicate claim, campaign, approval, or ICP authority downstream.
+Repository Growth, Video Production, and Calendar and Learning implement these accepted decisions. Do not create duplicate claim, campaign, approval, evidence, delivery, attribution, or ICP authority downstream.
 
 ## Initial build order
 
@@ -128,10 +135,12 @@ Repository Growth and Video Production implement these accepted decisions. Do no
 | Slice 2 | #5 | Signals Inbox | Implemented; human acceptance open |
 | Slice 3 | #6 | Campaign Brief and Canonical Asset | Implemented; human acceptance open |
 | Slice 4 | #3 | Repository Growth and Launch | Implemented; human acceptance open |
-| Slice 5 | #4 | Video Production and ViMax package | Implemented Stage 1; human acceptance and issue #7 handoff open |
-| Slice 6 | #7 | Calendar, Activation, Outcomes, Learning | Next implementation slice |
+| Slice 5 | #4 | Video Production and ViMax package | Implemented Stage 1 and Calendar handoff; execution and human acceptance open |
+| Slice 6 | #7 | Calendar, Activation, Outcomes, Learning | Implemented; human acceptance open |
 
-## Implemented through Slice 5
+Do not restart issue #7 as an implementation slice. Its automated core and desktop journey are already merged.
+
+## Implemented initial vertical sequence
 
 ### Product Core
 
@@ -184,8 +193,40 @@ Repository Growth and Video Production implement these accepted decisions. Do no
 - completed, partial, failed, and cancelled render states;
 - named render review;
 - separately reviewed LinkedIn, Instagram Reels, YouTube Shorts, and website variants;
+- approved video variants available to Calendar;
 - current authority revalidation at asynchronous boundaries;
 - packaged Studio workflow with explicit empty, offline, blocked, failure, recovery, and invalidation states.
+
+### Calendar and Manual Activation
+
+- destinations with explicit ownership and non-secret account references;
+- planning entries for deadlines, opportunities, experiments, and follow-ups;
+- external actions sourced from approved Campaign variants, ready Repository Launch rooms, and approved Video variants;
+- source-to-destination channel filtering;
+- exact source snapshots with claims, evidence, rights, accessibility, disclosures, and file or body relationships;
+- named destination-bound review;
+- separate schedule and activation states;
+- credential-free packages with idempotency keys;
+- ready, downloaded, interrupted, and recovered export operations;
+- delivered, failed, cancelled, and unknown outcomes;
+- human-recorded, provider-evidence, and provider-verified classifications;
+- provider response identifiers required before provider verification;
+- source and destination authority invalidation.
+
+### Analytics and Learning
+
+- measurement plans and baselines;
+- observation windows;
+- observed, verified-zero, delayed, partial, unavailable, and not-collected metric states;
+- performance-import provenance and limitations;
+- numeric comparison only for compatible evidence states;
+- continue, iterate, stop, and inconclusive retrospective decisions;
+- manual, first-touch, last-touch, influence, and unattributed model labels;
+- mandatory attribution uncertainty;
+- advisory ICP-confidence and positioning effects;
+- evidence, decision, change, outcome, follow-up, and reversible-next-action learning entries;
+- Calendar and Analytics desktop navigation;
+- explicit loading, empty, offline, blocked, error, interruption, recovery, invalidation, partial-evidence, and ready states.
 
 ## ViMax decision
 
@@ -197,19 +238,42 @@ ViMax is optional and removable. The implemented adapter:
 - does not bundle Python;
 - does not invoke providers;
 - does not store or inject credentials;
-- does not schedule, publish, deliver, or measure media;
 - does not claim Windows or Linux execution testing;
-- does not claim macOS support.
+- does not claim macOS support;
+- does not publish automatically.
 
 The upstream project lists Windows and Linux. Viable records those as upstream statements only. macOS remains unverified.
 
 A local CLI adapter is deferred until a stable noninteractive contract supports health, version, cancellation, progress, structured errors, bounded storage, credential injection, artifacts, redacted logs, and cross-platform validation.
 
+Issue #7 now supplies the Calendar and measurement handoff for approved video variants. That does not satisfy actual ViMax execution or operating-system runtime testing.
+
 Authority:
 
 - `docs/integrations/vimax-video-generation.md`
 - `docs/architecture/video-production-domain.md`
-- GitHub issue #4
+- `docs/architecture/activation-and-learning-domain.md`
+- GitHub issues #4 and #7
+
+## Delivery and attribution decisions
+
+OD-021 is resolved for the initial manual loop:
+
+- schedule intent is not delivery;
+- package export is not delivery;
+- delivery requires explicit evidence;
+- human-recorded evidence remains human recorded;
+- provider verification requires a provider response identifier.
+
+OD-022 is resolved for the initial retrospective labels:
+
+- manual;
+- first touch;
+- last touch;
+- influence;
+- unattributed.
+
+Every retrospective states attribution uncertainty. Viable does not claim an automated attribution engine.
 
 ## Open human acceptance gates
 
@@ -239,28 +303,36 @@ Issue #3:
 
 Issue #4:
 
+- actual ViMax run consuming the adapted package;
+- Windows and Linux ViMax execution validation;
 - Video Production accessibility review;
-- unfamiliar-user approved-script-to-reviewed-variant completion;
-- remediation;
-- Calendar and measurement handoff after issue #7.
+- unfamiliar-user approved-script-to-reviewed-and-scheduled-variant completion;
+- remediation.
+
+Issue #7:
+
+- Calendar and Analytics accessibility review;
+- unfamiliar-user completion from approved source through outcome and learning entry;
+- remediation.
 
 Automated semantic contracts, responsive styling, reduced motion, deterministic tests, and native packaging do not replace human review.
 
-## Next implementation target
+## Next product priorities
 
-Proceed with issue #7.
+Do not invent a seventh initial slice merely to preserve momentum.
 
-The first bounded outcome should connect approved campaign assets, repository launch assets, and approved video variants to:
+Prioritize:
 
-- authoritative calendar records;
-- named approval checks;
-- manual activation packages;
-- delivery-evidence capture;
-- completed, failed, cancelled, and unknown outcomes;
-- retrospective and learning records;
-- explicit ICP-confidence evidence without silent ICP mutation.
+1. complete and remediate human acceptance for issues #2, #5, #6, #3, #4, and #7;
+2. define backup, restore, retention, deletion, and cross-version migration guarantees;
+3. use Viable's Product and ICP workflow to select and validate Viable's own narrower launch ICP;
+4. decide connected publishing, analytics, search, and CRM adapters from current product evidence;
+5. define Relationships and Sales authority before implementing contacts, leads, organizations, and opportunities;
+6. add installer signing, updates, rollback, and cross-platform installer validation;
+7. prepare operational support and external beta documentation;
+8. reopen ViMax execution only when its machine-safe contract and operating-system validation plan exist.
 
-Do not implement direct publishing before the manual activation and outcome loop works.
+Direct publishing must not precede human acceptance of the complete manual activation and evidence loop.
 
 ## CI and merge posture
 
@@ -285,4 +357,4 @@ Do not merge implementation changes without exact-head repository and native val
 
 Viable is not ready for external release.
 
-Before public beta, complete human acceptance, backup and restore, retention, installer signing, update and rollback behavior, privacy and security review, cross-platform installer validation, and operational support documentation.
+Before public beta, complete human acceptance, backup and restore, retention and deletion, schema migration, installer signing, update and rollback behavior, privacy and security review, cross-platform installer validation, and operational support documentation.
