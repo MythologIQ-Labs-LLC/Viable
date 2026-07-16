@@ -4,11 +4,11 @@
 
 This sequence identifies the first complete product slices after the sanitized Event Radar migration and independent CI foundation.
 
-All six initial slices are implemented and automatedly validated. Human acceptance and external release foundations remain incomplete.
+All six initial slices are implemented and automatedly validated. Website Watch Stage 1 is also implemented as a post-sequence Signals and Market extension. Human acceptance and external release foundations remain incomplete.
 
 ## Slice 1: Product truth, ICP discovery, and marketability assessment
 
-Status: implemented and automatedly validated; hands-on accessibility and unfamiliar-founder acceptance remain open under issue #2.
+Status: Implemented and automatedly validated. Hands-on accessibility and unfamiliar-founder acceptance remain open under issue #2.
 
 ### User outcome
 
@@ -25,9 +25,9 @@ A founder creates a product workspace, verifies product truth, compares credible
 - explained marketability dimensions and owned actions;
 - Home and Product desktop navigation.
 
-## Slice 2: Signals inbox with events and public repositories
+## Slice 2: Signals Inbox with events and public repositories
 
-Status: implemented and automatedly validated through PR #13; hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
+Status: Implemented and automatedly validated through PR #13. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
 
 ### User outcome
 
@@ -44,9 +44,11 @@ A user imports event and public repository evidence, reviews source health and p
 - explicit verified-empty, partial, unavailable, rate-limited, validation, transport, offline, and recovery states;
 - Signals and Market navigation.
 
+Website Watch Stage 1 extends this slice without replacing its authority. See the post-sequence extension below.
+
 ## Slice 3: Campaign brief and canonical asset
 
-Status: implemented and automatedly validated through PRs #16 and #18; hands-on accessibility and unfamiliar-user acceptance remain open under issue #6.
+Status: Implemented and automatedly validated through PRs #16 and #18. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #6.
 
 ### User outcome
 
@@ -66,7 +68,7 @@ A user converts Product Core truth, an approved ICP or deliberate test audience,
 
 ## Slice 4: Repository growth and launch room
 
-Status: implemented and automatedly validated through PRs #20 and #21; hands-on accessibility and unfamiliar-maintainer acceptance remain open under issue #3.
+Status: Implemented and automatedly validated through PRs #20 and #21. Hands-on accessibility and unfamiliar-maintainer acceptance remain open under issue #3.
 
 ### User outcome
 
@@ -90,11 +92,11 @@ Authenticated GitHub traffic, private-repository, dependent, integration, and wr
 
 ## Slice 5: Video production package and ViMax prototype
 
-Status: provider-neutral Video Production domain, pinned ViMax `v1.1.0` manual compatibility packet, structured artifact import, Studio desktop workflow, render review, platform-variant review, and Calendar and measurement handoff implemented and automatedly validated through PRs #23, #24, #26, and #27. Actual ViMax execution, Windows and Linux runtime validation, hands-on accessibility, and unfamiliar-user acceptance remain open under issue #4.
+Status: Provider-neutral Video Production, the pinned ViMax `v1.1.0` manual compatibility packet, structured artifact import, Studio desktop workflow, render review, platform-variant review, and Calendar and measurement handoff are implemented and automatedly validated through PRs #23, #24, #26, and #27. Actual ViMax execution, Windows and Linux runtime validation, hands-on accessibility, and unfamiliar-user acceptance remain open under issue #4.
 
 ### User outcome
 
-A user converts an approved campaign-linked canonical script into a reviewed video brief, exports a production-ready manual package, runs production separately, imports stage and artifact evidence, approves the render inside Viable, prepares separately reviewed platform variants, and can schedule those approved variants through Calendar.
+A user converts an approved campaign-linked canonical script into a reviewed video brief, exports a production-ready manual package, runs production separately, imports stage and artifact evidence, approves the render inside Viable, prepares separately reviewed platform variants, and schedules approved variants through Calendar.
 
 ### Implemented capabilities
 
@@ -146,7 +148,7 @@ A local CLI adapter remains deferred until a stable noninteractive contract supp
 
 ## Slice 6: Calendar, manual activation, outcome capture, and learning
 
-Status: guarded Calendar, destination, manual activation, delivery-evidence, metric-state, retrospective, learning-ledger, Calendar desktop, Analytics desktop, export-recovery, and native package workflows implemented and automatedly validated through PRs #26 and #27. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #7.
+Status: Guarded Calendar, destination, manual activation, delivery evidence, metric states, retrospectives, the learning ledger, Calendar desktop, Analytics desktop, export recovery, and native package workflows are implemented and automatedly validated through PRs #26 and #27. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #7.
 
 ### User outcome
 
@@ -203,7 +205,7 @@ Learning records may propose Product Core or ICP review but cannot silently appl
 
 ## Initial vertical sequence result
 
-The first six internal slices now form a complete automated manual loop:
+The first six internal slices form a complete automated manual loop:
 
 ```text
 Product truth and ICP
@@ -219,18 +221,74 @@ Product truth and ICP
 
 The loop works without direct publishing APIs, connected analytics, a required hosted model, or ViMax execution.
 
+## Post-sequence Signals extension: Website Watch Stage 1
+
+Status: Provider-neutral Website Watch records, strict Webdog-compatible manual import, correlated Signals evidence, named review, retention and deletion, Market presentation, and reviewed Calendar planning are implemented and automatedly validated through PRs #30 and #31. Hands-on accessibility and unfamiliar-founder acceptance remain open under issue #29.
+
+This is an extension of Signals and Market, not a seventh foundational slice.
+
+### User outcome
+
+A founder or maintainer records a public watched site and target, imports a bounded Webdog alert payload, reviews source health and evidence, distinguishes generated analysis from facts, converts reviewed evidence into proposed work, and creates a related Calendar follow-up.
+
+### Implemented capabilities
+
+- watched-site identity, ownership classification, purpose, authorization confirmation, retention, and named owner;
+- site-link, page-content, and product-price target intent;
+- requested interval and next-due intent without claiming worker execution;
+- strict `webdog_ai.new_alerts` version 1 pasted or local-file import;
+- source-instance origin validation;
+- secret-bearing field and value rejection;
+- absolute public HTTP and HTTPS URL validation;
+- literal IPv4 and IPv6 private, loopback, link-local, metadata, multicast, and reserved-range restrictions;
+- browser-safe SHA-256 snapshot identities;
+- ordered bounded line differences;
+- explicit change, no-change, baseline, partial, unavailable, rate-limit, authentication, validation, transport, offline, and cancellation semantics;
+- Website Watch observations and correlated Signals suggestions from one validated import;
+- generated change summaries and relevance recommendations stored separately from evidence;
+- named Signals and observation review synchronization;
+- snapshot retention, named deletion, and retention pruning;
+- proposed Website Watch response work;
+- reviewed follow-up, experiment, opportunity, or approval-deadline planning through existing Calendar authority;
+- local browser-profile persistence;
+- responsive and reduced-motion-safe presentation;
+- Webdog MIT attribution and reviewed-source provenance.
+
+### Implemented boundary
+
+Website Watch Stage 1 does not:
+
+- crawl websites;
+- call Context.dev;
+- connect to a live Webdog service;
+- open a public inbound webhook listener;
+- run a scheduled worker;
+- import live screenshots;
+- copy browser sessions or access private pages;
+- execute AI summaries or relevance triage;
+- mutate Product Core, ICP, campaigns, Calendar, or learning automatically;
+- send notifications, publish, or claim delivery.
+
+Context.dev and live Webdog service adapters remain deferred until their security, credential, network, cost, retention, and stable-contract requirements are satisfied.
+
+### Remaining exit evidence
+
+- hands-on keyboard and assistive-technology review;
+- unfamiliar-founder completion from watched-site creation through reviewed change and Calendar follow-up;
+- remediation of accessibility, clarity, evidence, retention, failure, and recovery gaps.
+
 ## Next product priorities
 
-1. Complete human accessibility and unfamiliar-user acceptance for issues #2, #5, #6, #3, #4, and #7.
-2. Remediate evidenced usability, clarity, rights, failure, and recovery gaps.
-3. Define backup, restore, retention, deletion, and schema-migration guarantees.
-4. Use Viable's own Product and ICP workflow to select and validate a narrower launch ICP.
-5. Decide the first connected publishing, analytics, search, and CRM adapters from current evidence.
+1. Complete human accessibility and unfamiliar-user acceptance for issues #2, #5, #6, #3, #4, #7, and #29.
+2. Remediate evidenced usability, clarity, rights, failure, retention, and recovery gaps.
+3. Define backup, restore, product-wide retention, deletion, and schema-migration guarantees.
+4. Use Viable's Product and ICP workflow to select and validate a narrower launch ICP.
+5. Decide the first connected publishing, analytics, search, CRM, and live website-monitoring adapters from current evidence.
 6. Define Relationships and Sales authority before implementing contacts, leads, accounts, and opportunities.
 7. Add installer signing, updates, rollback, and cross-platform validation before external beta.
 8. Reopen ViMax local execution only after a stable machine-safe contract and operating-system validation plan exist.
 
-## Release gates for every slice
+## Release gates for every slice and extension
 
 - product and authority boundaries documented;
 - no imported external-organization secrets or confidential operational data;
@@ -239,5 +297,5 @@ The loop works without direct publishing APIs, connected analytics, a required h
 - keyboard, screen-reader, text-scale, reduced-motion, caption, and non-color status support;
 - tests for prohibited state transitions;
 - backup and export impact reviewed;
-- README, PRD, architecture, roadmap, current state, issue, and user documentation synchronized;
+- README, PRD, architecture, roadmap, current state, issue, integration assessment, third-party notice, and user documentation synchronized;
 - unfamiliar-user acceptance completed for the primary journey.
