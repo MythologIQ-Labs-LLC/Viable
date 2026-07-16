@@ -14,11 +14,11 @@ Each decision should be resolved through the appropriate PRD update, ADR, issue,
 - **Researching:** active investigation is underway.
 - **Ready for decision:** options and evidence are sufficient for an owner decision.
 - **Deferred:** intentionally postponed until a named trigger.
-- **Resolved:** authority is recorded in an ADR, PRD update, or product decision.
+- **Resolved:** authority is recorded in an ADR, PRD update, integration decision, or product decision.
 
 ## Current decisions
 
-| ID | Question | Current assumption | Trigger | Required authority | State |
+| ID | Question | Current assumption or decision | Trigger | Required authority | State |
 |---|---|---|---|---|---|
 | OD-001 | What is Viable's first commercial package? | Product value should be proven through a complete local-first vertical slice before final pricing. | Before external beta recruitment or paid distribution | Product decision and PRD update | Open |
 | OD-002 | Is Viable single-user only, collaborative, or both? | Local single-user authority is the baseline. Collaboration must be additive and must not weaken local ownership or approval semantics. | Before team workspace implementation | ADR | Deferred |
@@ -30,7 +30,7 @@ Each decision should be resolved through the appropriate PRD update, ADR, issue,
 | OD-008 | What retention defaults apply to contacts, outreach, evidence, analytics, logs, and media? | Retention must be explicit, minimal, configurable, and connected to deletion and export behavior. | Before storing real personal or outreach data | Privacy decision and ADR | Open |
 | OD-009 | How are installers signed and updated? | The product is not release-ready until installer identity, signing, update, rollback, and support expectations are validated. | Before public beta installer | Operational ADR | Open |
 | OD-010 | Does Viable expose a public API, plugin surface, or MCP server? | No external automation authority should exist before permissions, scopes, identities, audit state, and data authority are implemented. | After core contexts and permissions exist | ADR | Deferred |
-| OD-011 | How is ViMax integrated? | Begin with a provider-neutral manual production package. A local CLI adapter may follow. ViMax remains optional and cannot own credentials, approval, claims, rights, or publishing. | During issue #4 | Integration decision and optional ADR | Researching |
+| OD-011 | How is ViMax integrated? | Stage 1 is resolved as a provider-neutral manual package, blank-credential ViMax v1.1.0 compatibility packet, structured artifact import, and Viable-owned review. ViMax remains optional and removable. Local execution is deferred until a stable noninteractive contract supports version checks, cancellation, progress, structured errors, bounded storage, credential injection, and cross-platform validation. | Reopen only when a local execution adapter is proposed | `docs/integrations/vimax-video-generation.md` and `docs/architecture/video-production-domain.md` | Resolved |
 | OD-012 | Which model, image, voice, and video providers are supported? | Providers remain user-selectable adapters with cost and data-handling disclosure. | Before managed generation | Integration assessments | Open |
 | OD-013 | What are Viable's telemetry defaults? | Product telemetry should be off or minimal by default until explicitly designed, disclosed, and consented to. | Before external testing | Privacy decision and ADR | Open |
 | OD-014 | What backup format and recovery guarantees are supported? | Backup must preserve authoritative product data and exclude secrets. | Before MVP release gate | Architecture decision and validation plan | Open |
