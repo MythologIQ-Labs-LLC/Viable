@@ -35,3 +35,8 @@ export * from "./signals/domain/signal.js";
 export * from "./signals/ports/signal-source.js";
 export * from "./signals/ports/signals-inbox-store.js";
 export * from "./signals/services/signals-inbox-service.js";
+export * from "./video-production/adapters/local-json-video-production-store.js";
+export * from "./video-production/adapters/vimax-v1-1-manual-adapter.js";
+export * from "./video-production/domain/video-production.js";
+export * from "./video-production/ports/video-production-store.js";
+export * from "./video-production/services/video-production-service.js";
