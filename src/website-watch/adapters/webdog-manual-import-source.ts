@@ -226,7 +226,7 @@ function materialize(
       }
 
       const diffPreview = alert.diffPreview ?? "";
-      const observationLimitations = [...commonLimitations];
+      const observationLimitations: string[] = [...commonLimitations];
       if (!diffPreview) observationLimitations.push("No bounded diff preview was included in the Webdog payload");
       const observation: Omit<WebsiteChangeObservation, "workspaceId"> = {
         id: observationId,
