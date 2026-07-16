@@ -21,6 +21,9 @@
     "../../src/signals/adapters/event-intelligence-signal-source.ts",
     "../../src/signals/adapters/github-public-repository-source.ts",
     "../../src/signals/adapters/manual-json-signal-source.ts",
+    "../../src/campaigns/domain/**/*.ts",
+    "../../src/campaigns/ports/**/*.ts",
+    "../../src/campaigns/services/**/*.ts",
     "../../src/event-intelligence/domain/**/*.ts",
     "../../src/event-intelligence/ports/**/*.ts"
   ],
