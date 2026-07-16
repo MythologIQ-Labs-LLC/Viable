@@ -22,7 +22,7 @@ const pill = (value: string): string => `<span class="pill ${statusTone(value)}"
 export class SignalsViewController {
   private readonly service = new SignalsInboxService(new LocalStorageSignalsInboxStore());
   private inbox?: SignalsInbox;
-  private failure?: string;
+  private failure: string | undefined;
 
   constructor(
     readonly workspaceId: string,
