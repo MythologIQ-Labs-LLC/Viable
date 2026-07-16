@@ -29,9 +29,10 @@ For a new session or contributor, read:
 6. [ICP domain architectural design](architecture/icp-domain.md)
 7. [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
 8. [Video Production domain architectural design](architecture/video-production-domain.md)
-9. [Current state](status/current-state.md)
-10. [Initial build sequence](roadmap/initial-build-sequence.md)
-11. [Open decisions](decisions/open-decisions.md)
+9. [Calendar, Activation, Outcome, and Learning architecture](architecture/activation-and-learning-domain.md)
+10. [Current state](status/current-state.md)
+11. [Initial build sequence](roadmap/initial-build-sequence.md)
+12. [Open decisions](decisions/open-decisions.md)
 
 Supporting review records:
 
@@ -59,6 +60,7 @@ Supporting review records:
 - [ICP domain architectural design](architecture/icp-domain.md)
 - [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
 - [Video Production domain architectural design](architecture/video-production-domain.md)
+- [Calendar, Activation, Outcome, and Learning architecture](architecture/activation-and-learning-domain.md)
 - [ADR index](adr/README.md)
 - [ADR template](adr/TEMPLATE.md)
 
@@ -91,6 +93,7 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 - [Campaigns and Studio desktop workflow](user/campaigns-and-studio.md)
 - [Public Repository Growth and Launch workflow](user/repository-growth.md)
 - [Video Production in Studio](user/video-production.md)
+- [Calendar, Manual Activation, Outcomes, and Learning](user/calendar-activation-and-learning.md)
 
 ## Status and reviews
 
