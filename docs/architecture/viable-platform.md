@@ -198,6 +198,8 @@ Owns:
 
 Provider content is untrusted data. It cannot direct tools, credentials, prompts, or runtime behavior.
 
+Implementation status: the first internal Signals Inbox is implemented through PR #13 with provider-neutral contracts, bounded Event Intelligence import, public unauthenticated GitHub repository evidence, strict manual import, source health, review, relationships, and conversion to proposed owned work. Campaign, lead, publishing, and canonical ICP mutation authority are not granted by this implementation.
+
 ### 7.3 Marketability Assessment
 
 Owns:
