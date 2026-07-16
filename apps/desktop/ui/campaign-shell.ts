@@ -1,5 +1,6 @@
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { CampaignsViewController } from "./campaigns-view.js";
+import { VideoProductionViewController } from "./video-production-view.js";
 
 const productStore = new LocalStorageProductWorkspaceStore();
 const sidebar = document.querySelector<HTMLElement>("#sidebar");
@@ -8,6 +9,7 @@ const live = document.querySelector<HTMLElement>("#live-region");
 
 let page: "campaigns" | "studio" | undefined;
 let controller: CampaignsViewController | undefined;
+let videoController: VideoProductionViewController | undefined;
 
 function announce(message: string): void {
   if (live) live.textContent = message;
@@ -30,7 +32,7 @@ function activate(button: HTMLButtonElement, target: "campaigns" | "studio", tex
   button.setAttribute("aria-current", page === target ? "page" : "false");
 }
 
-function prepareCampaignForms(): void {
+function prepareForms(): void {
   if (!main) return;
   for (const label of main.querySelectorAll<HTMLLabelElement>("label")) {
     if (label.querySelector('input[type="checkbox"]')) label.classList.add("choice");
@@ -60,7 +62,7 @@ async function open(target: "campaigns" | "studio"): Promise<void> {
   activateNavigation();
   main.setAttribute("aria-busy", "true");
   if (!workspaceId) {
-    main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "campaigns" ? "Campaigns" : "Studio"}</p><h2>Create a Product workspace first.</h2><p>Campaign authority depends on local Product Core truth, reviewed evidence, and approved claims.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before entering this workflow.</span></section>`;
+    main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "campaigns" ? "Campaigns" : "Studio"}</p><h2>Create a Product workspace first.</h2><p>Campaign and video authority depend on local Product Core truth, reviewed evidence, and approved claims.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before entering this workflow.</span></section>`;
     main.setAttribute("aria-busy", "false");
     main.focus();
     return;
@@ -72,7 +74,8 @@ async function open(target: "campaigns" | "studio"): Promise<void> {
     return;
   }
   if (!controller || controller.workspaceId !== workspaceId) controller = new CampaignsViewController(workspaceId, product.createdBy);
-  await controller.load();
+  if (!videoController || videoController.workspaceId !== workspaceId) videoController = new VideoProductionViewController(workspaceId, product.createdBy);
+  await Promise.all([controller.load(), videoController.load()]);
   render();
   main.setAttribute("aria-busy", "false");
   main.focus();
@@ -80,9 +83,15 @@ async function open(target: "campaigns" | "studio"): Promise<void> {
 
 function render(): void {
   if (!main || !page) return;
-  main.innerHTML = controller?.render(page) ?? `<section class="state loading" role="status"><strong>Loading campaign workflow</strong></section>`;
-  prepareCampaignForms();
+  const campaignHtml = controller?.render(page) ?? `<section class="state loading" role="status"><strong>Loading campaign workflow</strong></section>`;
+  const videoHtml = page === "studio" ? videoController?.render() ?? `<section class="state loading" role="status"><strong>Loading video production workflow</strong></section>` : "";
+  main.innerHTML = campaignHtml + videoHtml;
+  prepareForms();
   activateNavigation();
+}
+
+async function refreshVideo(): Promise<void> {
+  if (videoController) await videoController.load();
 }
 
 new MutationObserver(() => activateNavigation()).observe(sidebar ?? document.body, { childList: true, subtree: true });
@@ -95,15 +104,29 @@ document.addEventListener("click", (event) => {
   if (target === "campaigns" || target === "studio") {
     event.preventDefault();
     event.stopImmediatePropagation();
-    void open(target).catch((error: unknown) => announce(`Campaign workflow failed: ${error instanceof Error ? error.message : "Unknown error"}`));
+    void open(target).catch((error: unknown) => announce(`Studio workflow failed: ${error instanceof Error ? error.message : "Unknown error"}`));
     return;
   }
   if (target === "home" || target === "product" || target === "signals" || target === "market") page = undefined;
+  if (button.dataset.videoAction && videoController && page === "studio") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    main?.setAttribute("aria-busy", "true");
+    void videoController.click(button).then((message) => {
+      render();
+      if (message) announce(message);
+    }).catch((error: unknown) => {
+      render();
+      announce(`Video production action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }).finally(() => main?.setAttribute("aria-busy", "false"));
+    return;
+  }
   if (!button.dataset.campaignAction || !controller || !page) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   main?.setAttribute("aria-busy", "true");
-  void controller.click(button).then((message) => {
+  void controller.click(button).then(async (message) => {
+    await refreshVideo();
     render();
     if (message) announce(message);
   }).catch((error: unknown) => {
@@ -114,6 +137,23 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("submit", (event) => {
   const form = event.target as HTMLFormElement;
+  if (form.dataset.form?.startsWith("video-") && videoController && page === "studio") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (form.dataset.form === "video-create-brief" && (!form.querySelector('input[name="platforms"]:checked') || !form.querySelector('input[name="aspectRatios"]:checked'))) {
+      announce("Select at least one video platform and aspect ratio");
+      return;
+    }
+    main?.setAttribute("aria-busy", "true");
+    void videoController.submit(form).then((message) => {
+      render();
+      if (message) announce(message);
+    }).catch((error: unknown) => {
+      render();
+      announce(`Video production operation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }).finally(() => main?.setAttribute("aria-busy", "false"));
+    return;
+  }
   if (!form.dataset.form?.startsWith("campaign-") || !controller || !page) return;
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -122,7 +162,8 @@ document.addEventListener("submit", (event) => {
     return;
   }
   main?.setAttribute("aria-busy", "true");
-  void controller.submit(form).then((message) => {
+  void controller.submit(form).then(async (message) => {
+    await refreshVideo();
     render();
     if (message) announce(message);
   }).catch((error: unknown) => {
