@@ -10,11 +10,11 @@ Each decision should be resolved through the appropriate PRD update, ADR, issue,
 
 ## Decision states
 
-- **Open:** evidence or ownership is incomplete.
-- **Researching:** active investigation is underway.
-- **Ready for decision:** options and evidence are sufficient for an owner decision.
-- **Deferred:** intentionally postponed until a named trigger.
-- **Resolved:** authority is recorded in an ADR, PRD update, domain architecture, integration decision, or product decision.
+- **Open:** Evidence or ownership is incomplete.
+- **Researching:** Active investigation is underway.
+- **Ready for decision:** Options and evidence are sufficient for an owner decision.
+- **Deferred:** The decision is intentionally postponed until a named trigger.
+- **Resolved:** Authority is recorded in an ADR, PRD update, domain architecture, integration decision, or product decision.
 
 ## Current decisions
 
@@ -27,7 +27,7 @@ Each decision should be resolved through the appropriate PRD update, ADR, issue,
 | OD-005 | Which social publishing adapter is first? | Manual export comes before direct publishing. Adapter priority depends on audience fit, official access, scope, review requirements, cost, and maintenance burden. | When a direct publishing adapter is proposed | Integration assessment and ADR if architecture changes | Deferred |
 | OD-006 | Which analytics and search integrations are first? | Manual import is implemented for the first complete loop. Provider priority remains unresolved. | Before a connected analytics or search adapter | Integration assessment | Open |
 | OD-007 | Which CRM or lead-capture integration is first? | Viable owns relationship context; CRM synchronization remains optional. | Before external CRM synchronization | Integration assessment and ADR if authority changes | Deferred |
-| OD-008 | What retention defaults apply to contacts, outreach, evidence, analytics, logs, and media? | Retention must be explicit, minimal, configurable, and connected to deletion and export behavior. | Before storing real personal or outreach data | Privacy decision and ADR | Open |
+| OD-008 | What retention defaults apply to contacts, outreach, evidence, analytics, logs, and media? | Retention must be explicit, minimal, configurable, and connected to deletion and export behavior. Website Watch Stage 1 implements bounded snapshot retention classes, but that local decision does not resolve product-wide retention. | Before storing real personal or outreach data | Privacy decision and ADR | Open |
 | OD-009 | How are installers signed and updated? | The product is not release-ready until installer identity, signing, update, rollback, and support expectations are validated. | Before public beta installer | Operational ADR | Open |
 | OD-010 | Does Viable expose a public API, plugin surface, or MCP server? | No external automation authority should exist before permissions, scopes, identities, audit state, and data authority are implemented. | After core contexts and permissions exist | ADR | Deferred |
 | OD-011 | How is ViMax integrated? | Stage 1 is resolved as a provider-neutral manual package, blank-credential ViMax v1.1.0 compatibility packet, structured artifact import, and Viable-owned review. ViMax remains optional and removable. Local execution is deferred until a stable noninteractive contract supports version checks, cancellation, progress, structured errors, bounded storage, credential injection, and cross-platform validation. | Reopen only when a local execution adapter is proposed | `docs/integrations/vimax-video-generation.md` and `docs/architecture/video-production-domain.md` | Resolved |
@@ -44,7 +44,7 @@ Each decision should be resolved through the appropriate PRD update, ADR, issue,
 | OD-022 | Which attribution models ship first? | Slice 6 ships manual, first-touch, last-touch, influence, and unattributed labels as user-selected retrospective models. Every result requires explicit uncertainty. No automatic attribution engine is claimed. | Reopen before automated or multi-touch attribution computation | `docs/architecture/activation-and-learning-domain.md` and issue #7 | Resolved |
 | OD-023 | When does Viable support remote or managed workers? | Local execution and manual export are preferred until a remote workload has clear user value, isolation, cost, cancellation, and privacy controls. | Before hosted generation or automation | ADR | Deferred |
 | OD-024 | What is the long-term relationship between Event Radar and Viable? | Viable is the authoritative expanded product. Event Intelligence is a bounded subsystem. The prior product repository is not a runtime dependency. | After sanitized migration and release planning | Product and repository decision | Open |
-| OD-025 | How should Webdog and Context.dev support website monitoring? | Absorb Webdog's durable monitoring patterns and selected MIT-licensed pure utilities into a Viable-owned provider-neutral Website Watch domain. Keep Webdog and Context.dev optional adapters inside Signals and Market. Do not merge Webdog's hosted Next.js, PostgreSQL, authentication, credential, notification, or deployment model into Viable. | Reopen when a live Context.dev adapter or stable Webdog service API is proposed | `docs/integrations/webdog-website-monitoring.md` | Resolved |
+| OD-025 | How should Webdog and Context.dev support website monitoring? | Stage 1 is implemented as a Viable-owned provider-neutral Website Watch domain, browser-safe monitoring utilities, strict Webdog-compatible manual import, correlated Signals evidence, named review, retention and deletion, and reviewed Calendar planning. Webdog and Context.dev remain optional adapters. Viable does not import Webdog's hosted application, authentication, database, credential, notification, team, or deployment model. | Reopen when a live Context.dev adapter or stable Webdog service API is proposed | `docs/integrations/webdog-website-monitoring.md`, `docs/architecture/website-watch-domain.md`, and issue #29 | Resolved |
 
 ## Required decision format
 
@@ -76,6 +76,7 @@ Review this register:
 - `../adr/README.md`
 - `../architecture/viable-platform.md`
 - `../architecture/activation-and-learning-domain.md`
+- `../architecture/website-watch-domain.md`
 - `../integrations/webdog-website-monitoring.md`
 - `../roadmap/product-roadmap.md`
 - `../status/current-state.md`
