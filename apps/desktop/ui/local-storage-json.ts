@@ -1,0 +1,68 @@
+type StorageLike = Pick<Storage, "getItem" | "setItem">;
+
+type IdentityRequirement = Readonly<{
+  field: string;
+  expected: string;
+}>;
+
+export class LocalWorkspaceStorageError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "LocalWorkspaceStorageError";
+  }
+}
+
+export function readWorkspaceJson<T>(
+  storage: StorageLike,
+  key: string,
+  label: string,
+  identity: IdentityRequirement,
+  requiredArrays: readonly string[],
+): T | undefined {
+  let serialized: string | null;
+  try {
+    serialized = storage.getItem(key);
+  } catch (error) {
+    throw new LocalWorkspaceStorageError(`${label} storage could not be read. The saved data was not modified.`, { cause: error });
+  }
+  if (serialized === null) return undefined;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(serialized);
+  } catch (error) {
+    throw new LocalWorkspaceStorageError(`${label} data is malformed and cannot be loaded. The original saved value was preserved for recovery or deletion.`, { cause: error });
+  }
+
+  if (!isRecord(parsed)) {
+    throw new LocalWorkspaceStorageError(`${label} data is not a workspace object. The original saved value was preserved.`);
+  }
+  if (parsed[identity.field] !== identity.expected) {
+    throw new LocalWorkspaceStorageError(`${label} identity does not match the active workspace. The original saved value was preserved.`);
+  }
+  const missing = requiredArrays.filter((field) => !Array.isArray(parsed[field]));
+  if (missing.length > 0) {
+    throw new LocalWorkspaceStorageError(`${label} data is incomplete. Missing workspace collections: ${missing.join(", ")}. The original saved value was preserved.`);
+  }
+
+  return parsed as T;
+}
+
+export function writeWorkspaceJson(storage: StorageLike, key: string, label: string, value: unknown): void {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(value);
+  } catch (error) {
+    throw new LocalWorkspaceStorageError(`${label} could not be serialized and was not saved.`, { cause: error });
+  }
+
+  try {
+    storage.setItem(key, serialized);
+  } catch (error) {
+    throw new LocalWorkspaceStorageError(`${label} could not be saved. Local storage may be unavailable or full; the previous saved value was not intentionally removed.`, { cause: error });
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
