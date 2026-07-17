@@ -12,6 +12,7 @@
 | Website Watch architecture | `docs/architecture/website-watch-domain.md` |
 | Video Production architecture | `docs/architecture/video-production-domain.md` |
 | Activation and learning architecture | `docs/architecture/activation-and-learning-domain.md` |
+| Automated viability review | `docs/reviews/viability-sweep-2026-07-16.md` |
 | ADRs | `docs/adr/README.md` |
 | Open decisions | `docs/decisions/open-decisions.md` |
 | Current handoff | `docs/handoff/CURRENT.md` |
@@ -29,15 +30,17 @@ The following internal workflows are implemented:
 5. provider-neutral Video Production packages and Studio review;
 6. Calendar, manual activation, outcome evidence, performance import, retrospectives, and learning.
 
-Website Watch Stage 1 is also implemented as a post-sequence Signals and Market extension.
+Website Watch Stage 1 is implemented as a post-sequence Signals and Market extension.
 
-Merged PR #30 implemented the provider-neutral Website Watch core, strict Webdog-compatible manual import, source outcomes, correlated Signals evidence, named review, retention and deletion, browser-safe security utilities, and deterministic prohibited-transition tests.
-
-Merged PR #31 connected Website Watch to Signals, Market, and authoritative Calendar planning in the packaged Tauri desktop application. Exact-head validation passed repository secret scanning, core and desktop TypeScript, the complete deterministic Node suite, Rust formatting, Rust tests, Tauri bundle construction, and Debian package inspection.
+PR #35, merged at `77b9572ef00df75c734b753bcd480d8e7fe9e5b9`, completed the current automated viability sweep. It hardened clean builds, repository consistency, secret scanning, dependency and workflow supply-chain controls, coverage floors, desktop persistence integrity, startup recovery, Campaign and Studio recovery, exact Rust minimum validation, and native workflow coverage.
 
 Human accessibility and unfamiliar-user acceptance remain open for issues #2, #5, #6, #3, #4, #7, and #29.
 
-Viable is not an end-user release. No claim should imply that direct publishing, connected provider delivery verification, automatic analytics import, live website crawling, Context.dev execution, live Webdog synchronization, actual ViMax execution, leads, sales, signed installers, or external release readiness are operational.
+Issue #4 also remains open for actual ViMax execution and Windows and Linux ViMax runtime validation.
+
+Issue #36 owns the remaining non-human release-foundation work.
+
+Viable is not an end-user release. No claim should imply that direct publishing, connected provider delivery verification, automatic analytics import, live website crawling, Context.dev execution, live Webdog synchronization, actual ViMax execution, leads, sales, signed installers, tested upgrades, backup recovery, or external release readiness are operational.
 
 ## Implemented documentation authority
 
@@ -57,6 +60,7 @@ Viable is not an end-user release. No claim should imply that direct publishing,
 - implemented ViMax Stage 1 integration assessment;
 - implemented Webdog Website Watch Stage 1 integration assessment;
 - third-party notices with Webdog revision and MIT attribution;
+- automated viability review;
 - governance and safety boundaries;
 - product provenance and ownership policy;
 - canonical glossary;
@@ -64,7 +68,9 @@ Viable is not an end-user release. No claim should imply that direct publishing,
 - restart handoff;
 - user guides for Product and ICP, Signals, Website Watch, Campaigns and Studio, Repository Growth, Video Production, Calendar, manual activation, outcomes, and learning.
 
-## Accepted foundational decisions
+## Foundational authority
+
+Viable preserves:
 
 - local-first workspace authority;
 - provider-neutral capability adapters;
@@ -72,11 +78,14 @@ Viable is not an end-user release. No claim should imply that direct publishing,
 - reviewed evidence and explicit partial failure;
 - named human approval for externally consequential action;
 - marketability-loop authority with bounded Event Intelligence;
-- Product Core ownership of canonical ICP hypotheses.
+- Product Core ownership of canonical ICP hypotheses;
+- generated-analysis separation;
+- distinct schedule, approval, export, delivery, provider-verification, and outcome states;
+- explicit unavailable, partial, delayed, not-collected, and verified-zero states.
 
-Repository Growth, Video Production, Calendar and Learning, and Website Watch implement these accepted boundaries. They did not require duplicate authority or a new foundational ADR.
+Repository Growth, Video Production, Calendar and Learning, and Website Watch implement these boundaries without creating duplicate authority.
 
-## Initial build and extension coverage
+## Workstream coverage
 
 | Workstream | Issue | Automated state |
 |---|---|---|
@@ -85,11 +94,12 @@ Repository Growth, Video Production, Calendar and Learning, and Website Watch im
 | Signals Inbox | #5 | Implemented; human acceptance open |
 | Campaign Brief and Canonical Asset | #6 | Implemented; human acceptance open |
 | Public Repository Growth and Launch | #3 | Implemented; human acceptance open |
-| Video Production and ViMax package prototype | #4 | Implemented Stage 1; actual ViMax execution and human acceptance open |
+| Video Production and ViMax package prototype | #4 | Stage 1 implemented; actual ViMax execution and human acceptance open |
 | Calendar, Manual Activation, Outcome Capture, and Learning | #7 | Implemented; human acceptance open |
-| Website Watch and Webdog-compatible Signals extension | #29 | Implemented Stage 1; human acceptance open |
+| Website Watch and Webdog-compatible Signals extension | #29 | Stage 1 implemented and hardened; human acceptance open |
+| Release foundations | #36 | Open |
 
-Issue #29 is a bounded Signals and Market extension, not a seventh foundational slice.
+Website Watch is a bounded Signals and Market extension, not a seventh foundational slice.
 
 ## Implemented runtime foundation
 
@@ -99,11 +109,11 @@ Issue #29 is a bounded Signals and Market extension, not a seventh foundational 
 - local browser-profile persistence for current desktop workflows;
 - atomic local JSON adapters for reusable domain services;
 - named human approval primitive;
-- strict TypeScript and Node tests;
+- strict core and desktop TypeScript;
+- deterministic Node tests;
 - Rust formatting and tests;
 - Tauri bundle and Debian package validation;
-- secret scanning;
-- failure-only core TypeScript, desktop TypeScript, and build-test diagnostic artifacts.
+- failure-only diagnostics for viability, secrets, dependency audit, compiler surfaces, tests, and coverage.
 
 ### Product Core
 
@@ -128,30 +138,20 @@ Issue #29 is a bounded Signals and Market extension, not a seventh foundational 
 
 ### Website Watch Stage 1
 
-- watched-site identity, canonical URL, normalized domain, relationship, purpose, authorization confirmation, retention, owner, and active state;
-- site-link, page-content, and product-price target intent;
-- target URL, link scope, watch note, requested interval, next-due intent, source adapter, retention, and review requirement;
-- provider-neutral snapshots with observed URL, correlation reference, SHA-256 identity, bounded payload reference, limitations, retention, and deletion evidence;
-- website-change observations with snapshot relationships, change kind, bounded diff, evidence state, confidence, limitations, review, and generated-analysis relationships;
-- generated change summaries and relevance recommendations stored separately from evidence;
-- source outcomes for change detected, verified no change, baseline, partial, unavailable, rate limited, authentication failure, validation failure, transport failure, offline, and cancellation;
-- first-snapshot baseline semantics that do not claim no earlier change;
-- strict Webdog `webdog_ai.new_alerts` version 1 pasted or local-file import;
-- one to one hundred alerts per import and a 512 KiB input limit;
-- source-instance origin validation;
-- secret-bearing field and value rejection;
-- absolute public HTTP and HTTPS URL validation;
-- literal IPv4 and IPv6 private, loopback, link-local, metadata, multicast, documentation, and reserved-range restrictions;
-- browser-safe SHA-256 implementation with canonical vectors;
-- ordered bounded line differences without semantic-completeness claims;
-- the same validated import producing Website Watch evidence and correlated Signals suggestions;
-- named Signals review synchronized with the related Website Watch observation;
-- proposed Website Watch response work;
-- reviewed follow-up, experiment, opportunity, and approval-deadline handoff through existing Calendar authority;
-- snapshot deletion and retention pruning with named actors while preserving provenance;
-- Webdog MIT attribution and reviewed-source provenance;
-- loading, empty, offline, blocked, error, partial, failure, and recovery states;
-- responsive and reduced-motion-safe desktop presentation.
+- watched sites with canonical public URL, normalized domain, ownership classification, purpose, authorization confirmation, retention, owner, and status;
+- site-link, page-content, and product-price watch-target intent;
+- strict Webdog-compatible pasted or local-file JSON import;
+- input size, count, schema, unknown-field, origin, URL, and secret validation;
+- browser-safe SHA-256 and public-address restrictions;
+- explicit change, no-change, baseline, partial, unavailable, rate-limit, authentication, validation, transport, offline, and cancellation outcomes;
+- bounded observations and generated-analysis separation;
+- correlated Signals suggestions;
+- named review synchronization;
+- proposed work and reviewed Calendar planning;
+- snapshot retention, explicit deletion, retention pruning, and preserved provenance;
+- responsive, reduced-motion-safe, and focus-visible presentation.
+
+Website Watch Stage 1 does not perform live collection, Context.dev requests, Webdog service synchronization, worker scheduling, private-page access, AI execution, notification, or publication.
 
 ### Campaigns and Studio
 
@@ -162,9 +162,8 @@ Issue #29 is a bounded Signals and Market extension, not a seventh foundational 
 - claims, evidence, rights, accessibility, disclosures, comments, and version history;
 - named campaign, asset, and variant review;
 - approval invalidation;
-- LinkedIn, website, and GitHub release variants;
-- channel comparison;
-- credential-free manual campaign exports that remain unapproved for publishing and undelivered.
+- credential-free manual exports;
+- visible Campaign and Studio load recovery.
 
 ### Public Repository Growth and Launch
 
@@ -173,7 +172,6 @@ Issue #29 is a bounded Signals and Market extension, not a seventh foundational 
 - observed, verified-zero, unavailable, and not-collected metric states;
 - twelve explained readiness dimensions;
 - owned growth actions;
-- Product-integrated desktop workflow;
 - campaign-linked launch rooms;
 - Product Core authority revalidation;
 - release checklist and maintainer coverage;
@@ -184,195 +182,158 @@ Issue #29 is a bounded Signals and Market extension, not a seventh foundational 
 ### Video Production and Studio
 
 - provider-neutral video brief;
-- exact approved campaign and canonical-script relationship;
-- exact script version, claim revision, and reviewed-evidence snapshot;
-- duration, platforms, aspect ratios, style, prohibited elements, captions, audio description, accessibility, and disclosures;
-- storyboard and shot constraints;
-- source-asset rights, allowed use, prohibited use, sensitive kind, consent, optional hash, and expiration;
-- user-selected LLM, image, and video provider plans;
-- estimated cost, currency, data-handling notes, and credential mode;
-- named video-brief review;
-- pinned ViMax `v1.1.0`, revision `1f8f650`, Python 3.12+, MIT, Windows/Linux upstream, macOS-unverified tool record;
+- approved campaign and canonical-script relationship;
+- exact script, claim, and evidence snapshot;
+- storyboard, rights, consent, accessibility, disclosures, provider plans, costs, and data handling;
+- named brief, render, and platform-variant review;
 - provider-neutral manual package;
-- blank-credential Script2Video compatibility packet;
-- structured run import and artifact relationships;
+- pinned ViMax compatibility record;
+- structured stage, failure, artifact, hash, source, and redacted-log import;
 - completed, partial, failed, and cancelled render states;
-- named render and platform-variant review;
-- local Studio workflow with blocked, error, recovery, and invalidation states.
+- approved variants available to Calendar.
 
-### Calendar and Manual Activation
+The implementation does not install or execute ViMax, invoke generation providers, inject credentials, or claim cross-platform ViMax runtime validation.
 
-- destination registry with label, channel, non-secret account reference, owner, ownership confirmation, capability, rate-limit, retry, and data-handling notes;
-- active and disabled destination states;
-- planning entries for approval deadlines, event opportunities, experiments, and follow-ups;
-- external activation entries from approved Campaign variants, ready Repository Launch rooms, and approved Video variants;
-- reviewed Website Watch follow-up, experiment, opportunity, and approval-deadline entries;
-- exact source snapshots with claims, evidence, rights, accessibility, disclosures, payload, and file relationships;
-- source-to-destination channel filtering;
-- separate draft, review, scheduled, invalidated, rejected, and cancelled schedule states;
-- separate not-ready, ready-for-manual-activation, delivered, failed, cancelled, and unknown activation states;
-- named destination-bound external-action review;
-- Product Core and upstream-source authority revalidation before review and export;
-- credential-free manual activation packages with idempotency keys;
-- explicit ready-for-download, downloaded, interrupted, and recovered export states;
-- human-recorded, provider-evidence, and provider-verified outcome classifications;
-- delivered, failed, cancelled, and unknown outcome records;
-- delivery URL, publication identifier, provider response, failure class, failure detail, evidence reference, owner, and time;
-- authority-impact invalidation without erasing historical delivery evidence.
+### Calendar, Activation, Analytics, and Learning
 
-### Analytics and Learning
+- destination registry with non-secret references and ownership confirmation;
+- planning entries for deadlines, opportunities, experiments, and follow-ups;
+- external actions from approved Campaign, Repository Growth, and Video Production sources;
+- exact source snapshots and authority revalidation;
+- named destination-bound review;
+- separate schedule, export, activation, delivery, and verification states;
+- credential-free manual packages and recovery;
+- delivery, failure, cancellation, and unknown outcomes;
+- explicit evidence classifications;
+- measurement plans, baselines, observation windows, and metric evidence states;
+- performance imports, retrospectives, attribution uncertainty, and learning-ledger entries;
+- advisory ICP and positioning effects without automatic Product Core mutation.
 
-- measurement plans;
-- baseline observations recorded before retrospective analysis;
-- observation windows;
-- observed, verified-zero, delayed, partial, unavailable, and not-collected metric states;
-- complete, partial, delayed, unavailable, and failed performance-import states;
-- human-recorded, provider-export, and provider-API source classifications;
-- numeric comparison only for compatible observed and verified-zero states;
-- continue, iterate, stop, and inconclusive retrospective decisions;
-- manual, first-touch, last-touch, influence, and unattributed model labels;
-- mandatory attribution uncertainty;
-- evidence, decision, change, outcome, follow-up, and reversible-next-action learning entries;
-- advisory ICP-confidence and positioning effects without automatic Product Core mutation;
-- Calendar and Analytics desktop navigation;
-- loading, empty, offline, blocked, error, interruption, recovery, invalidation, partial-evidence, and ready states.
+## Automated viability baseline
 
-## Authority and evidence boundaries
+### Clean builds
 
-### External action
+- core builds remove `dist` before compilation;
+- desktop builds remove generated web output before compilation;
+- generated output remains ignored and cannot be tracked silently.
 
-```text
-scheduled
-  != exported
-  != delivered
-  != provider verified
-  != successful outcome
-```
+### Repository consistency
 
-Provider verification requires a provider response identifier.
+The viability gate checks:
 
-Human-recorded evidence remains explicitly human recorded.
+- package, Tauri, and Cargo version alignment;
+- Node and Rust runtime declarations;
+- clean-build wiring;
+- native workflow paths;
+- exact Rust minimum validation;
+- pinned third-party GitHub Actions;
+- Dependabot presence;
+- Content Security Policy requirements;
+- desktop-store integrity usage;
+- absence of `@ts-ignore`, focused tests, and skipped tests;
+- local Markdown link existence and repository containment.
 
-### Metrics
+### Security and dependency controls
 
-Unavailable or missing evidence never becomes zero.
+- working-tree tracked text files are scanned rather than committed blobs;
+- secret signatures cover Slack, GitHub, AWS, Google, OpenAI, Anthropic, npm, GitLab, and private-key material;
+- matched secret values are not printed;
+- npm high and critical audit findings fail CI;
+- GitHub Actions are pinned to full commit revisions;
+- validation checkout credentials are not persisted;
+- weekly Dependabot proposals cover npm, Cargo, and GitHub Actions.
 
-- `observed` requires a finite non-zero value;
-- `verified_zero` requires explicit evidence and value zero;
-- `delayed` prohibits a value;
-- `partial` requires a limitation and may contain a bounded value;
-- `unavailable` prohibits a value and requires a limitation;
-- `not_collected` prohibits a value and requires a limitation.
+### Coverage
 
-A retrospective calculates a numeric delta only for compatible numeric states.
+| Metric | Observed during sweep | Enforced floor |
+|---|---:|---:|
+| Lines | 88.69% | 85% |
+| Branches | 62.44% | 55% |
+| Functions | 89.81% | 85% |
 
-### Website Watch
+Coverage floors apply to reusable core source. They do not prove user comprehension or evidence quality.
 
-```text
-configured target
-  != completed check
-  != verified no change
-  != reviewed evidence
-  != Product Core truth
-  != Calendar action
-```
+### Desktop persistence and recovery
 
-A failed website check never becomes verified no change.
+All seven desktop stores validate minimum workspace identity and structure before loading authority data.
 
-The first snapshot establishes a baseline and cannot prove that no earlier change occurred.
+The runtime now:
 
-A generated summary or relevance recommendation remains generated analysis.
+- rejects malformed, mismatched, or incomplete saved data;
+- preserves the original saved value for recovery or deletion;
+- surfaces storage access, quota, serialization, and incomplete-removal failures;
+- renders a visible startup failure instead of remaining indefinitely busy;
+- renders Campaign and Studio load recovery and retry behavior;
+- preserves Product workspace identity through partial deletion so cleanup can be retried.
 
-A Calendar entry is available only after the correlated Signals record and Website Watch observation are reviewed.
+This does not implement schema versions, cross-version migrations, backup, restore, or corruption quarantine.
 
-## External integration status
+### Exact-head evidence
 
-| Integration area | Status |
-|---|---|
-| Event sources | Public ICS implemented; additional adapters not implemented |
-| GitHub public evidence | Bounded public evidence, readiness, launch, export, baseline, and retrospective implemented; authenticated metrics and writes not implemented |
-| Website Watch | Provider-neutral Stage 1 and Webdog-compatible manual import implemented; live crawling, Context.dev, and Webdog service adapters deferred |
-| LinkedIn | Local text and video variants, destination records, packages, and human outcome evidence implemented; publishing adapter not implemented |
-| Instagram Reels | Local video variant and manual destination workflow implemented; publishing adapter not implemented |
-| YouTube Shorts | Local video variant and manual destination workflow implemented; publishing adapter not implemented |
-| Website CMS | Local text and video variants, destination records, and manual evidence implemented; CMS adapter not implemented |
-| GitHub release publishing | Local release variant, launch room, destination record, and manual evidence implemented; publishing adapter not implemented |
-| ViMax | Stage 1 manual package and import implemented; execution adapter deferred |
-| Search and general analytics | Manual metric import implemented; connected adapters not implemented |
-| CRM and lead capture | Not implemented |
+PR #35 was validated at `041193349de518e708b8e80378e4de9a9f46d5ad`:
 
-## Explicitly not implemented
+- CI run #118 passed repository viability, working-tree secret scan, npm dependency audit, strict TypeScript, complete deterministic tests, and coverage floors;
+- Desktop run #62 passed exact Rust 1.88 formatting and tests, clean desktop web compilation, Tauri bundle construction, and Debian package inspection.
+
+Shared `src/**` changes now trigger native validation.
+
+## Designed or required but not implemented
 
 - direct social, website, or GitHub publishing adapters;
 - automatic provider delivery verification;
 - connected analytics and search imports;
-- live website crawling or scheduled Website Watch worker;
-- Context.dev execution or credentials;
-- live Webdog service synchronization;
-- public inbound desktop webhook listener;
-- website screenshots from a live provider;
-- browser-session copying or private-page scraping;
-- automatic Website Watch AI summary or relevance execution;
 - local ViMax execution or managed worker;
 - model-provider execution;
-- Windows, Linux, or macOS ViMax runtime validation;
+- live Context.dev collection;
+- live Webdog service synchronization;
+- social and search research adapters beyond implemented sources;
 - authenticated GitHub traffic and write adapters;
-- website SEO, AEO, and conversion analysis beyond bounded change evidence;
+- website crawl, SEO, AEO, and conversion analysis;
 - lead and organization records;
 - sales enablement;
 - automated attribution computation;
-- automatic ICP or Product Core mutation from learning or website changes;
+- automatic ICP or Product Core mutation from learning;
 - hosted synchronization and multi-user collaboration;
-- product-wide backup and restore guarantees;
-- product-wide retention and deletion policy;
-- signed installers and update system.
-
-Website Watch implements bounded snapshot retention and deletion. That does not resolve product-wide retention, backup, restore, or migration requirements.
+- explicit schema versions and cross-version migrations;
+- product-wide backup and restore;
+- product-wide retention and deletion propagation;
+- corruption quarantine and malformed-record export;
+- Rust dependency minimization and advisory scanning;
+- signed installers and publisher identity;
+- tested update, interruption, rollback, upgrade, and uninstall behavior;
+- Windows installer validation;
+- macOS packaging and notarization decision;
+- operational support readiness.
 
 ## Human acceptance gates
 
-Issue #2 remains open for Product and ICP accessibility and unfamiliar-founder acceptance.
+Issue #2 remains open for Product and ICP accessibility, unfamiliar-founder completion, and remediation.
 
-Issue #5 remains open for Signals accessibility and unfamiliar-user acceptance.
+Issue #5 remains open for Signals accessibility, unfamiliar-user completion, and remediation.
 
-Issue #6 remains open for Campaigns and Studio accessibility and unfamiliar-user acceptance.
+Issue #6 remains open for Campaigns and Studio accessibility, unfamiliar-user campaign-to-export completion, and remediation.
 
-Issue #3 remains open for Repository Growth accessibility and unfamiliar-maintainer acceptance.
+Issue #3 remains open for Repository Growth accessibility, unfamiliar-maintainer completion, and remediation.
 
-Issue #4 remains open for:
+Issue #4 remains open for actual ViMax execution, Windows and Linux ViMax validation, accessibility, unfamiliar-user completion, and remediation.
 
-- actual ViMax run consuming the adapted package;
-- Windows and Linux ViMax execution validation;
-- hands-on keyboard and assistive-technology review;
-- unfamiliar-user completion from approved script through reviewed and scheduled platform variant;
-- remediation from those reviews.
+Issue #7 remains open for Calendar and Analytics accessibility, unfamiliar-user completion through outcome and learning, and remediation.
 
-Issue #7 remains open for:
+Issue #29 remains open for Website Watch accessibility, unfamiliar-founder completion through reviewed change and Calendar planning, and remediation.
 
-- hands-on keyboard and assistive-technology review;
-- unfamiliar-user completion from approved source through outcome and learning entry;
-- remediation from those reviews.
-
-Issue #29 remains open for:
-
-- hands-on keyboard and assistive-technology review;
-- unfamiliar-founder completion from watched-site creation through reviewed change and Calendar follow-up;
-- remediation of accessibility, clarity, evidence, retention, failure, and recovery gaps.
-
-Automated semantics, responsive styling, reduced-motion support, deterministic tests, and native packaging are not substitutes for those reviews.
+Automated semantics, coverage, persistence checks, focus styling, responsive styling, reduced motion, deterministic tests, and native packaging are not substitutes for those reviews.
 
 ## Immediate next milestones
 
 1. Complete and remediate human acceptance for issues #2, #5, #6, #3, #4, #7, and #29.
-2. Define and validate backup, restore, product-wide retention, deletion, and schema-migration guarantees.
-3. Use Viable's Product and ICP workflow to select and validate its own narrower launch ICP.
-4. Decide the first connected publishing, analytics, search, CRM, and live website-monitoring adapters from product evidence.
+2. Progress release-foundation issue #36.
+3. Use Viable's Product and ICP workflow to select and validate its narrower launch ICP.
+4. Decide the first connected publishing, analytics, search, CRM, Context.dev, and live Webdog adapters from product evidence.
 5. Define Relationships and Sales authority before implementing lead or opportunity records.
-6. Add installer signing, updates, rollback, and cross-platform release validation before external beta.
-7. Reopen ViMax execution only when the required machine-safe contract and operating-system validation plan exist.
+6. Reopen ViMax execution only when the machine-safe contract and operating-system validation plan exist.
 
 ## Release posture
 
 Viable is not ready for an end-user product release.
 
-The repository supports controlled internal development and automated package validation. A public or commercial release requires security and privacy review, tested backup and restore, product-wide retention and deletion, schema migration, installer signing and update behavior, hands-on accessibility, unfamiliar-user acceptance, validated external-action evidence, cross-platform installer validation, and operational support documentation.
+The repository supports controlled internal development and automated package validation. A public or commercial release requires human acceptance, tested backup and restore, schema migration, explicit product-wide retention and deletion, dependency hardening, signed installers, update and rollback behavior, supported-platform validation, privacy and security review, and operational support documentation.
