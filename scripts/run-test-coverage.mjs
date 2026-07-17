@@ -16,9 +16,11 @@ async function testFiles(directory) {
 const files = await testFiles("dist/test");
 if (files.length === 0) throw new Error("No compiled deterministic tests were found in dist/test");
 
-const lines = process.env.VIABLE_COVERAGE_LINES ?? "0";
-const functions = process.env.VIABLE_COVERAGE_FUNCTIONS ?? "0";
-const branches = process.env.VIABLE_COVERAGE_BRANCHES ?? "0";
+const lines = process.env.VIABLE_COVERAGE_LINES ?? "85";
+const functions = process.env.VIABLE_COVERAGE_FUNCTIONS ?? "85";
+const branches = process.env.VIABLE_COVERAGE_BRANCHES ?? "55";
+
+console.log(`Enforcing core coverage floors: ${lines}% lines, ${branches}% branches, ${functions}% functions.`);
 
 const result = spawnSync(process.execPath, [
   "--test",
