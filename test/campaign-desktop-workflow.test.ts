@@ -25,6 +25,16 @@ test("desktop exposes Campaigns and Studio workflows", async () => {
   ]) assert.match(view, new RegExp(marker));
 });
 
+test("Campaign and Studio shell load failures remain visible and clear busy state", async () => {
+  const shell = await read("apps/desktop/ui/campaign-shell.ts");
+  assert.match(shell, /finally \{\s*main\.setAttribute\("aria-busy", "false"\)/s);
+  assert.match(shell, /saved workspace was not intentionally changed/i);
+  assert.match(shell, /Retry this workflow/);
+  assert.match(shell, /role="alert"/);
+  assert.match(shell, /main\.focus\(\)/);
+  assert.doesNotMatch(shell, /open\(target\)\.catch/);
+});
+
 test("campaign desktop workflow preserves authority and explicit states", async () => {
   const view = await read("apps/desktop/ui/campaigns-view.ts");
   for (const marker of [
