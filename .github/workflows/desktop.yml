@@ -4,15 +4,21 @@ on:
   pull_request:
     paths:
       - "apps/desktop/**"
+      - "src/**"
       - "package.json"
       - "package-lock.json"
+      - "tsconfig.json"
+      - "scripts/clean-build.mjs"
       - ".github/workflows/desktop.yml"
   push:
     branches: [main]
     paths:
       - "apps/desktop/**"
+      - "src/**"
       - "package.json"
       - "package-lock.json"
+      - "tsconfig.json"
+      - "scripts/clean-build.mjs"
       - ".github/workflows/desktop.yml"
 
 permissions:
@@ -24,12 +30,15 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.88.0"
           components: rustfmt
       - name: Install Tauri build dependencies
         run: |
