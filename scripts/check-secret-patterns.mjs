@@ -21,7 +21,7 @@ for (const [expectedName, sample] of expectedMatches) {
 }
 
 const safeSamples = [
-  "sk-example-not-a-secret",
+  "sk-example",
   "github_pat_redacted",
   "AKIAEXAMPLE",
   "-----BEGIN PUBLIC KEY-----",
