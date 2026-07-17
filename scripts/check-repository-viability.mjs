@@ -67,6 +67,15 @@ for (const path of storageFiles) {
   requireCondition(!content.includes("JSON.parse"), `${path} must not cast unchecked JSON directly into an authority workspace`);
 }
 
+for (const path of gitFiles("src/**/*.ts", "apps/**/*.ts", "test/**/*.ts")) {
+  const source = await read(path);
+  requireCondition(!source.includes("@ts-ignore"), `${path} must not suppress TypeScript errors with @ts-ignore`);
+  if (path.startsWith("test/")) {
+    requireCondition(!/\b(?:test|describe|it)\.only\s*\(/.test(source), `${path} contains a focused test that would exclude the full suite`);
+    requireCondition(!/\b(?:test|describe|it)\.skip\s*\(/.test(source), `${path} contains a skipped test that is not represented as explicit product debt`);
+  }
+}
+
 async function exists(path) {
   try { await stat(path); return true; } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return false;
@@ -104,4 +113,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, pinned actions, CSP, ${storageFiles.length} local stores, and Markdown links.`);
+console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, pinned actions, CSP, ${storageFiles.length} local stores, TypeScript suppression, test focus, and Markdown links.`);
