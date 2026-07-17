@@ -35,6 +35,17 @@ class MemoryStorage implements Storage {
 }
 
 const shape = { arrays: ["items"], strings: ["updatedAt"] } as const;
+const productWorkspace: ProductWorkspace = {
+  id: "product-1",
+  createdAt: "2026-07-16T00:00:00.000Z",
+  createdBy: "Owner",
+  product: {
+    revision: 1,
+    identity: { name: "Viable", description: "Test", lifecycle: "prototype", supportedEnvironments: [] },
+    capabilities: [], limitations: [], positioning: "", alternatives: [], differentiation: [], pricing: [], packaging: [], offers: [], callsToAction: [], brandVoice: [], terminology: {}, accessibilityConstraints: [], updatedAt: "2026-07-16T00:00:00.000Z", updatedBy: "Owner",
+  },
+  claims: [], evidence: [], icpHypotheses: [], assessments: [], actions: [],
+};
 
 test("valid local workspace JSON round trips through the integrity boundary", () => {
   const storage = new MemoryStorage();
@@ -97,22 +108,27 @@ test("Product workspace store validates, activates, and clears a complete worksp
   const storage = new MemoryStorage();
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
   const store = new LocalStorageProductWorkspaceStore();
-  const workspace: ProductWorkspace = {
-    id: "product-1",
-    createdAt: "2026-07-16T00:00:00.000Z",
-    createdBy: "Owner",
-    product: {
-      revision: 1,
-      identity: { name: "Viable", description: "Test", lifecycle: "prototype", supportedEnvironments: [] },
-      capabilities: [], limitations: [], positioning: "", alternatives: [], differentiation: [], pricing: [], packaging: [], offers: [], callsToAction: [], brandVoice: [], terminology: {}, accessibilityConstraints: [], updatedAt: "2026-07-16T00:00:00.000Z", updatedBy: "Owner",
-    },
-    claims: [], evidence: [], icpHypotheses: [], assessments: [], actions: [],
-  };
 
-  await store.save(workspace);
-  assert.equal(store.activeWorkspaceId(), workspace.id);
-  assert.deepEqual(await store.load(workspace.id), workspace);
+  await store.save(productWorkspace);
+  assert.equal(store.activeWorkspaceId(), productWorkspace.id);
+  assert.deepEqual(await store.load(productWorkspace.id), productWorkspace);
   store.clearActiveWorkspace();
   assert.equal(store.activeWorkspaceId(), undefined);
-  assert.equal(await store.load(workspace.id), undefined);
+  assert.equal(await store.load(productWorkspace.id), undefined);
+});
+
+test("partial Product workspace deletion preserves active identity for a recoverable retry", async () => {
+  const storage = new MemoryStorage();
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
+  const store = new LocalStorageProductWorkspaceStore();
+
+  await store.save(productWorkspace);
+  storage.failRemoveAfter = 1;
+  assert.throws(() => store.clearActiveWorkspace(), /could not be removed completely/);
+  assert.equal(store.activeWorkspaceId(), productWorkspace.id);
+  assert.equal(await store.load(productWorkspace.id), undefined);
+
+  storage.failRemoveAfter = Number.POSITIVE_INFINITY;
+  store.clearActiveWorkspace();
+  assert.equal(store.activeWorkspaceId(), undefined);
 });
