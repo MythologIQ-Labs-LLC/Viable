@@ -7,6 +7,12 @@ type IdentityRequirement = Readonly<{
   expected: string;
 }>;
 
+type ShapeRequirement = Readonly<{
+  arrays: readonly string[];
+  records?: readonly string[];
+  strings?: readonly string[];
+}>;
+
 export class LocalWorkspaceStorageError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -35,7 +41,7 @@ export function readWorkspaceJson<T>(
   key: string,
   label: string,
   identity: IdentityRequirement,
-  requiredArrays: readonly string[],
+  shape: ShapeRequirement,
 ): T | undefined {
   const serialized = readStorageString(storage, key, label);
   if (serialized === undefined) return undefined;
@@ -53,9 +59,13 @@ export function readWorkspaceJson<T>(
   if (parsed[identity.field] !== identity.expected) {
     throw new LocalWorkspaceStorageError(`${label} identity does not match the active workspace. The original saved value was preserved.`);
   }
-  const missing = requiredArrays.filter((field) => !Array.isArray(parsed[field]));
+
+  const missingArrays = shape.arrays.filter((field) => !Array.isArray(parsed[field]));
+  const missingRecords = (shape.records ?? []).filter((field) => !isRecord(parsed[field]));
+  const missingStrings = (shape.strings ?? []).filter((field) => typeof parsed[field] !== "string");
+  const missing = [...missingArrays, ...missingRecords, ...missingStrings];
   if (missing.length > 0) {
-    throw new LocalWorkspaceStorageError(`${label} data is incomplete. Missing workspace collections: ${missing.join(", ")}. The original saved value was preserved.`);
+    throw new LocalWorkspaceStorageError(`${label} data is incomplete or invalid. Required workspace fields: ${missing.join(", ")}. The original saved value was preserved.`);
   }
 
   return parsed as T;
