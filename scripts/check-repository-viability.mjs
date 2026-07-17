@@ -33,6 +33,16 @@ for (const requiredPath of ['- "src/**"', '- "tsconfig.json"', '- "scripts/clean
   requireCondition(count >= 2, `Desktop workflow must cover ${requiredPath.slice(2)} for pull requests and main pushes`);
 }
 requireCondition(desktopWorkflow.includes('toolchain: "1.88.0"'), "Desktop CI must validate the declared Rust minimum version");
+requireCondition(await exists(resolve(root, ".github/dependabot.yml")), "Dependabot must cover dependency and workflow update proposals");
+
+for (const path of gitFiles(".github/workflows/*.yml", ".github/workflows/*.yaml")) {
+  const workflow = await read(path);
+  for (const match of workflow.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/gm)) {
+    const reference = match[1] ?? "";
+    if (reference.startsWith("./") || reference.startsWith("docker://")) continue;
+    requireCondition(/@[0-9a-f]{40}$/i.test(reference), `${path} must pin third-party action ${reference} to a full commit SHA`);
+  }
+}
 
 const csp = tauriConfig.app?.security?.csp ?? "";
 for (const directive of ["default-src 'self'", "img-src 'self' data:", "style-src 'self'", "script-src 'self'"]) {
@@ -94,4 +104,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, CSP, ${storageFiles.length} local stores, and Markdown links.`);
+console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, pinned actions, CSP, ${storageFiles.length} local stores, and Markdown links.`);
