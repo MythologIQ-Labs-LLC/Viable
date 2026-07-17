@@ -1,4 +1,6 @@
-type StorageLike = Pick<Storage, "getItem" | "setItem">;
+type ReadStorage = Pick<Storage, "getItem">;
+type WriteStorage = Pick<Storage, "setItem">;
+type RemoveStorage = Pick<Storage, "removeItem">;
 
 type IdentityRequirement = Readonly<{
   field: string;
@@ -12,20 +14,23 @@ export class LocalWorkspaceStorageError extends Error {
   }
 }
 
+export function readStorageString(storage: ReadStorage, key: string, label: string): string | undefined {
+  try {
+    return storage.getItem(key) ?? undefined;
+  } catch (error) {
+    throw new LocalWorkspaceStorageError(`${label} metadata could not be read. The saved data was not modified.`, { cause: error });
+  }
+}
+
 export function readWorkspaceJson<T>(
-  storage: StorageLike,
+  storage: ReadStorage,
   key: string,
   label: string,
   identity: IdentityRequirement,
   requiredArrays: readonly string[],
 ): T | undefined {
-  let serialized: string | null;
-  try {
-    serialized = storage.getItem(key);
-  } catch (error) {
-    throw new LocalWorkspaceStorageError(`${label} storage could not be read. The saved data was not modified.`, { cause: error });
-  }
-  if (serialized === null) return undefined;
+  const serialized = readStorageString(storage, key, label);
+  if (serialized === undefined) return undefined;
 
   let parsed: unknown;
   try {
@@ -48,7 +53,7 @@ export function readWorkspaceJson<T>(
   return parsed as T;
 }
 
-export function writeWorkspaceJson(storage: StorageLike, key: string, label: string, value: unknown): void {
+export function writeWorkspaceJson(storage: WriteStorage, key: string, label: string, value: unknown): void {
   let serialized: string;
   try {
     serialized = JSON.stringify(value);
@@ -60,6 +65,14 @@ export function writeWorkspaceJson(storage: StorageLike, key: string, label: str
     storage.setItem(key, serialized);
   } catch (error) {
     throw new LocalWorkspaceStorageError(`${label} could not be saved. Local storage may be unavailable or full; the previous saved value was not intentionally removed.`, { cause: error });
+  }
+}
+
+export function removeStorageItems(storage: RemoveStorage, keys: readonly string[], label: string): void {
+  try {
+    for (const key of keys) storage.removeItem(key);
+  } catch (error) {
+    throw new LocalWorkspaceStorageError(`${label} could not be removed completely. Review the local profile before retrying.`, { cause: error });
   }
 }
 
