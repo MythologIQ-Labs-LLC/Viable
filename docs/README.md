@@ -37,6 +37,7 @@ For a new session or contributor, read:
 
 Supporting review records:
 
+- [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
 - [Documentation verification](reviews/documentation-verification-2026-07-15.md)
 - [Documentation verification closure](reviews/documentation-verification-closure-2026-07-15.md)
 
@@ -103,6 +104,7 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 ## Status and reviews
 
 - [Current state](status/current-state.md)
+- [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
 - [Documentation verification, 2026-07-15](reviews/documentation-verification-2026-07-15.md)
 - [Documentation verification closure, 2026-07-15](reviews/documentation-verification-closure-2026-07-15.md)
 

@@ -15,6 +15,15 @@ function announce(message: string): void {
   if (live) live.textContent = message;
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function activateNavigation(): void {
   if (!sidebar) return;
   for (const button of sidebar.querySelectorAll<HTMLButtonElement>("nav button")) {
@@ -61,24 +70,31 @@ async function open(target: "campaigns" | "studio"): Promise<void> {
   page = target;
   activateNavigation();
   main.setAttribute("aria-busy", "true");
-  if (!workspaceId) {
-    main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "campaigns" ? "Campaigns" : "Studio"}</p><h2>Create a Product workspace first.</h2><p>Campaign and video authority depend on local Product Core truth, reviewed evidence, and approved claims.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before entering this workflow.</span></section>`;
-    main.setAttribute("aria-busy", "false");
+  try {
+    if (!workspaceId) {
+      main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "campaigns" ? "Campaigns" : "Studio"}</p><h2>Create a Product workspace first.</h2><p>Campaign and video authority depend on local Product Core truth, reviewed evidence, and approved claims.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before entering this workflow.</span></section>`;
+      main.focus();
+      return;
+    }
+    const product = await productStore.load(workspaceId);
+    if (!product) {
+      main.innerHTML = `<section class="state error" role="alert"><strong>Product workspace could not be loaded.</strong><span>Return to Home and recover the local workspace before continuing.</span></section>`;
+      main.focus();
+      return;
+    }
+    if (!controller || controller.workspaceId !== workspaceId) controller = new CampaignsViewController(workspaceId, product.createdBy);
+    if (!videoController || videoController.workspaceId !== workspaceId) videoController = new VideoProductionViewController(workspaceId, product.createdBy);
+    await Promise.all([controller.load(), videoController.load()]);
+    render();
     main.focus();
-    return;
-  }
-  const product = await productStore.load(workspaceId);
-  if (!product) {
-    main.innerHTML = `<section class="state error" role="alert"><strong>Product workspace could not be loaded.</strong><span>Return to Home and recover the local workspace before continuing.</span></section>`;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown local workflow error";
+    main.innerHTML = `<section class="state error" role="alert"><div><strong>${target === "campaigns" ? "Campaigns" : "Studio"} could not be opened.</strong><p>${escapeHtml(detail)}</p><p>The saved workspace was not intentionally changed.</p></div><button type="button" data-nav="${target}">Retry this workflow</button></section>`;
+    main.focus();
+    announce(`${target === "campaigns" ? "Campaigns" : "Studio"} workflow failed: ${detail}`);
+  } finally {
     main.setAttribute("aria-busy", "false");
-    return;
   }
-  if (!controller || controller.workspaceId !== workspaceId) controller = new CampaignsViewController(workspaceId, product.createdBy);
-  if (!videoController || videoController.workspaceId !== workspaceId) videoController = new VideoProductionViewController(workspaceId, product.createdBy);
-  await Promise.all([controller.load(), videoController.load()]);
-  render();
-  main.setAttribute("aria-busy", "false");
-  main.focus();
 }
 
 function render(): void {
@@ -104,7 +120,7 @@ document.addEventListener("click", (event) => {
   if (target === "campaigns" || target === "studio") {
     event.preventDefault();
     event.stopImmediatePropagation();
-    void open(target).catch((error: unknown) => announce(`Studio workflow failed: ${error instanceof Error ? error.message : "Unknown error"}`));
+    void open(target);
     return;
   }
   if (target === "home" || target === "product" || target === "signals" || target === "market") page = undefined;

@@ -1,25 +1,38 @@
 import { execFileSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { SECRET_PATTERNS } from "./secret-patterns.mjs";
 
-const tracked = execFileSync("git", ["ls-files"], { encoding: "utf8" })
-  .split("\n")
+const excluded = new Set(["package-lock.json", "apps/desktop/src-tauri/Cargo.lock"]);
+const tracked = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
+  .split("\0")
   .filter(Boolean)
-  .filter((path) => !path.endsWith("package-lock.json"));
+  .filter((path) => !excluded.has(path));
 
-const patterns = [
-  /xox[baprs]-[A-Za-z0-9-]{10,}/,
-  /gh[oprsu]_[A-Za-z0-9]{20,}/,
-  /AKIA[0-9A-Z]{16}/,
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
-];
+let scanned = 0;
+let skippedBinary = 0;
 
 for (const path of tracked) {
-  const content = execFileSync("git", ["show", `HEAD:${path}`], { encoding: "utf8" });
-  for (const pattern of patterns) {
-    if (pattern.test(content)) {
-      console.error(`Potential secret in ${path}: ${pattern}`);
+  let content;
+  try {
+    content = await readFile(path);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") continue;
+    throw error;
+  }
+
+  if (content.includes(0)) {
+    skippedBinary += 1;
+    continue;
+  }
+
+  const text = content.toString("utf8");
+  scanned += 1;
+  for (const { name, pattern } of SECRET_PATTERNS) {
+    if (pattern.test(text)) {
+      console.error(`Potential ${name} in ${path}. The matched value is intentionally not printed.`);
       process.exit(1);
     }
   }
 }
 
-console.log(`Secret scan passed for ${tracked.length} tracked files.`);
+console.log(`Secret scan passed for ${scanned} tracked text files; skipped ${skippedBinary} binary files.`);

@@ -4,14 +4,17 @@ import test from "node:test";
 
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
-test("desktop workflow loads the compiled Product Core application", async () => {
-  const [html, app] = await Promise.all([
+test("desktop workflow loads Product Core through the guarded bootstrap", async () => {
+  const [html, bootstrap, app] = await Promise.all([
     read("apps/desktop/web/index.html"),
+    read("apps/desktop/ui/bootstrap.ts"),
     read("apps/desktop/ui/app.ts"),
   ]);
   assert.match(html, /id="main"/);
   assert.match(html, /aria-live="polite"/);
-  assert.match(html, /generated\/apps\/desktop\/ui\/app\.js/);
+  assert.match(html, /generated\/apps\/desktop\/ui\/bootstrap\.js/);
+  assert.doesNotMatch(html, /generated\/apps\/desktop\/ui\/app\.js/);
+  assert.match(bootstrap, /import\("\.\/app\.js"\)\.catch\(renderFailure\)/);
   assert.match(app, /new ProductCoreService/);
   assert.match(app, /service\.createWorkspace/);
   assert.match(app, /service\.updateProductTruth/);
@@ -25,8 +28,12 @@ test("desktop workflow loads the compiled Product Core application", async () =>
 });
 
 test("desktop workflow visibly represents required state and authority boundaries", async () => {
-  const [app, html] = await Promise.all([read("apps/desktop/ui/app.ts"), read("apps/desktop/web/index.html")]);
-  const surface = `${html}\n${app}`;
+  const [app, bootstrap, html] = await Promise.all([
+    read("apps/desktop/ui/app.ts"),
+    read("apps/desktop/ui/bootstrap.ts"),
+    read("apps/desktop/web/index.html"),
+  ]);
+  const surface = `${html}\n${bootstrap}\n${app}`;
   for (const marker of [
     "Loading local workspace",
     "Empty state",
@@ -34,6 +41,7 @@ test("desktop workflow visibly represents required state and authority boundarie
     "Stale evidence",
     "Contradictions require review",
     "That change was not saved",
+    "The local workspace could not be opened",
     "Generated suggestion",
     "Selection is intentionally blocked",
     "No unexplained composite score",
