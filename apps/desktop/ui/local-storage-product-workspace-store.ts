@@ -31,6 +31,6 @@ export class LocalStorageProductWorkspaceStore implements ProductWorkspaceStore 
 
   clearActiveWorkspace(): void {
     const id = this.activeWorkspaceId();
-    removeStorageItems(localStorage, [ACTIVE_KEY, ...(id ? [`${PREFIX}${id}`] : [])], "Product workspace");
+    removeStorageItems(localStorage, [...(id ? [`${PREFIX}${id}`] : []), ACTIVE_KEY], "Product workspace");
   }
 }
