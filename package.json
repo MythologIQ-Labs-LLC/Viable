@@ -7,15 +7,22 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "clean": "node scripts/clean-build.mjs all",
+    "clean:core": "node scripts/clean-build.mjs core",
+    "clean:desktop": "node scripts/clean-build.mjs desktop",
+    "build": "npm run clean:core && tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/test/**/*.test.js",
+    "test:coverage": "npm run build && node scripts/run-test-coverage.mjs",
     "desktop:check": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --locked",
     "desktop:bundle": "npm run desktop:web && tauri build --config apps/desktop/src-tauri/tauri.conf.json --bundles deb",
+    "desktop:web": "npm run clean:desktop && tsc -p apps/desktop/tsconfig.json",
+    "desktop:web:check": "tsc -p apps/desktop/tsconfig.json --noEmit",
+    "security:patterns": "node scripts/check-secret-patterns.mjs",
     "security:scan": "node scripts/scan-secrets.mjs",
-    "validate": "npm run security:scan && npm run check && npm run desktop:web:check && npm test",
-    "desktop:web": "tsc -p apps/desktop/tsconfig.json",
-    "desktop:web:check": "tsc -p apps/desktop/tsconfig.json --noEmit"
+    "security:audit": "npm audit --audit-level=high",
+    "viability:check": "node scripts/check-repository-viability.mjs && npm run security:patterns",
+    "validate": "npm run viability:check && npm run security:scan && npm run security:audit && npm run check && npm run desktop:web:check && npm run test:coverage"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
