@@ -43,7 +43,26 @@ jobs:
         if: steps.viability.outputs.status != '0'
         run: exit 1
       - name: Scan repository secrets
-        run: npm run security:scan
+        id: secret_scan
+        shell: bash
+        run: |
+          set +e
+          npm run security:scan > secret-scan.log 2>&1
+          status=$?
+          cat secret-scan.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload secret scan diagnostics
+        if: steps.secret_scan.outputs.status != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-diagnostics
+          path: secret-scan.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce secret scan result
+        if: steps.secret_scan.outputs.status != '0'
+        run: exit 1
       - name: Audit npm dependency graph
         id: dependency_audit
         shell: bash
