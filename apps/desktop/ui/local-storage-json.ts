@@ -22,6 +22,14 @@ export function readStorageString(storage: ReadStorage, key: string, label: stri
   }
 }
 
+export function writeStorageString(storage: WriteStorage, key: string, label: string, value: string): void {
+  try {
+    storage.setItem(key, value);
+  } catch (error) {
+    throw new LocalWorkspaceStorageError(`${label} metadata could not be saved. The workspace data remains available by its local identifier.`, { cause: error });
+  }
+}
+
 export function readWorkspaceJson<T>(
   storage: ReadStorage,
   key: string,
