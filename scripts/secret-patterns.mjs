@@ -4,7 +4,7 @@ export const SECRET_PATTERNS = Object.freeze([
   { name: "GitHub fine-grained token", pattern: /github_pat_[A-Za-z0-9_]{20,}/ },
   { name: "AWS access key", pattern: /AKIA[0-9A-Z]{16}/ },
   { name: "Google API key", pattern: /AIza[0-9A-Za-z_-]{35}/ },
-  { name: "OpenAI-style secret", pattern: /sk-(?:proj-)?[A-Za-z0-9_-]{20,}/ },
+  { name: "OpenAI-style secret", pattern: /(?:sk-[A-Za-z0-9]{20,}|sk-proj-[A-Za-z0-9_-]{20,})/ },
   { name: "Anthropic secret", pattern: /sk-ant-[A-Za-z0-9_-]{20,}/ },
   { name: "npm access token", pattern: /npm_[A-Za-z0-9]{20,}/ },
   { name: "GitLab access token", pattern: /glpat-[A-Za-z0-9_-]{20,}/ },
