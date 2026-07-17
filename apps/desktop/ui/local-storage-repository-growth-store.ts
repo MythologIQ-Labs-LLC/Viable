@@ -1,12 +1,18 @@
 import type { RepositoryGrowthWorkspace } from "../../../src/repository-growth/domain/repository-growth.js";
 import type { RepositoryGrowthStore } from "../../../src/repository-growth/ports/repository-growth-store.js";
+import { readWorkspaceJson, writeWorkspaceJson } from "./local-storage-json.js";
 
 const PREFIX = "viable.repository-growth.";
 
 export class LocalStorageRepositoryGrowthStore implements RepositoryGrowthStore {
   async load(workspaceId: string): Promise<RepositoryGrowthWorkspace> {
-    const value = localStorage.getItem(`${PREFIX}${workspaceId}`);
-    return value ? JSON.parse(value) as RepositoryGrowthWorkspace : {
+    return readWorkspaceJson<RepositoryGrowthWorkspace>(
+      localStorage,
+      `${PREFIX}${workspaceId}`,
+      "Repository Growth workspace",
+      { field: "workspaceId", expected: workspaceId },
+      { arrays: ["repositories", "assessments", "plans", "launchRooms", "exports", "retrospectives"], strings: ["updatedAt"] },
+    ) ?? {
       workspaceId,
       repositories: [],
       assessments: [],
@@ -19,6 +25,6 @@ export class LocalStorageRepositoryGrowthStore implements RepositoryGrowthStore 
   }
 
   async save(workspace: RepositoryGrowthWorkspace): Promise<void> {
-    localStorage.setItem(`${PREFIX}${workspace.workspaceId}`, JSON.stringify(workspace));
+    writeWorkspaceJson(localStorage, `${PREFIX}${workspace.workspaceId}`, "Repository Growth workspace", workspace);
   }
 }
