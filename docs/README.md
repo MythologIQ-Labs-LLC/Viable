@@ -52,7 +52,6 @@ Supporting review records:
 - [Product Requirements Document](product/PRD.md)
 - [Product scope](product/product-scope.md)
 - [ICP discovery and validation](product/icp-discovery-and-validation.md)
-- [Accountable as Qortara SDLC founding customer](product/accountable-qortara-founding-customer.md)
 - [Marketability operating model](product/marketability-operating-model.md)
 - [Open-source repository growth](product/open-source-repository-growth.md)
 - [Product provenance and ownership](product/provenance-and-ownership.md)
