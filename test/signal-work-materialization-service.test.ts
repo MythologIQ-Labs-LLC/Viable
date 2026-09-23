@@ -57,7 +57,7 @@ async function createReviewedConversion(kind: "product_action" | "icp_validation
   const inboxService = new SignalsInboxService(signals, () => new Date(now), ids);
   const productService = new ProductCoreService(products, () => new Date(now), () => "workspace");
   await productService.createWorkspace({
-    identity: { name: "Viable", description: "Local-first marketability operating system", lifecycle: "development", supportedEnvironments: ["desktop"] },
+    identity: { name: "Viable", description: "Local-first marketability operating system", lifecycle: "prototype", supportedEnvironments: ["desktop"] },
     createdBy: "Kevin",
   });
   await inboxService.collect("workspace", [source]);
@@ -106,7 +106,7 @@ test("Product Core materialization failure remains visible and can be retried", 
 
   const productService = new ProductCoreService(products, () => new Date(now), () => "workspace");
   await productService.createWorkspace({
-    identity: { name: "Viable", description: "Local-first marketability operating system", lifecycle: "development", supportedEnvironments: ["desktop"] },
+    identity: { name: "Viable", description: "Local-first marketability operating system", lifecycle: "prototype", supportedEnvironments: ["desktop"] },
     createdBy: "Kevin",
   });
   const retried = await materializer.materializeProductCore("workspace", conversionId);
