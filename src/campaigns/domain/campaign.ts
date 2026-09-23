@@ -19,6 +19,7 @@ export type ClaimReference = Readonly<{
 export type CampaignBrief = Readonly<{
   id: string;
   workspaceId: string;
+  sourceConversionId?: string;
   title: string;
   objective: string;
   primaryOutcome: string;
