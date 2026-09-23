@@ -77,9 +77,10 @@ export type ConversionKind =
   | "product_feedback";
 
 export type SignalConversionStatus = "proposed" | "materialized" | "materialization_failed";
+export type SignalMaterializationContext = "product_core" | "campaigns";
 
 export type SignalMaterialization = Readonly<{
-  context: "product_core";
+  context: SignalMaterializationContext;
   recordId: string;
   materializedAt: string;
 }>;

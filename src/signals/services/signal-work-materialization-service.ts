@@ -1,8 +1,11 @@
+import type { CampaignBrief, CampaignWorkspace, ChannelKind } from "../../campaigns/domain/campaign.js";
+import type { CampaignWorkspaceStore } from "../../campaigns/ports/campaign-workspace-store.js";
+import { CampaignService } from "../../campaigns/services/campaign-service.js";
 import type { ReadinessAction } from "../../product-core/domain/assessment.js";
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
 import { ProductCoreService } from "../../product-core/services/product-core-service.js";
-import type { SignalConversion, SignalsInbox } from "../domain/signal.js";
+import type { SignalConversion, SignalMaterializationContext, SignalsInbox } from "../domain/signal.js";
 import type { SignalsInboxStore } from "../ports/signals-inbox-store.js";
 
 type Clock = () => Date;
@@ -13,6 +16,32 @@ export type ProductMaterializationResult = Readonly<{
   action: ReadinessAction;
 }>;
 
+export type CampaignMaterializationInput = Readonly<{
+  objective: string;
+  primaryOutcome: string;
+  primaryAudience: string;
+  audienceKind: "selected_icp" | "test_audience";
+  icpHypothesisId?: string;
+  problem: string;
+  trigger: string;
+  offer: string;
+  messageHierarchy: readonly string[];
+  proof: readonly string[];
+  claimIds: readonly string[];
+  evidenceIds: readonly string[];
+  callToAction: string;
+  channels: readonly ChannelKind[];
+  assetPlan: readonly string[];
+  successMeasures: readonly string[];
+  dependencies: readonly string[];
+}>;
+
+export type CampaignMaterializationResult = Readonly<{
+  inbox: SignalsInbox;
+  campaigns: CampaignWorkspace;
+  campaign: CampaignBrief;
+}>;
+
 const productKinds = new Map<SignalConversion["kind"], ReadinessAction["kind"]>([
   ["product_action", "action"],
   ["icp_validation_action", "icp_experiment"],
@@ -20,6 +49,7 @@ const productKinds = new Map<SignalConversion["kind"], ReadinessAction["kind"]>(
 ]);
 
 export const isProductMaterializationKind = (kind: SignalConversion["kind"]): boolean => productKinds.has(kind);
+export const isCampaignMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "campaign_brief";
 
 export class SignalWorkMaterializationService {
   private readonly productService: ProductCoreService;
@@ -28,6 +58,7 @@ export class SignalWorkMaterializationService {
     private readonly signalsStore: SignalsInboxStore,
     private readonly productStore: ProductWorkspaceStore,
     private readonly clock: Clock = () => new Date(),
+    private readonly campaignStore?: CampaignWorkspaceStore,
   ) {
     this.productService = new ProductCoreService(productStore, clock);
   }
@@ -46,7 +77,7 @@ export class SignalWorkMaterializationService {
       if (existing) {
         const synchronized = conversion.status === "materialized" && conversion.materialization?.recordId === existing.id
           ? inbox
-          : await this.recordSuccess(inbox, conversion.id, existing.id);
+          : await this.recordSuccess(inbox, conversion.id, "product_core", existing.id);
         return { inbox: synchronized, product, action: existing };
       }
 
@@ -59,7 +90,7 @@ export class SignalWorkMaterializationService {
       });
       const action = updatedProduct.actions.find((candidate) => candidate.source === "signal" && candidate.sourceId === conversion.id);
       if (!action) throw new Error("Product Core did not retain the materialized signal action");
-      const updatedInbox = await this.recordSuccess(inbox, conversion.id, action.id);
+      const updatedInbox = await this.recordSuccess(inbox, conversion.id, "product_core", action.id);
       return { inbox: updatedInbox, product: updatedProduct, action };
     } catch (error) {
       await this.recordFailure(inbox, conversion.id, error);
@@ -67,7 +98,70 @@ export class SignalWorkMaterializationService {
     }
   }
 
-  private async recordSuccess(inbox: SignalsInbox, conversionId: string, recordId: string): Promise<SignalsInbox> {
+  async materializeCampaign(
+    workspaceId: string,
+    conversionId: string,
+    input: CampaignMaterializationInput,
+  ): Promise<CampaignMaterializationResult> {
+    const inbox = await this.requiredInbox(workspaceId);
+    const conversion = this.requiredConversion(inbox, conversionId);
+    if (conversion.kind !== "campaign_brief") throw new Error("Signal conversion is not a campaign brief");
+    if (!this.campaignStore) throw new Error("Campaign materialization is not configured");
+
+    const campaignId = `signal-campaign-${conversion.id}`;
+    try {
+      const existingWorkspace = await this.campaignStore.load(workspaceId);
+      const existing = existingWorkspace?.campaigns.find((campaign) => campaign.id === campaignId);
+      if (existing && existingWorkspace) {
+        const synchronized = conversion.status === "materialized" && conversion.materialization?.recordId === existing.id
+          ? inbox
+          : await this.recordSuccess(inbox, conversion.id, "campaigns", existing.id);
+        return { inbox: synchronized, campaigns: existingWorkspace, campaign: existing };
+      }
+
+      const campaignService = new CampaignService(
+        this.campaignStore,
+        this.productStore,
+        this.clock,
+        () => campaignId,
+      );
+      const updatedCampaigns = await campaignService.createBrief(workspaceId, {
+        title: conversion.title,
+        objective: input.objective,
+        primaryOutcome: input.primaryOutcome,
+        primaryAudience: input.primaryAudience,
+        audienceKind: input.audienceKind,
+        ...(input.icpHypothesisId ? { icpHypothesisId: input.icpHypothesisId } : {}),
+        problem: input.problem,
+        trigger: input.trigger,
+        offer: input.offer,
+        messageHierarchy: input.messageHierarchy,
+        proof: input.proof,
+        claimIds: input.claimIds,
+        evidenceIds: input.evidenceIds,
+        callToAction: input.callToAction,
+        channels: input.channels,
+        assetPlan: input.assetPlan,
+        owner: conversion.owner,
+        successMeasures: input.successMeasures,
+        dependencies: input.dependencies,
+      });
+      const campaign = updatedCampaigns.campaigns.find((candidate) => candidate.id === campaignId);
+      if (!campaign) throw new Error("Campaign authority did not retain the materialized signal brief");
+      const updatedInbox = await this.recordSuccess(inbox, conversion.id, "campaigns", campaign.id);
+      return { inbox: updatedInbox, campaigns: updatedCampaigns, campaign };
+    } catch (error) {
+      await this.recordFailure(inbox, conversion.id, error);
+      throw error;
+    }
+  }
+
+  private async recordSuccess(
+    inbox: SignalsInbox,
+    conversionId: string,
+    context: SignalMaterializationContext,
+    recordId: string,
+  ): Promise<SignalsInbox> {
     const now = this.clock().toISOString();
     const updated: SignalsInbox = {
       ...inbox,
@@ -77,7 +171,7 @@ export class SignalWorkMaterializationService {
         return {
           ...clean,
           status: "materialized",
-          materialization: { context: "product_core", recordId, materializedAt: now },
+          materialization: { context, recordId, materializedAt: now },
         };
       }),
       updatedAt: now,
@@ -88,7 +182,7 @@ export class SignalWorkMaterializationService {
 
   private async recordFailure(inbox: SignalsInbox, conversionId: string, error: unknown): Promise<void> {
     const now = this.clock().toISOString();
-    const detail = error instanceof Error ? error.message : "Unknown Product Core materialization failure";
+    const detail = error instanceof Error ? error.message : "Unknown materialization failure";
     await this.signalsStore.save({
       ...inbox,
       conversions: inbox.conversions.map((conversion) => conversion.id === conversionId ? {

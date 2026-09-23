@@ -1,11 +1,14 @@
+import type { ChannelKind } from "../../../src/campaigns/domain/campaign.js";
 import type { StoredEventIntelligenceRun } from "../../../src/event-intelligence/ports/run-store.js";
+import { isReviewedEvidence } from "../../../src/product-core/domain/evidence.js";
+import type { ProductWorkspace } from "../../../src/product-core/domain/workspace.js";
 import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
 import { EventIntelligenceSignalSource } from "../../../src/signals/adapters/event-intelligence-signal-source.js";
 import { GitHubPublicRepositorySource } from "../../../src/signals/adapters/github-public-repository-source.js";
 import { ManualJsonSignalSource } from "../../../src/signals/adapters/manual-json-signal-source.js";
 import type { ConversionKind, SignalConversion, SignalRecord, SignalsInbox, SourceHealth } from "../../../src/signals/domain/signal.js";
 import { SignalsInboxService } from "../../../src/signals/services/signals-inbox-service.js";
-import { isProductMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
+import { isCampaignMaterializationKind, isProductMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
 import { WebdogManualSignalSource, WebdogManualWebsiteWatchSource } from "../../../src/website-watch/adapters/webdog-manual-import-source.js";
 import type {
   WatchTarget,
@@ -51,18 +54,20 @@ export class SignalsViewController {
   private readonly signalsStore = new LocalStorageSignalsInboxStore();
   private readonly websiteStore = new LocalStorageWebsiteWatchStore();
   private readonly productStore = new LocalStorageProductWorkspaceStore();
+  private readonly campaignStore = new LocalStorageCampaignWorkspaceStore();
   private readonly service = new SignalsInboxService(this.signalsStore);
-  private readonly materializationService = new SignalWorkMaterializationService(this.signalsStore, this.productStore);
+  private readonly materializationService = new SignalWorkMaterializationService(this.signalsStore, this.productStore, undefined, this.campaignStore);
   private readonly websiteService = new WebsiteWatchService(this.websiteStore);
   private readonly activationService = new ActivationLearningService(
     new LocalStorageActivationLearningStore(),
     this.productStore,
-    new LocalStorageCampaignWorkspaceStore(),
+    this.campaignStore,
     new LocalStorageRepositoryGrowthStore(),
     new LocalStorageVideoProductionStore(),
   );
   private inbox?: SignalsInbox;
   private website?: WebsiteWatchWorkspace;
+  private product: ProductWorkspace | undefined;
   private failure: string | undefined;
 
   constructor(
@@ -71,10 +76,14 @@ export class SignalsViewController {
   ) {}
 
   async load(): Promise<void> {
-    [this.inbox, this.website] = await Promise.all([
+    const [inbox, website, product] = await Promise.all([
       this.service.load(this.workspaceId),
       this.websiteService.load(this.workspaceId),
+      this.productStore.load(this.workspaceId),
     ]);
+    this.inbox = inbox;
+    this.website = website;
+    this.product = product;
   }
 
   render(page: "signals" | "market"): string {
@@ -172,6 +181,31 @@ export class SignalsViewController {
           owner: String(form.get("owner")),
         });
         return "Reviewed signal converted into proposed owned work";
+      }
+      if (kind === "signals-materialize-campaign") {
+        const audienceKind = String(form.get("audienceKind")) as "selected_icp" | "test_audience";
+        const icpHypothesisId = String(form.get("icpHypothesisId") ?? "").trim();
+        const result = await this.materializationService.materializeCampaign(this.workspaceId, String(form.get("conversionId")), {
+          objective: String(form.get("objective")),
+          primaryOutcome: String(form.get("primaryOutcome")),
+          primaryAudience: String(form.get("primaryAudience")),
+          audienceKind,
+          ...(audienceKind === "selected_icp" && icpHypothesisId ? { icpHypothesisId } : {}),
+          problem: String(form.get("problem")),
+          trigger: String(form.get("trigger")),
+          offer: String(form.get("offer")),
+          messageHierarchy: lineValues(form.get("messageHierarchy")),
+          proof: lineValues(form.get("proof")),
+          claimIds: form.getAll("claimIds").map(String),
+          evidenceIds: form.getAll("evidenceIds").map(String),
+          callToAction: String(form.get("callToAction")),
+          channels: form.getAll("channels").map(String) as ChannelKind[],
+          assetPlan: lineValues(form.get("assetPlan")),
+          successMeasures: lineValues(form.get("successMeasures")),
+          dependencies: lineValues(form.get("dependencies")),
+        });
+        this.inbox = result.inbox;
+        return "Signal work materialized into an authoritative Campaign draft";
       }
       if (kind === "signals-connect") {
         this.inbox = await this.service.connect(this.workspaceId, String(form.get("signalId")), {
@@ -280,7 +314,7 @@ export class SignalsViewController {
         <div class="cards signal-cards">${inbox.signals.length ? inbox.signals.slice().reverse().map((signal) => this.signalCard(signal)).join("") : `<div class="state empty"><strong>No signals yet.</strong><span>Configure a source or use a manual import. An empty inbox is not evidence that the market is empty.</span></div>`}</div>
       </section>
       <section class="panel" aria-labelledby="work-heading"><div class="section-heading"><div><p class="eyebrow">Proposed work</p><h3 id="work-heading">Signal conversions</h3></div>${pill(`${inbox.conversions.length} proposals`)}</div>
-        <p class="guidance">Product actions, ICP validation actions, and product feedback can be materialized into Product Core now. Campaign, content, repository-growth, and Website Watch conversions remain proposed until their destination-specific authority inputs are supplied.</p>
+        <p class="guidance">Product actions, ICP validation actions, and product feedback can be materialized into Product Core. Campaign proposals can be completed into governed Campaign drafts after supplying the destination-specific authority fields. Content, repository-growth, and Website Watch conversions remain proposed.</p>
         <div class="cards">${inbox.conversions.length ? inbox.conversions.map((item) => this.conversionCard(item)).join("") : `<div class="state empty"><strong>No conversions yet.</strong><span>Only accepted reviewed signals can become proposed work.</span></div>`}</div>
       </section>`;
   }
@@ -288,6 +322,7 @@ export class SignalsViewController {
 
   private conversionCard(item: SignalConversion): string {
     const productMaterialization = isProductMaterializationKind(item.kind);
+    const campaignMaterialization = isCampaignMaterializationKind(item.kind);
     const destination = item.materialization;
     const failure = item.materializationFailure;
     return `<article class="record signal-conversion">
@@ -297,8 +332,45 @@ export class SignalsViewController {
       ${destination ? `<p><strong>Authoritative destination:</strong> ${escapeHtml(destination.context)} · <code>${escapeHtml(destination.recordId)}</code> · ${humanDate(destination.materializedAt)}</p>` : ""}
       ${failure ? `<div class="inline-warning"><strong>Materialization failed.</strong> ${escapeHtml(failure.detail)} · ${humanDate(failure.attemptedAt)}</div>` : ""}
       ${productMaterialization && item.status !== "materialized" ? `<button type="button" data-signal-action="materialize-product" data-id="${escapeHtml(item.id)}">${item.status === "materialization_failed" ? "Retry Product Core materialization" : "Materialize in Product Core"}</button>` : ""}
-      ${!productMaterialization && item.status === "proposed" ? `<small>Destination-specific fields and authority checks are still required before this proposal can create an authoritative record.</small>` : ""}
+      ${campaignMaterialization && item.status !== "materialized" ? this.campaignMaterializationForm(item) : ""}
+      ${!productMaterialization && !campaignMaterialization && item.status === "proposed" ? `<small>Destination-specific fields and authority checks are still required before this proposal can create an authoritative record.</small>` : ""}
     </article>`;
+  }
+
+  private campaignMaterializationForm(item: SignalConversion): string {
+    const product = this.product;
+    const approvedClaims = product?.claims.filter((claim) => claim.status === "approved") ?? [];
+    const reviewedEvidence = product?.evidence.filter(isReviewedEvidence) ?? [];
+    const selectedIcps = product?.icpHypotheses.filter((icp) => icp.status === "selected" && icp.reviewStatus === "reviewed") ?? [];
+    if (!product || approvedClaims.length === 0 || reviewedEvidence.length === 0) {
+      return `<div class="state warning"><strong>Campaign authority is not ready.</strong><span>Materialization requires at least one approved Product Core claim and reviewed non-generated evidence.</span></div>`;
+    }
+    const signal = this.requiredSignal(item.signalId);
+    const claimOptions = approvedClaims.map((claim) => `<option value="${escapeHtml(claim.id)}">${escapeHtml(claim.statement)} · r${claim.revision}</option>`).join("");
+    const evidenceOptions = reviewedEvidence.map((evidence) => `<option value="${escapeHtml(evidence.id)}">${escapeHtml(evidence.title)} · ${escapeHtml(evidence.confidence)}</option>`).join("");
+    const icpOptions = selectedIcps.map((icp) => `<option value="${escapeHtml(icp.id)}">${escapeHtml(icp.name)}</option>`).join("");
+    return `<details><summary>${item.status === "materialization_failed" ? "Retry Campaign materialization" : "Materialize Campaign brief"}</summary>
+      <form data-form="signals-materialize-campaign">
+        <input type="hidden" name="conversionId" value="${escapeHtml(item.id)}">
+        <p class="guidance">Campaign authority requires a complete draft brief plus approved Product Core claims and reviewed evidence. This creates a draft Campaign record only; it does not approve, publish, or deliver anything.</p>
+        <label>Objective<textarea name="objective" required rows="2">Investigate ${escapeHtml(signal.title)}</textarea></label>
+        <div class="two"><label>Primary outcome<input name="primaryOutcome" required></label><label>Primary audience<input name="primaryAudience" required value="${escapeHtml(selectedIcps[0]?.name ?? "")}"></label></div>
+        <div class="two"><label>Audience authority<select name="audienceKind"><option value="test_audience">Test audience</option>${selectedIcps.length ? `<option value="selected_icp">Reviewed selected ICP</option>` : ""}</select></label><label>Selected ICP${selectedIcps.length ? `<select name="icpHypothesisId"><option value="">Not used for test audience</option>${icpOptions}</select>` : `<input disabled value="No reviewed selected ICP">`}</label></div>
+        <label>Problem<textarea name="problem" required rows="2">${escapeHtml(signal.summary)}</textarea></label>
+        <label>Trigger<textarea name="trigger" required rows="2">${escapeHtml(signal.title)}</textarea></label>
+        <label>Offer<textarea name="offer" required rows="2"></textarea></label>
+        <label>Message hierarchy<textarea name="messageHierarchy" required rows="3">${escapeHtml(signal.summary)}</textarea></label>
+        <label>Proof notes<textarea name="proof" rows="2"></textarea></label>
+        <div class="two"><label>Approved Product Core claims<select name="claimIds" multiple required size="${Math.min(6, Math.max(2, approvedClaims.length))}">${claimOptions}</select></label><label>Reviewed Product Core evidence<select name="evidenceIds" multiple required size="${Math.min(6, Math.max(2, reviewedEvidence.length))}">${evidenceOptions}</select></label></div>
+        <p class="guidance">Select every evidence record referenced by the claims you choose. Campaign authority will reject missing, generated, rejected, stale-revision, or channel-prohibited claim references.</p>
+        <label>Call to action<input name="callToAction" required></label>
+        <label>Channels<select name="channels" multiple required size="3"><option value="website">Website</option><option value="linkedin">LinkedIn</option><option value="github_release">GitHub release</option></select></label>
+        <label>Asset plan<textarea name="assetPlan" rows="2"></textarea></label>
+        <label>Success measures<textarea name="successMeasures" required rows="2"></textarea></label>
+        <label>Dependencies<textarea name="dependencies" rows="2"></textarea></label>
+        <button type="submit">Create governed Campaign draft</button>
+      </form>
+    </details>`;
   }
 
   private websiteWatchSection(): string {
