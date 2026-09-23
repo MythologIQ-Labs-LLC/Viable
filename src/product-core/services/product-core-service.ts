@@ -84,17 +84,19 @@ export class ProductCoreService {
     if (!claim) throw new Error("Claim not found");
     return this.persist({
       ...workspace,
-      claims: workspace.claims.map((candidate) => candidate.id === claimId ? {
-        ...candidate,
-        statement: input.statement,
-        evidenceIds: input.evidenceIds,
-        prohibitedContexts: input.prohibitedContexts,
-        rationale: input.rationale,
-        status: "proposed",
-        revision: candidate.revision + 1,
-        reviewedBy: undefined,
-        reviewedAt: undefined,
-      } : candidate),
+      claims: workspace.claims.map((candidate): ProductClaim => {
+        if (candidate.id !== claimId) return candidate;
+        const { rationale: _rationale, reviewedBy: _reviewedBy, reviewedAt: _reviewedAt, ...unreviewed } = candidate;
+        return {
+          ...unreviewed,
+          statement: input.statement,
+          evidenceIds: input.evidenceIds,
+          prohibitedContexts: input.prohibitedContexts,
+          ...(input.rationale ? { rationale: input.rationale } : {}),
+          status: "proposed",
+          revision: candidate.revision + 1,
+        };
+      }),
     });
   }
 
