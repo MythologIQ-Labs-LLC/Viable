@@ -1,6 +1,10 @@
 # Third-Party Notices
 
-Viable is proprietary software owned by MythologIQ Labs, LLC. Third-party software and externally reviewed source material retain their own licenses and attribution requirements.
+Viable-owned source code and documentation are licensed under the Apache License, Version 2.0 unless a file or notice states otherwise.
+
+Third-party software, source material, compatibility targets, and dependencies retain their own copyright, license, attribution, trademark, and service terms. The Apache-2.0 license for Viable does not replace or expand those third-party rights.
+
+This document records third-party source that Viable has deliberately reviewed, adapted, or targeted closely enough to require durable provenance and notice. Ordinary package dependencies remain subject to the licenses distributed by their respective projects and package ecosystems.
 
 ## Webdog
 
@@ -40,13 +44,13 @@ copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## Service and content boundaries
+### Webdog service and content boundaries
 
 The Webdog source license does not provide:
 
@@ -56,3 +60,28 @@ The Webdog source license does not provide:
 - authorization to bypass access controls, robots policies, provider terms, or applicable law.
 
 Viable keeps Context.dev and Webdog service adapters optional and requires separate integration, privacy, security, cost, and provider-term review before live execution.
+
+## ViMax
+
+- Project: `HKUDS/ViMax`
+- Compatibility target: `v1.1.0`
+- Reviewed upstream revision: `1f8f650`
+- Upstream release date recorded by Viable: 2026-06-08
+- Copyright notice recorded by Viable: Copyright (c) 2025
+- License: MIT
+
+ViMax is an optional external production tool. Viable does not bundle or install ViMax. The implemented Stage 1 integration exports a provider-neutral video-production package plus a compatibility packet targeting the pinned ViMax Script2Video interface.
+
+The compatibility packet may contain Viable-authored adapter code and a blank configuration template, but it does not redistribute the ViMax application or its Python dependency graph. Generated compatibility packages include an upstream notice so that any copied or substantially adapted ViMax material retains the required MIT notice.
+
+ViMax execution, provider credentials, provider usage, and runtime support remain outside the current Viable application boundary.
+
+See [`docs/integrations/vimax-video-generation.md`](docs/integrations/vimax-video-generation.md) for the exact compatibility and execution boundary.
+
+## Dependency and binary-distribution boundary
+
+The repository uses npm, Cargo, Tauri, TypeScript, and Rust ecosystem dependencies. Those dependencies retain their own licenses.
+
+Public source visibility does not by itself certify that every future binary distribution has a complete transitive dependency notice bundle. Before Viable publishes supported installers or other redistributed binary artifacts, the release process must produce and review a transitive dependency-license inventory and include any notices required by the licenses actually present in that artifact.
+
+That binary-distribution review is a release gate, not a reason to mislabel the source repository as proprietary.
