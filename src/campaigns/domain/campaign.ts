@@ -47,6 +47,30 @@ export type CampaignBrief = Readonly<{
   reviewNote?: string;
 }>;
 
+export type ContentBrief = Readonly<{
+  id: string;
+  workspaceId: string;
+  campaignId: string;
+  title: string;
+  objective: string;
+  audience: string;
+  primaryOutcome: string;
+  claimReferences: readonly ClaimReference[];
+  evidenceIds: readonly string[];
+  pillars: readonly string[];
+  themes: readonly string[];
+  deliverables: readonly string[];
+  sourceNotes: readonly string[];
+  owner: string;
+  origin: "human" | "generated_suggestion";
+  status: AssetReviewStatus;
+  createdAt: string;
+  updatedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+}>;
+
 export type AssetVersion = Readonly<{
   version: number;
   body: string;
@@ -116,6 +140,7 @@ export type ManualExportPackage = Readonly<{
 export type CampaignWorkspace = Readonly<{
   workspaceId: string;
   campaigns: readonly CampaignBrief[];
+  contentBriefs?: readonly ContentBrief[];
   assets: readonly CanonicalAsset[];
   variants: readonly ChannelVariant[];
   exports: readonly ManualExportPackage[];

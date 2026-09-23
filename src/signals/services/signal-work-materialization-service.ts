@@ -1,4 +1,4 @@
-import type { CampaignBrief, CampaignWorkspace, ChannelKind } from "../../campaigns/domain/campaign.js";
+import type { CampaignBrief, CampaignWorkspace, ChannelKind, ContentBrief } from "../../campaigns/domain/campaign.js";
 import type { CampaignWorkspaceStore } from "../../campaigns/ports/campaign-workspace-store.js";
 import { CampaignService } from "../../campaigns/services/campaign-service.js";
 import type { ReadinessAction } from "../../product-core/domain/assessment.js";
@@ -42,6 +42,22 @@ export type CampaignMaterializationResult = Readonly<{
   campaign: CampaignBrief;
 }>;
 
+export type ContentMaterializationInput = Readonly<{
+  campaignId: string;
+  objective: string;
+  pillars: readonly string[];
+  themes: readonly string[];
+  deliverables: readonly string[];
+  sourceNotes: readonly string[];
+  origin: "human" | "generated_suggestion";
+}>;
+
+export type ContentMaterializationResult = Readonly<{
+  inbox: SignalsInbox;
+  campaigns: CampaignWorkspace;
+  contentBrief: ContentBrief;
+}>;
+
 const productKinds = new Map<SignalConversion["kind"], ReadinessAction["kind"]>([
   ["product_action", "action"],
   ["icp_validation_action", "icp_experiment"],
@@ -50,6 +66,7 @@ const productKinds = new Map<SignalConversion["kind"], ReadinessAction["kind"]>(
 
 export const isProductMaterializationKind = (kind: SignalConversion["kind"]): boolean => productKinds.has(kind);
 export const isCampaignMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "campaign_brief";
+export const isContentMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "content_brief";
 
 export class SignalWorkMaterializationService {
   private readonly productService: ProductCoreService;
@@ -150,6 +167,54 @@ export class SignalWorkMaterializationService {
       if (!campaign) throw new Error("Campaign authority did not retain the materialized signal brief");
       const updatedInbox = await this.recordSuccess(inbox, conversion.id, "campaigns", campaign.id);
       return { inbox: updatedInbox, campaigns: updatedCampaigns, campaign };
+    } catch (error) {
+      await this.recordFailure(inbox, conversion.id, error);
+      throw error;
+    }
+  }
+
+  async materializeContent(
+    workspaceId: string,
+    conversionId: string,
+    input: ContentMaterializationInput,
+  ): Promise<ContentMaterializationResult> {
+    const inbox = await this.requiredInbox(workspaceId);
+    const conversion = this.requiredConversion(inbox, conversionId);
+    if (conversion.kind !== "content_brief") throw new Error("Signal conversion is not a content brief");
+    if (!this.campaignStore) throw new Error("Content materialization is not configured");
+
+    const briefId = `signal-content-${conversion.id}`;
+    try {
+      const existingWorkspace = await this.campaignStore.load(workspaceId);
+      const existing = existingWorkspace?.contentBriefs?.find((brief) => brief.id === briefId);
+      if (existing && existingWorkspace) {
+        const synchronized = conversion.status === "materialized" && conversion.materialization?.recordId === existing.id
+          ? inbox
+          : await this.recordSuccess(inbox, conversion.id, "campaigns", existing.id);
+        return { inbox: synchronized, campaigns: existingWorkspace, contentBrief: existing };
+      }
+
+      const campaignService = new CampaignService(
+        this.campaignStore,
+        this.productStore,
+        this.clock,
+        () => briefId,
+      );
+      const updatedCampaigns = await campaignService.createContentBrief(workspaceId, {
+        campaignId: input.campaignId,
+        title: conversion.title,
+        objective: input.objective,
+        pillars: input.pillars,
+        themes: input.themes,
+        deliverables: input.deliverables,
+        sourceNotes: input.sourceNotes,
+        owner: conversion.owner,
+        origin: input.origin,
+      });
+      const contentBrief = updatedCampaigns.contentBriefs?.find((candidate) => candidate.id === briefId);
+      if (!contentBrief) throw new Error("Campaign authority did not retain the materialized content brief");
+      const updatedInbox = await this.recordSuccess(inbox, conversion.id, "campaigns", contentBrief.id);
+      return { inbox: updatedInbox, campaigns: updatedCampaigns, contentBrief };
     } catch (error) {
       await this.recordFailure(inbox, conversion.id, error);
       throw error;

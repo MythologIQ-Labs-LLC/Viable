@@ -10,6 +10,7 @@ import type {
   ChannelKind,
   ChannelVariant,
   ClaimReference,
+  ContentBrief,
   ManualExportPackage,
   ReviewComment,
 } from "../domain/campaign.js";
@@ -113,6 +114,77 @@ export class CampaignService {
       this.validateReferences(product, campaign.claimReferences, campaign.evidenceIds, campaign.channels);
       const now = this.clock().toISOString();
       return { ...campaign, status: decision, reviewedBy: reviewer.trim(), reviewedAt: now, reviewNote: note.trim(), updatedAt: now };
+    });
+  }
+
+  async createContentBrief(workspaceId: string, input: Readonly<{
+    campaignId: string;
+    title: string;
+    objective: string;
+    pillars: readonly string[];
+    themes: readonly string[];
+    deliverables: readonly string[];
+    sourceNotes: readonly string[];
+    owner: string;
+    origin: "human" | "generated_suggestion";
+  }>): Promise<CampaignWorkspace> {
+    requireText(input.title, "Content brief title");
+    requireText(input.objective, "Content brief objective");
+    requireText(input.owner, "Content brief owner");
+    if (clean(input.pillars).length === 0 || clean(input.deliverables).length === 0) {
+      throw new Error("Content brief pillars and deliverables are required");
+    }
+    const workspace = await this.load(workspaceId);
+    const campaign = required(workspace.campaigns, input.campaignId, "Approved campaign");
+    if (campaign.status !== "approved") throw new Error("Content briefs require an approved campaign brief");
+    const product = await this.requiredProduct(workspaceId);
+    this.validateReferences(product, campaign.claimReferences, campaign.evidenceIds, campaign.channels);
+    const now = this.clock().toISOString();
+    const brief: ContentBrief = {
+      id: this.createId(),
+      workspaceId,
+      campaignId: campaign.id,
+      title: input.title.trim(),
+      objective: input.objective.trim(),
+      audience: campaign.primaryAudience,
+      primaryOutcome: campaign.primaryOutcome,
+      claimReferences: campaign.claimReferences.map((reference) => ({ ...reference, evidenceIds: [...reference.evidenceIds] })),
+      evidenceIds: [...campaign.evidenceIds],
+      pillars: clean(input.pillars),
+      themes: clean(input.themes),
+      deliverables: clean(input.deliverables),
+      sourceNotes: clean(input.sourceNotes),
+      owner: input.owner.trim(),
+      origin: input.origin,
+      status: "draft",
+      createdAt: now,
+      updatedAt: now,
+    };
+    return this.persist({ ...workspace, contentBriefs: [...(workspace.contentBriefs ?? []), brief], updatedAt: now });
+  }
+
+  async submitContentBrief(workspaceId: string, briefId: string): Promise<CampaignWorkspace> {
+    return this.changeContentBrief(workspaceId, briefId, (brief) => {
+      if (!["draft", "changes_requested", "approval_invalidated"].includes(brief.status)) {
+        throw new Error("Only draft, changed, or invalidated content briefs can enter review");
+      }
+      return { ...brief, status: "in_review", updatedAt: this.clock().toISOString() };
+    });
+  }
+
+  async reviewContentBrief(workspaceId: string, briefId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
+    requireText(reviewer, "Named content brief reviewer");
+    requireText(note, "Content brief review note");
+    const product = await this.requiredProduct(workspaceId);
+    const workspace = await this.load(workspaceId);
+    const brief = required(workspace.contentBriefs ?? [], briefId, "Content brief");
+    const campaign = required(workspace.campaigns, brief.campaignId, "Campaign");
+    if (campaign.status !== "approved") throw new Error("Content brief review requires an approved campaign");
+    this.validateReferences(product, brief.claimReferences, brief.evidenceIds, campaign.channels);
+    return this.changeContentBrief(workspaceId, briefId, (record) => {
+      if (record.status !== "in_review") throw new Error("Content brief must be in review");
+      const now = this.clock().toISOString();
+      return { ...record, status: decision, reviewedBy: reviewer.trim(), reviewedAt: now, reviewNote: note.trim(), updatedAt: now };
     });
   }
 
@@ -265,6 +337,11 @@ export class CampaignService {
           : campaign;
       }
     });
+    const contentBriefs = (workspace.contentBriefs ?? []).map((brief) =>
+      affectedCampaignIds.has(brief.campaignId) && brief.status === "approved"
+        ? { ...brief, status: "approval_invalidated" as const, updatedAt: now, reviewNote: "Campaign authority was invalidated" }
+        : brief,
+    );
     const affectedAssetIds = new Set<string>();
     const assets = workspace.assets.map((asset) => {
       if (!affectedCampaignIds.has(asset.campaignId)) return asset;
@@ -278,7 +355,7 @@ export class CampaignService {
         ? { ...variant, status: "approval_invalidated" as const, updatedAt: now, reviewNote: "Canonical asset authority was invalidated" }
         : variant,
     );
-    return this.persist({ ...workspace, campaigns, assets, variants, updatedAt: now });
+    return this.persist({ ...workspace, campaigns, contentBriefs, assets, variants, updatedAt: now });
   }
 
   async createManualExport(workspaceId: string, campaignId: string, assetId: string, creator: string): Promise<CampaignWorkspace> {
@@ -310,9 +387,10 @@ export class CampaignService {
   }
 
   private async load(workspaceId: string): Promise<CampaignWorkspace> {
-    return await this.store.load(workspaceId) ?? {
-      workspaceId, campaigns: [], assets: [], variants: [], exports: [], updatedAt: this.clock().toISOString(),
-    };
+    const stored = await this.store.load(workspaceId);
+    return stored
+      ? { ...stored, contentBriefs: stored.contentBriefs ?? [] }
+      : { workspaceId, campaigns: [], contentBriefs: [], assets: [], variants: [], exports: [], updatedAt: this.clock().toISOString() };
   }
 
   private async requiredProduct(workspaceId: string): Promise<ProductWorkspace> {
@@ -360,6 +438,13 @@ export class CampaignService {
     const workspace = await this.load(workspaceId);
     if (!workspace.campaigns.some((item) => item.id === id)) throw new Error("Campaign not found");
     return this.persist({ ...workspace, campaigns: workspace.campaigns.map((item) => item.id === id ? change(item) : item), updatedAt: this.clock().toISOString() });
+  }
+
+  private async changeContentBrief(workspaceId: string, id: string, change: (record: ContentBrief) => ContentBrief): Promise<CampaignWorkspace> {
+    const workspace = await this.load(workspaceId);
+    const briefs = workspace.contentBriefs ?? [];
+    if (!briefs.some((item) => item.id === id)) throw new Error("Content brief not found");
+    return this.persist({ ...workspace, contentBriefs: briefs.map((item) => item.id === id ? change(item) : item), updatedAt: this.clock().toISOString() });
   }
 
   private async changeAsset(workspaceId: string, id: string, change: (record: CanonicalAsset) => CanonicalAsset): Promise<CampaignWorkspace> {
