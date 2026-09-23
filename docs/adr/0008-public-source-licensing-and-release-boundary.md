@@ -1,6 +1,6 @@
 # ADR-0008: Public source licensing and release boundary
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-23
 - Supersedes: None
 - Superseded by: None
@@ -19,7 +19,7 @@ Viable also contains deliberate integration work informed by third-party open-so
 
 ## Decision
 
-Subject to final approval of the public-readiness pull request, Viable-owned source code and documentation will be licensed under the **Apache License, Version 2.0**.
+Viable-owned source code and documentation are licensed under the **Apache License, Version 2.0**.
 
 MythologIQ Labs, LLC remains the Viable product and repository owner and the authority for product direction, release policy, branding, support commitments, and commercial offerings.
 
@@ -42,7 +42,7 @@ The following boundaries apply:
 - Small businesses and other users may use Viable commercially without requiring a separate commercial license.
 - Apache-2.0 provides an explicit contributor patent grant and a defined trademark boundary.
 - MythologIQ Labs can still sell support, hosted services, packaged distributions, customization, or other commercial offerings.
-- The repository can become public without making a false claim that Viable is a supported production product.
+- The repository can be public without making a false claim that Viable is a supported production product.
 - MIT-licensed reviewed sources such as Webdog and ViMax remain compatible when their notice obligations are preserved.
 
 ### Negative
@@ -82,8 +82,8 @@ Deferred. Dual licensing adds contributor-rights, commercial-policy, and operati
 - preserve `package.json` `private: true` until package publication is separately approved;
 - retain release-foundation and human-acceptance gates;
 - require dependency-license inventory before supported binary distribution;
-- verify contributor/provenance authority before the visibility change;
-- do not change repository visibility in the same mechanical step as merging licensing documentation unless the exact merged state has passed public-readiness review.
+- verify contributor/provenance authority before public distribution;
+- keep repository visibility and supported product-release status explicitly separate.
 
 ## Related requirements and documents
 
