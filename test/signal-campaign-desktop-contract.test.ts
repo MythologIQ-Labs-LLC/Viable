@@ -26,6 +26,7 @@ test("Signals desktop exposes governed Campaign materialization without bypassin
   assert.match(view, /claim\.status === "approved"/);
   assert.match(view, /isReviewedEvidence/);
   assert.match(view, /icp\.status === "selected" && icp\.reviewStatus === "reviewed"/);
+  assert.match(view, /private product: ProductWorkspace \| undefined/);
 });
 
 test("Campaign materialization keeps unsupported destinations visibly proposed", async () => {
