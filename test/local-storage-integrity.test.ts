@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { LocalStorageProductWorkspaceStore } from "../apps/desktop/ui/local-storage-product-workspace-store.js";
 import {
+  CURRENT_WORKSPACE_SCHEMA_VERSION,
+  LEGACY_WORKSPACE_SCHEMA_VERSION,
   LocalWorkspaceStorageError,
   readWorkspaceJson,
   removeStorageItems,
@@ -47,11 +49,55 @@ const productWorkspace: ProductWorkspace = {
   claims: [], evidence: [], icpHypotheses: [], assessments: [], actions: [],
 };
 
-test("valid local workspace JSON round trips through the integrity boundary", () => {
+test("valid local workspace JSON round trips through a versioned integrity boundary", () => {
   const storage = new MemoryStorage();
   const value = { workspaceId: "workspace-1", items: [], updatedAt: "2026-07-16T00:00:00.000Z" };
   writeWorkspaceJson(storage, "key", "Test workspace", value);
+
+  const saved = JSON.parse(storage.getItem("key") ?? "null") as { schemaVersion?: unknown; workspace?: unknown };
+  assert.equal(saved.schemaVersion, CURRENT_WORKSPACE_SCHEMA_VERSION);
+  assert.deepEqual(saved.workspace, value);
   assert.deepEqual(readWorkspaceJson(storage, "key", "Test workspace", { field: "workspaceId", expected: "workspace-1" }, shape), value);
+});
+
+test("legacy unversioned workspaces remain readable without silent mutation", () => {
+  const storage = new MemoryStorage();
+  const value = { workspaceId: "workspace-1", items: [], updatedAt: "2026-07-16T00:00:00.000Z" };
+  const legacy = JSON.stringify(value);
+  assert.equal(LEGACY_WORKSPACE_SCHEMA_VERSION, 0);
+  storage.setItem("key", legacy);
+
+  assert.deepEqual(readWorkspaceJson(storage, "key", "Test workspace", { field: "workspaceId", expected: "workspace-1" }, shape), value);
+  assert.equal(storage.getItem("key"), legacy);
+});
+
+test("unsupported future workspace schema versions fail closed and preserve the original value", () => {
+  const storage = new MemoryStorage();
+  const value = { workspaceId: "workspace-1", items: [], updatedAt: "2026-07-16T00:00:00.000Z" };
+  const future = JSON.stringify({ schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION + 1, workspace: value });
+  storage.setItem("key", future);
+
+  assert.throws(
+    () => readWorkspaceJson(storage, "key", "Test workspace", { field: "workspaceId", expected: "workspace-1" }, shape),
+    (error: unknown) => error instanceof LocalWorkspaceStorageError && error.message.includes("newer workspace schema version") && error.message.includes("preserved"),
+  );
+  assert.equal(storage.getItem("key"), future);
+});
+
+test("invalid or incomplete workspace schema envelopes fail closed", () => {
+  const storage = new MemoryStorage();
+
+  storage.setItem("key", JSON.stringify({ schemaVersion: "1", workspace: { workspaceId: "workspace-1", items: [], updatedAt: "now" } }));
+  assert.throws(
+    () => readWorkspaceJson(storage, "key", "Test workspace", { field: "workspaceId", expected: "workspace-1" }, shape),
+    /invalid workspace schema version/,
+  );
+
+  storage.setItem("key", JSON.stringify({ schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION }));
+  assert.throws(
+    () => readWorkspaceJson(storage, "key", "Test workspace", { field: "workspaceId", expected: "workspace-1" }, shape),
+    /missing its workspace payload/,
+  );
 });
 
 test("malformed saved data is rejected without being deleted or rewritten", () => {
