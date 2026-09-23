@@ -1,0 +1,27 @@
+name: Apply Campaign materialization UI
+
+on:
+  push:
+    branches: [issue-5/signal-campaign-materialization]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: issue-5/signal-campaign-materialization
+      - name: Apply bounded UI patch
+        run: node scripts/patch-signal-campaign-ui.mjs
+      - name: Remove temporary patch machinery and persist result
+        run: |
+          rm scripts/patch-signal-campaign-ui.mjs .github/workflows/apply-signal-campaign-ui.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/desktop/ui/signals-view.ts scripts/patch-signal-campaign-ui.mjs .github/workflows/apply-signal-campaign-ui.yml
+          git commit -m "Wire governed Campaign materialization into Signals"
+          git push
