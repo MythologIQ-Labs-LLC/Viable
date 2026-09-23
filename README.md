@@ -1,6 +1,10 @@
 <!-- markdownlint-disable MD033 MD041 -->
 <div align="center">
 
+<p align="center">
+  <img src="assets/brand/viable-banner.png" alt="Viable — Local Intelligence. Real Opportunities. Tangible Impact." width="100%">
+</p>
+
 # Viable
 
 ### A local-first marketability operating system for products, public repositories, founders, and small teams
