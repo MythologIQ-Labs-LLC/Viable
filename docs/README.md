@@ -12,40 +12,39 @@ When documents conflict, use this order:
 4. current implementation state;
 5. product and experience roadmaps;
 6. product operating-model and integration documents;
-7. README summaries;
+7. README and Wiki summaries;
 8. issues and pull requests for scoped implementation work.
 
 Issues and pull requests may implement or propose changes, but they may not silently redefine product or architectural authority.
 
 ## Start here
 
-For a new session or contributor, read:
+For someone evaluating the project or contributing to the public source, read:
 
-1. [Current session handoff](handoff/CURRENT.md)
-2. [Product Requirements Document](product/PRD.md)
-3. [ICP discovery and validation](product/icp-discovery-and-validation.md)
-4. [Architecture Decision Records](adr/README.md)
-5. [Platform architectural design](architecture/viable-platform.md)
-6. [ICP domain architectural design](architecture/icp-domain.md)
-7. [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
-8. [Video Production domain architectural design](architecture/video-production-domain.md)
-9. [Calendar, Activation, Outcome, and Learning architecture](architecture/activation-and-learning-domain.md)
-10. [Website Watch domain architecture](architecture/website-watch-domain.md)
-11. [Current state](status/current-state.md)
-12. [Initial build sequence](roadmap/initial-build-sequence.md)
-13. [Open decisions](decisions/open-decisions.md)
+1. [Product Requirements Document](product/PRD.md)
+2. [Architecture Decision Records](adr/README.md)
+3. [Platform architectural design](architecture/viable-platform.md)
+4. [Current implementation state](status/current-state.md)
+5. [Product provenance and ownership](product/provenance-and-ownership.md)
+6. [Canonical glossary](GLOSSARY.md)
+7. the domain architecture and user guide relevant to the work being considered.
 
-Supporting review records:
+Maintainers resuming an active implementation session should additionally read [Current session handoff](handoff/CURRENT.md). The handoff is continuity context, not required background for a public user or contributor.
 
-- [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
-- [Documentation verification](reviews/documentation-verification-2026-07-15.md)
-- [Documentation verification closure](reviews/documentation-verification-closure-2026-07-15.md)
+## Wiki source
 
-## Handoff and terminology
+The curated GitHub Wiki content is source-controlled under [`docs/wiki/`](wiki/README.md). The Wiki is an orientation and operating layer, not a competing authority. Material changes to product scope, architecture, capability, security posture, licensing, or contribution rules should update the relevant Wiki source page in the same governed change before the GitHub Wiki copy is refreshed.
 
-- [Current session handoff](handoff/CURRENT.md)
-- [Detailed session capture, 2026-07-15](handoff/session-context-2026-07-15.md)
-- [Canonical glossary](GLOSSARY.md)
+## Public source, license, and contribution boundaries
+
+- Viable-owned source and documentation are licensed under [Apache License 2.0](../LICENSE) as accepted in [ADR-0008](adr/0008-public-source-licensing-and-release-boundary.md).
+- [NOTICE](../NOTICE.md) records product ownership and source-provenance boundaries.
+- [Third-party notices](../THIRD_PARTY_NOTICES.md) record deliberately reviewed third-party source and compatibility targets.
+- [Contributing](../CONTRIBUTING.md) defines contribution, testing, provenance, and contribution-license expectations.
+- [Security](../SECURITY.md) defines vulnerability-reporting guidance.
+- [Support](../SUPPORT.md) defines the current pre-release support posture.
+
+Public repository visibility is distinct from a supported end-user product release. Release readiness remains governed by the current implementation state, human acceptance gates, and release-foundation work.
 
 ## Product
 
@@ -89,6 +88,7 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 ## Governance and safety
 
 - [Research, content, and outreach safety](governance/research-and-outreach-safety.md)
+- [Public source licensing and release boundary](adr/0008-public-source-licensing-and-release-boundary.md)
 - [Third-party notices](../THIRD_PARTY_NOTICES.md)
 
 ## User guides
@@ -101,12 +101,32 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 - [Video Production in Studio](user/video-production.md)
 - [Calendar, Manual Activation, Outcomes, and Learning](user/calendar-activation-and-learning.md)
 
+## Wiki pages
+
+- [Wiki source index](wiki/README.md)
+- [Home](wiki/Home.md)
+- [Getting Started](wiki/Getting-Started.md)
+- [Product Model](wiki/Product-Model.md)
+- [Workflows](wiki/Workflows.md)
+- [Architecture and Governance](wiki/Architecture-and-Governance.md)
+- [Integrations](wiki/Integrations.md)
+- [Security and Privacy](wiki/Security-and-Privacy.md)
+- [Development and Contributing](wiki/Development-and-Contributing.md)
+- [Licensing and Public Source](wiki/Licensing-and-Public-Source.md)
+
 ## Status and reviews
 
 - [Current state](status/current-state.md)
 - [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
 - [Documentation verification, 2026-07-15](reviews/documentation-verification-2026-07-15.md)
 - [Documentation verification closure, 2026-07-15](reviews/documentation-verification-closure-2026-07-15.md)
+
+## Maintainer continuity
+
+- [Current session handoff](handoff/CURRENT.md)
+- [Detailed session capture, 2026-07-15](handoff/session-context-2026-07-15.md)
+
+These files preserve implementation continuity. They do not override accepted product, architecture, licensing, or current-state authority.
 
 ## Source migration
 
@@ -131,6 +151,6 @@ Documentation must distinguish:
 - known limitations;
 - decisions that require current revalidation.
 
-A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, integration assessments, third-party notices, and user documentation that it affects.
+A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, integration assessments, third-party notices, relevant Wiki source, and user documentation that it affects.
 
 The current handoff should be refreshed when a major product boundary, accepted decision, issue sequence, migration posture, integration posture, or open decision changes materially.

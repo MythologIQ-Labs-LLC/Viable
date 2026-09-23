@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   validate:
@@ -40,6 +41,11 @@ jobs:
         with:
           toolchain: "1.88.0"
           components: rustfmt
+      - name: Audit Rust dependencies
+        uses: step-security/audit-check@7fa8c70774cb92a75b0e99b7774c310b0f859b91 # v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: apps/desktop/src-tauri
       - name: Install Tauri build dependencies
         run: |
           sudo apt-get update

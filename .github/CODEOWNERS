@@ -1,0 +1,21 @@
+# Viable repository ownership
+#
+# CODEOWNERS routes public contributions for review. It does not replace
+# ADR, PRD, architecture, or named human approval authority.
+
+* @Knapp-Kevin
+
+# Product and architecture authority
+/docs/adr/ @Knapp-Kevin
+/docs/architecture/ @Knapp-Kevin
+/docs/product/ @Knapp-Kevin
+/docs/status/ @Knapp-Kevin
+
+# Public-source, security, and release governance
+/LICENSE @Knapp-Kevin
+/NOTICE.md @Knapp-Kevin
+/THIRD_PARTY_NOTICES.md @Knapp-Kevin
+/SECURITY.md @Knapp-Kevin
+/CONTRIBUTING.md @Knapp-Kevin
+/.github/ @Knapp-Kevin
+/apps/desktop/src-tauri/ @Knapp-Kevin
