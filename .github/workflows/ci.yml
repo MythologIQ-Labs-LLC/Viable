@@ -2,30 +2,170 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  correct-product-ui-source:
-    if: github.head_ref == 'issue-2/product-claims-experiments-ui' && github.actor == 'Knapp-Kevin'
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.head_ref }}
           fetch-depth: 0
-          persist-credentials: true
-      - name: Correct claim newline escaping
-        run: python3 scripts/fix-issue2-newline.py
-      - name: Restore governed CI and persist correction
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check repository viability
+        id: viability
+        shell: bash
         run: |
-          git fetch origin main --depth=1
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
-          rm scripts/fix-issue2-newline.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Correct Product claim newline escaping"
-          git push origin "HEAD:${GITHUB_HEAD_REF}"
+          set +e
+          npm run viability:check > viability.log 2>&1
+          status=$?
+          cat viability.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload repository viability diagnostics
+        if: steps.viability.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: repository-viability-diagnostics
+          path: viability.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce repository viability result
+        if: steps.viability.outputs.status != '0'
+        run: exit 1
+      - name: Scan repository secrets
+        id: secret_scan
+        shell: bash
+        run: |
+          set +e
+          npm run security:scan > secret-scan.log 2>&1
+          status=$?
+          cat secret-scan.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload secret scan diagnostics
+        if: steps.secret_scan.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: secret-scan-diagnostics
+          path: secret-scan.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce secret scan result
+        if: steps.secret_scan.outputs.status != '0'
+        run: exit 1
+      - name: Scan reachable Git history for secrets
+        id: history_secret_scan
+        shell: bash
+        run: |
+          set +e
+          npm run security:scan-history > history-secret-scan.log 2>&1
+          status=$?
+          cat history-secret-scan.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload historical secret scan diagnostics
+        if: steps.history_secret_scan.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: historical-secret-scan-diagnostics
+          path: history-secret-scan.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce historical secret scan result
+        if: steps.history_secret_scan.outputs.status != '0'
+        run: exit 1
+      - name: Audit npm dependency graph
+        id: dependency_audit
+        shell: bash
+        run: |
+          set +e
+          npm run security:audit > dependency-audit.log 2>&1
+          status=$?
+          cat dependency-audit.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload dependency audit diagnostics
+        if: steps.dependency_audit.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dependency-audit-diagnostics
+          path: dependency-audit.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce dependency audit result
+        if: steps.dependency_audit.outputs.status != '0'
+        run: exit 1
+      - name: Check core TypeScript
+        id: core_typecheck
+        shell: bash
+        run: |
+          set +e
+          npm run check > core-typecheck.log 2>&1
+          status=$?
+          cat core-typecheck.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload core typecheck diagnostics
+        if: steps.core_typecheck.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: core-typecheck-diagnostics
+          path: core-typecheck.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce core TypeScript result
+        if: steps.core_typecheck.outputs.status != '0'
+        run: exit 1
+      - name: Check desktop TypeScript
+        id: desktop_typecheck
+        shell: bash
+        run: |
+          set +e
+          npm run desktop:web:check > desktop-typecheck.log 2>&1
+          status=$?
+          cat desktop-typecheck.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload desktop typecheck diagnostics
+        if: steps.desktop_typecheck.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-typecheck-diagnostics
+          path: desktop-typecheck.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce desktop TypeScript result
+        if: steps.desktop_typecheck.outputs.status != '0'
+        run: exit 1
+      - name: Build, test, and report coverage
+        id: build_test
+        shell: bash
+        run: |
+          set +e
+          npm run test:coverage > build-test.log 2>&1
+          status=$?
+          cat build-test.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload build, test, and coverage diagnostics
+        if: steps.build_test.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-test-diagnostics
+          path: build-test.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce build, test, and coverage result
+        if: steps.build_test.outputs.status != '0'
+        run: exit 1

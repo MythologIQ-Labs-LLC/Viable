@@ -217,8 +217,7 @@ function claimSection(value: ProductWorkspace): string {
           <input type="hidden" name="id" value="${claim.id}">
           <label>Claim statement<textarea name="statement" required rows="3">${escapeHtml(claim.statement)}</textarea></label>
           <label>Rationale<textarea name="rationale" rows="2">${escapeHtml(claim.rationale || "")}</textarea></label>
-          <label>Prohibited contexts, one per line<textarea name="prohibitedContexts" rows="2">${escapeHtml(claim.prohibitedContexts.join("
-"))}</textarea></label>
+          <label>Prohibited contexts, one per line<textarea name="prohibitedContexts" rows="2">${escapeHtml(claim.prohibitedContexts.join("\n"))}</textarea></label>
           <fieldset><legend>Reviewed evidence</legend>${reviewedEvidence.length ? reviewedEvidence.map((item) => `<label class="choice"><input type="checkbox" name="evidenceIds" value="${item.id}" ${claim.evidenceIds.includes(item.id) ? "checked" : ""}>${escapeHtml(item.title)}</label>`).join("") : `<span>No reviewed evidence is available.</span>`}</fieldset>
           <button type="submit">Save revision and return to proposed review</button>
         </form></details>
