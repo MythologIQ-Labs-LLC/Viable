@@ -3,6 +3,8 @@ name = "viable-desktop"
 version = "0.1.0"
 description = "Local-first marketability operating system by MythologIQ Labs, LLC"
 authors = ["MythologIQ Labs, LLC"]
+license = "Apache-2.0"
+repository = "https://github.com/MythologIQ-Labs-LLC/Viable"
 edition = "2021"
 rust-version = "1.88"
 
