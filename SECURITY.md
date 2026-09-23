@@ -44,9 +44,28 @@ Viable's current security principles include:
 
 ## Automated checks
 
-The repository's validation path includes secret-pattern checks, working-tree secret scanning, dependency audit, strict TypeScript validation, deterministic tests, coverage enforcement, and repository viability checks.
+The repository's governed validation path includes:
+
+- repository viability and Markdown-link checks;
+- current tracked-tree secret scanning;
+- reachable Git-history secret scanning during public-readiness validation;
+- npm high/critical dependency auditing;
+- RustSec advisory scanning for the native Cargo dependency graph;
+- third-party GitHub Actions pinned to exact commit revisions;
+- validation checkouts with persisted GitHub credentials disabled;
+- strict core and desktop TypeScript validation;
+- deterministic tests and coverage enforcement;
+- Rust formatting/tests and native package construction/inspection for affected desktop changes.
+
+Matched secret values are not printed by the repository secret scanners.
 
 These controls reduce risk but do not prove the absence of vulnerabilities. They also do not replace privacy review, dependency-license review, installer signing, update integrity, supported-platform validation, or hands-on security assessment.
+
+## Dependency minimization
+
+Dependency upgrades are not a substitute for dependency justification. Native dependencies and Tauri features that are not used by executable behavior should be removed through package-manager-generated lockfile updates and exact-head validation rather than kept current indefinitely simply because a bot can open a pull request.
+
+Current native dependency-surface minimization is tracked separately under repository hygiene/release-foundation work.
 
 ## Supported versions
 
