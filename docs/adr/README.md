@@ -25,6 +25,7 @@ ADRs answer **why a boundary exists**. The PRD defines required outcomes, the ar
 | [ADR-0005](0005-human-approval-for-external-action.md) | Named human approval is required for externally consequential action | Accepted |
 | [ADR-0006](0006-marketability-loop-and-event-boundary.md) | The marketability loop is the top-level product model; Event Intelligence is a bounded signal subsystem | Accepted |
 | [ADR-0007](0007-icp-hypothesis-and-validation-authority.md) | ICP hypotheses and validation belong to Product Core and cannot be silently rewritten downstream | Accepted |
+| [ADR-0008](0008-public-source-licensing-and-release-boundary.md) | Public source licensing and repository visibility remain distinct from supported product release | Proposed |
 
 ## Required ADR sections
 
@@ -52,5 +53,6 @@ Create or supersede an ADR when changing:
 - persistence technology or synchronization model;
 - multi-user collaboration model;
 - public API, plugin, MCP, or automation authority;
+- source licensing, public distribution, or release-support boundaries;
 - release and update architecture;
 - a major bounded-context relationship.
