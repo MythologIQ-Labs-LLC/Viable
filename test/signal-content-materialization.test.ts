@@ -174,3 +174,28 @@ test("content materialization rejects lost campaign authority and recovers witho
   assert.equal(retried.inbox.conversions[0]!.materializationFailure, undefined);
   assert.equal(campaigns.value!.contentBriefs?.length, 1);
 });
+
+test("content authority normalizes a legacy Campaign workspace that has no contentBriefs collection", async () => {
+  const { products, campaigns, productId, campaignId } = await fixture();
+  const current = campaigns.value!;
+  const { contentBriefs: _contentBriefs, ...legacyWorkspace } = current;
+  campaigns.value = legacyWorkspace as CampaignWorkspace;
+
+  const service = new CampaignService(campaigns, products, () => new Date(now), () => "legacy-content-brief");
+  const updated = await service.createContentBrief(productId, {
+    campaignId,
+    title: "Legacy workspace content brief",
+    objective: "Prove additive content-brief compatibility",
+    pillars: ["Backward-compatible authority"],
+    themes: ["Migration safety"],
+    deliverables: ["Content source packet"],
+    sourceNotes: ["Legacy workspace intentionally omitted contentBriefs"],
+    owner: "Kevin",
+    origin: "human",
+  });
+
+  assert.equal(updated.contentBriefs?.length, 1);
+  assert.equal(updated.contentBriefs?.[0]?.id, "legacy-content-brief");
+  assert.equal(updated.contentBriefs?.[0]?.campaignId, campaignId);
+  assert.equal(campaigns.value!.contentBriefs?.length, 1);
+});
