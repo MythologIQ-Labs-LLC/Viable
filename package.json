@@ -2,6 +2,15 @@
   "name": "@mythologiq/viable",
   "version": "0.1.0",
   "private": true,
+  "description": "Local-first marketability operating system for products, public repositories, founders, maintainers, and small teams",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MythologIQ-Labs-LLC/Viable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MythologIQ-Labs-LLC/Viable/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"
