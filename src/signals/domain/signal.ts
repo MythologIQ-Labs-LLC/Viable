@@ -76,6 +76,19 @@ export type ConversionKind =
   | "content_brief" | "repository_growth_action" | "website_watch_action"
   | "product_feedback";
 
+export type SignalConversionStatus = "proposed" | "materialized" | "materialization_failed";
+
+export type SignalMaterialization = Readonly<{
+  context: "product_core";
+  recordId: string;
+  materializedAt: string;
+}>;
+
+export type SignalMaterializationFailure = Readonly<{
+  attemptedAt: string;
+  detail: string;
+}>;
+
 export type SignalConversion = Readonly<{
   id: string;
   signalId: string;
@@ -83,7 +96,9 @@ export type SignalConversion = Readonly<{
   title: string;
   owner: string;
   createdAt: string;
-  status: "proposed";
+  status: SignalConversionStatus;
+  materialization?: SignalMaterialization;
+  materializationFailure?: SignalMaterializationFailure;
 }>;
 
 export type SignalsInbox = Readonly<{
