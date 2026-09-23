@@ -3,8 +3,9 @@ import { ActivationLearningService } from "../../../src/activation-learning/serv
 import { EventIntelligenceSignalSource } from "../../../src/signals/adapters/event-intelligence-signal-source.js";
 import { GitHubPublicRepositorySource } from "../../../src/signals/adapters/github-public-repository-source.js";
 import { ManualJsonSignalSource } from "../../../src/signals/adapters/manual-json-signal-source.js";
-import type { ConversionKind, SignalRecord, SignalsInbox, SourceHealth } from "../../../src/signals/domain/signal.js";
+import type { ConversionKind, SignalConversion, SignalRecord, SignalsInbox, SourceHealth } from "../../../src/signals/domain/signal.js";
 import { SignalsInboxService } from "../../../src/signals/services/signals-inbox-service.js";
+import { isProductMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
 import { WebdogManualSignalSource, WebdogManualWebsiteWatchSource } from "../../../src/website-watch/adapters/webdog-manual-import-source.js";
 import type {
   WatchTarget,
@@ -30,9 +31,9 @@ const humanDate = (value?: string): string => value ? new Date(value).toLocaleSt
 const lineValues = (value: FormDataEntryValue | null): string[] =>
   String(value ?? "").split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
 const statusTone = (status: string): string =>
-  ["success", "success_change_detected", "accepted", "reviewed", "converted", "change_detected", "scheduled"].includes(status) ? "implemented"
+  ["success", "success_change_detected", "accepted", "reviewed", "converted", "change_detected", "scheduled", "materialized"].includes(status) ? "implemented"
     : ["partial", "rate_limited", "saved", "suggested", "verified_empty", "verified_no_change", "baseline", "offline", "cancelled"].includes(status) ? "warning"
-      : ["transport_failed", "validation_failed", "authentication_failed", "unavailable", "forbidden", "unauthorized", "dismissed", "rejected", "disabled"].includes(status) ? "error"
+      : ["transport_failed", "validation_failed", "authentication_failed", "unavailable", "forbidden", "unauthorized", "dismissed", "rejected", "disabled", "materialization_failed"].includes(status) ? "error"
         : "neutral";
 const pill = (value: string): string => `<span class="pill ${statusTone(value)}">${escapeHtml(value.replaceAll("_", " "))}</span>`;
 const asBoolean = (value: FormDataEntryValue | null): boolean => value === "on";
@@ -49,11 +50,13 @@ const localDateTime = (value: Date): string => {
 export class SignalsViewController {
   private readonly signalsStore = new LocalStorageSignalsInboxStore();
   private readonly websiteStore = new LocalStorageWebsiteWatchStore();
+  private readonly productStore = new LocalStorageProductWorkspaceStore();
   private readonly service = new SignalsInboxService(this.signalsStore);
+  private readonly materializationService = new SignalWorkMaterializationService(this.signalsStore, this.productStore);
   private readonly websiteService = new WebsiteWatchService(this.websiteStore);
   private readonly activationService = new ActivationLearningService(
     new LocalStorageActivationLearningStore(),
-    new LocalStorageProductWorkspaceStore(),
+    this.productStore,
     new LocalStorageCampaignWorkspaceStore(),
     new LocalStorageRepositoryGrowthStore(),
     new LocalStorageVideoProductionStore(),
@@ -202,6 +205,11 @@ export class SignalsViewController {
         this.inbox = await this.service.review(this.workspaceId, id, reviewer, action === "accept");
         return action === "accept" ? "Signal and related Website Watch observation accepted with named review" : "Signal and related Website Watch observation dismissed";
       }
+      if (action === "materialize-product") {
+        const result = await this.materializationService.materializeProductCore(this.workspaceId, id);
+        this.inbox = result.inbox;
+        return "Signal work materialized into authoritative Product Core";
+      }
       if (action === "save") {
         this.inbox = await this.service.save(this.workspaceId, id);
         return "Signal saved";
@@ -272,8 +280,25 @@ export class SignalsViewController {
         <div class="cards signal-cards">${inbox.signals.length ? inbox.signals.slice().reverse().map((signal) => this.signalCard(signal)).join("") : `<div class="state empty"><strong>No signals yet.</strong><span>Configure a source or use a manual import. An empty inbox is not evidence that the market is empty.</span></div>`}</div>
       </section>
       <section class="panel" aria-labelledby="work-heading"><div class="section-heading"><div><p class="eyebrow">Proposed work</p><h3 id="work-heading">Signal conversions</h3></div>${pill(`${inbox.conversions.length} proposals`)}</div>
-        <div class="cards">${inbox.conversions.length ? inbox.conversions.map((item) => `<article class="record"><div class="record-top"><h4>${escapeHtml(item.title)}</h4>${pill(item.status)}</div><p>${escapeHtml(item.kind.replaceAll("_", " "))}</p><small>Owner: ${escapeHtml(item.owner)} · Created ${humanDate(item.createdAt)}</small></article>`).join("") : `<div class="state empty"><strong>No conversions yet.</strong><span>Only accepted reviewed signals can become proposed work.</span></div>`}</div>
+        <p class="guidance">Product actions, ICP validation actions, and product feedback can be materialized into Product Core now. Campaign, content, repository-growth, and Website Watch conversions remain proposed until their destination-specific authority inputs are supplied.</p>
+        <div class="cards">${inbox.conversions.length ? inbox.conversions.map((item) => this.conversionCard(item)).join("") : `<div class="state empty"><strong>No conversions yet.</strong><span>Only accepted reviewed signals can become proposed work.</span></div>`}</div>
       </section>`;
+  }
+
+
+  private conversionCard(item: SignalConversion): string {
+    const productMaterialization = isProductMaterializationKind(item.kind);
+    const destination = item.materialization;
+    const failure = item.materializationFailure;
+    return `<article class="record signal-conversion">
+      <div class="record-top"><h4>${escapeHtml(item.title)}</h4>${pill(item.status)}</div>
+      <p>${escapeHtml(item.kind.replaceAll("_", " "))}</p>
+      <small>Owner: ${escapeHtml(item.owner)} · Created ${humanDate(item.createdAt)}</small>
+      ${destination ? `<p><strong>Authoritative destination:</strong> ${escapeHtml(destination.context)} · <code>${escapeHtml(destination.recordId)}</code> · ${humanDate(destination.materializedAt)}</p>` : ""}
+      ${failure ? `<div class="inline-warning"><strong>Materialization failed.</strong> ${escapeHtml(failure.detail)} · ${humanDate(failure.attemptedAt)}</div>` : ""}
+      ${productMaterialization && item.status !== "materialized" ? `<button type="button" data-signal-action="materialize-product" data-id="${escapeHtml(item.id)}">${item.status === "materialization_failed" ? "Retry Product Core materialization" : "Materialize in Product Core"}</button>` : ""}
+      ${!productMaterialization && item.status === "proposed" ? `<small>Destination-specific fields and authority checks are still required before this proposal can create an authoritative record.</small>` : ""}
+    </article>`;
   }
 
   private websiteWatchSection(): string {
