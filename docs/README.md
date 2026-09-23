@@ -12,7 +12,7 @@ When documents conflict, use this order:
 4. current implementation state;
 5. product and experience roadmaps;
 6. product operating-model and integration documents;
-7. README summaries;
+7. README and Wiki summaries;
 8. issues and pull requests for scoped implementation work.
 
 Issues and pull requests may implement or propose changes, but they may not silently redefine product or architectural authority.
@@ -37,10 +37,10 @@ The curated GitHub Wiki content is source-controlled under [`docs/wiki/`](wiki/R
 
 ## Public source, license, and contribution boundaries
 
-- Viable-owned source and documentation are proposed for release under [Apache License 2.0](../LICENSE) through [ADR-0008](adr/0008-public-source-licensing-and-release-boundary.md).
+- Viable-owned source and documentation are licensed under [Apache License 2.0](../LICENSE) as accepted in [ADR-0008](adr/0008-public-source-licensing-and-release-boundary.md).
 - [NOTICE](../NOTICE.md) records product ownership and source-provenance boundaries.
 - [Third-party notices](../THIRD_PARTY_NOTICES.md) record deliberately reviewed third-party source and compatibility targets.
-- [Contributing](../CONTRIBUTING.md) defines contribution, testing, provenance, and authority expectations.
+- [Contributing](../CONTRIBUTING.md) defines contribution, testing, provenance, and contribution-license expectations.
 - [Security](../SECURITY.md) defines vulnerability-reporting guidance.
 - [Support](../SUPPORT.md) defines the current pre-release support posture.
 
@@ -101,6 +101,19 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 - [Video Production in Studio](user/video-production.md)
 - [Calendar, Manual Activation, Outcomes, and Learning](user/calendar-activation-and-learning.md)
 
+## Wiki pages
+
+- [Wiki source index](wiki/README.md)
+- [Home](wiki/Home.md)
+- [Getting Started](wiki/Getting-Started.md)
+- [Product Model](wiki/Product-Model.md)
+- [Workflows](wiki/Workflows.md)
+- [Architecture and Governance](wiki/Architecture-and-Governance.md)
+- [Integrations](wiki/Integrations.md)
+- [Security and Privacy](wiki/Security-and-Privacy.md)
+- [Development and Contributing](wiki/Development-and-Contributing.md)
+- [Licensing and Public Source](wiki/Licensing-and-Public-Source.md)
+
 ## Status and reviews
 
 - [Current state](status/current-state.md)
@@ -138,6 +151,6 @@ Documentation must distinguish:
 - known limitations;
 - decisions that require current revalidation.
 
-A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, integration assessments, third-party notices, and user documentation that it affects.
+A material product or architectural change must update the PRD, ADRs, architecture, roadmap, current state, README, issues, integration assessments, third-party notices, relevant Wiki source, and user documentation that it affects.
 
 The current handoff should be refreshed when a major product boundary, accepted decision, issue sequence, migration posture, integration posture, or open decision changes materially.
