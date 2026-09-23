@@ -413,19 +413,21 @@ document.addEventListener("submit", (event) => {
     workspace = await service.addEvidence(workspace!.id, { title: String(form.get("title")), summary: String(form.get("summary")), origin, observedAt: new Date(String(form.get("observedAt"))).toISOString(), freshnessReviewAt: new Date(String(form.get("freshnessReviewAt"))).toISOString(), reviewStatus: "suggested", confidence: String(form.get("confidence")) as "medium" });
   }, "Evidence added for review");
   if (kind === "add-claim") void act(async () => {
+    const rationale = String(form.get("rationale")).trim();
     workspace = await service.addClaim(workspace!.id, {
       statement: String(form.get("statement")),
-      rationale: String(form.get("rationale")) || undefined,
       evidenceIds: form.getAll("evidenceIds").map(String),
       prohibitedContexts: lines(form.get("prohibitedContexts")),
+      ...(rationale ? { rationale } : {}),
     });
   }, "Proposed claim added");
   if (kind === "revise-claim") void act(async () => {
+    const rationale = String(form.get("rationale")).trim();
     workspace = await service.reviseClaim(workspace!.id, String(form.get("id")), {
       statement: String(form.get("statement")),
-      rationale: String(form.get("rationale")) || undefined,
       evidenceIds: form.getAll("evidenceIds").map(String),
       prohibitedContexts: lines(form.get("prohibitedContexts")),
+      ...(rationale ? { rationale } : {}),
     });
   }, "Claim revision saved for review");
   if (kind === "add-icp") void act(async () => {
