@@ -2,15 +2,17 @@
 
 ## Status
 
-The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18.
+The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18. Signals-to-Campaign materialization landed through PR #67, and the current issue #5 tranche adds Campaign-owned content briefs as the governed content destination for reviewed signal work.
 
-The workflow is internal. Hands-on keyboard and assistive-technology review, unfamiliar-user acceptance, and any resulting remediation remain open under issue #6.
+The workflow is internal. Hands-on keyboard and assistive-technology review, unfamiliar-user acceptance, and any resulting remediation remain open under issue #6 and the relevant Signals acceptance work.
 
 No part of this workflow publishes, schedules, sends, or verifies delivery to an external provider.
 
 ## Purpose
 
 Campaigns turns reviewed Product Core truth into one focused campaign brief.
+
+Campaigns and Assets also owns content briefs derived from approved campaigns. A content brief is a governed source packet for downstream asset work; it is not itself a canonical asset or publishing instruction.
 
 Studio turns an approved campaign into one canonical asset, channel-specific variants, and a manual export package while preserving evidence, rights, accessibility, review, and version authority.
 
@@ -44,6 +46,30 @@ Campaigns includes the missing claim-prerequisite path so a user can propose and
 
 A campaign cannot create its own Product Core claims, silently change ICP state, or proceed without reviewed evidence and approved claim authority.
 
+## Materialize a content brief from reviewed signal work
+
+A reviewed Signals conversion with kind `content_brief` can materialize into Campaigns and Assets only after an approved Campaign exists.
+
+From **Signals**:
+
+1. open the proposed content conversion;
+2. choose an approved Campaign;
+3. enter the content objective;
+4. enter one or more content pillars;
+5. optionally record themes;
+6. enter one or more planned deliverables;
+7. record source notes;
+8. identify whether the brief is human-authored or a generated suggestion;
+9. create the governed content brief.
+
+The resulting draft inherits the approved Campaign's primary audience, primary outcome, approved Product Core claim snapshots, and reviewed Product Core evidence packet. Campaign Service revalidates that authority before creation.
+
+Content brief review is a distinct domain transition. Named review revalidates Product Core claim/evidence authority and requires the parent Campaign to remain approved.
+
+A content brief does not create a canonical asset, channel variant, manual export, publishing approval, publication, or delivery claim. Those remain separate downstream records and decisions.
+
+Materialization uses a deterministic destination identifier derived from the Signals conversion, so retry returns the same authoritative content brief instead of creating duplicates.
+
 ## Create a canonical asset
 
 1. Open **Studio** after a campaign is approved.
@@ -76,7 +102,7 @@ Channel variants adapt the canonical asset. They do not replace or duplicate can
 
 Use **Recheck Product Core claim impact** when Product Core claim authority may have changed.
 
-The service compares each campaign claim snapshot with current Product Core status, revision, statement, evidence, and prohibited channel contexts. A material mismatch invalidates affected campaign, asset, and variant approvals.
+The service compares each campaign claim snapshot with current Product Core status, revision, statement, evidence, and prohibited channel contexts. A material mismatch invalidates affected campaign, approved content brief, asset, and variant approvals.
 
 ## Create a manual export
 
@@ -114,7 +140,13 @@ The workflow presents explicit:
 - error state with the service rejection reason;
 - recovery action that reloads the last saved local campaign workspace.
 
+Signals content materialization also presents an explicit blocked state when no approved Campaign is available and retains materialization failure/retry state in the Signals conversion record.
+
 Status is expressed in text and structure rather than color alone. Checkbox controls have bounded, scalable presentation, and the manual manifest is keyboard-scrollable and wraps long values.
+
+## Compatibility note
+
+`contentBriefs` is an additive Campaign workspace collection. Campaign Service normalizes older saved Campaign workspaces that do not contain this collection to an empty list before using them. This is a bounded compatibility measure, not a substitute for the product-wide schema migration, backup, restore, and corruption-recovery work tracked under the release foundation.
 
 ## Known limitations
 
@@ -122,6 +154,8 @@ The internal workflow does not yet provide:
 
 - hands-on assistive-technology evidence;
 - unfamiliar-user completion evidence;
+- a dedicated Campaigns/Studio presentation for browsing and reviewing content briefs created from Signals;
+- content-brief revision UI;
 - campaign-brief or channel-variant content revision methods beyond their existing review transitions;
 - external destinations, provider accounts, credentials, schedulers, publishing adapters, or delivery verification;
 - multi-user synchronization or hosted collaboration;
