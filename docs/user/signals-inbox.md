@@ -37,8 +37,9 @@ Manual imports are limited to 100 signals per operation. Imported content is unt
 7. Convert a reviewed signal into named proposed work.
 8. For a product action, ICP validation action, or product-feedback proposal, materialize the proposal into Product Core. The Product Core record retains the signal-conversion origin, and retry is idempotent rather than duplicating work.
 9. For a campaign proposal, open **Materialize Campaign brief** and supply the complete Campaign authority fields, including audience, objective, outcome, approved claims, reviewed evidence, channels, call to action, asset plan, and success measures. Successful materialization creates a Campaign-owned draft, not an approved or published campaign.
-10. For content, repository-growth, or Website Watch work, keep the conversion proposed until the destination-specific authority fields and materializers are implemented. Viable does not invent incomplete authoritative records from a title and owner.
-11. Open Market to review accepted evidence by type and the limitations that constrain interpretation.
+10. For a content proposal, open **Materialize content brief**, choose an approved Campaign, and supply the content objective, pillars, themes, planned deliverables, source notes, and origin. Successful materialization creates a Campaign-owned content brief that inherits the approved campaign audience, outcome, claim references, and reviewed evidence packet.
+11. For repository-growth or Website Watch work, keep the conversion proposed until the destination-specific authority path is implemented. Viable does not invent incomplete authoritative records from a title and owner.
+12. Open Market to review accepted evidence by type and the limitations that constrain interpretation.
 
 ## Materialization state
 
@@ -86,7 +87,35 @@ A successful materialization creates a **draft** Campaign brief only. It does no
 
 Campaign materialization uses a deterministic destination identity derived from the signal conversion. Retrying the same conversion returns the existing Campaign draft instead of creating a duplicate, including recovery when the destination write succeeded but the Signals-side acknowledgement failed.
 
-A failed attempt remains visible and can be retried. Successful retry clears the prior failure record.
+### Content brief materialization
+
+`content_brief` materializes into **Campaigns and Assets**, not into a generic Signals-owned task and not directly into a canonical asset.
+
+Content materialization requires an already approved Campaign brief. The content brief inherits the campaign's:
+
+- primary audience;
+- primary outcome;
+- approved Product Core claim snapshots;
+- reviewed Product Core evidence packet.
+
+The user supplies the content-specific fields:
+
+- content objective;
+- one or more content pillars;
+- optional themes;
+- one or more planned deliverables;
+- source notes;
+- human-authored or generated-suggestion origin.
+
+Campaign Service revalidates Product Core claim and evidence authority before creating the brief. Review revalidates that authority again and requires the parent Campaign to remain approved.
+
+A successful materialization creates a **draft content brief** only. It does not create a canonical asset, channel variant, export package, publishing approval, publication, or delivery claim. Those remain separate downstream stages.
+
+The content destination identifier is deterministic from the signal conversion. Retrying the same conversion returns the existing Campaign-owned content brief rather than creating a duplicate.
+
+Existing Campaign workspaces that predate the `contentBriefs` collection are normalized with an empty collection when loaded by Campaign Service, preserving the additive local-data shape while broader migration and recovery work remains tracked separately.
+
+A failed materialization attempt remains visible and can be retried. Successful retry clears the prior failure record.
 
 ## State behavior
 
@@ -121,11 +150,13 @@ Only reviewed signals can become proposed owned work. Signals owns the evidence 
 
 When Product Core materialization succeeds, Product Core owns the resulting readiness action. Signals retains only the traceable materialization reference.
 
-When Campaign materialization succeeds, Campaign owns the resulting draft brief. Signals retains the conversion and authoritative destination reference. Campaign review, asset creation, asset review, channel variants, export, approval, and external action remain under their existing Campaign and approval boundaries.
+When Campaign materialization succeeds, Campaigns and Assets owns the resulting draft campaign brief. Signals retains the conversion and authoritative destination reference.
 
-Content, repository-growth, and Website Watch conversions remain proposed until their destination-specific requirements can be satisfied. A conversion does not publish content, contact a person, qualify a lead, mutate the canonical ICP, or grant external-action approval.
+When content materialization succeeds, Campaigns and Assets owns the resulting content brief and inherited source packet. Content review, canonical asset creation, asset review, channel variants, export, approval, and external action remain under their existing Campaign and approval boundaries.
 
-Product Core remains authoritative for product truth, claims, canonical ICP hypotheses, and Product Core readiness actions. Campaign remains authoritative for campaign briefs, canonical assets, variants, and campaign review state.
+Repository-growth and Website Watch conversions remain proposed until their destination-specific requirements can be satisfied. A conversion does not publish content, contact a person, qualify a lead, mutate the canonical ICP, or grant external-action approval.
+
+Product Core remains authoritative for product truth, claims, canonical ICP hypotheses, and Product Core readiness actions. Campaigns and Assets remains authoritative for campaign briefs, content briefs, canonical assets, variants, and their review state.
 
 ## Current limitations
 
@@ -133,6 +164,7 @@ Product Core remains authoritative for product truth, claims, canonical ICP hypo
 - GitHub activity is a recent sample rather than a complete activity ledger.
 - Source configuration and inbox data currently belong to the local desktop profile.
 - Backup, export, restore, and complete migration/recovery behavior remain release-foundation work.
-- Content-brief, repository-growth-action, and Website Watch action materialization still require destination-specific implementation and authority inputs.
+- Repository-growth-action and Website Watch action materialization still require destination-specific implementation and authority inputs.
 - Campaign materialization creates a governed draft only; campaign review, approval, asset production, export, and external delivery remain separate workflows.
+- Content materialization creates a governed draft content brief only; canonical assets, variants, approval, export, and external delivery remain separate workflows.
 - Hands-on screen-reader review and unfamiliar-user acceptance are pending.
