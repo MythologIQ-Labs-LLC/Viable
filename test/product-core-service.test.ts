@@ -154,3 +154,33 @@ test("marketability findings require explanations and can become owned actions",
   });
   assert.equal(acted.actions[0]?.status, "open");
 });
+
+test("revising an approved claim invalidates approval and increments revision", async () => {
+  const { service, store, workspace } = await fixture();
+  await service.addEvidence(workspace.id, {
+    title: "Founder interview", summary: "Claim verified", origin: "interview",
+    observedAt: "2026-07-15T00:00:00Z", freshnessReviewAt: "2026-08-15T00:00:00Z",
+    reviewStatus: "reviewed", reviewedBy: "Kevin R. Knapp", reviewedAt: "2026-07-15T00:00:00Z", confidence: "high",
+  });
+  const evidenceId = store.value!.evidence[0]!.id;
+  await service.addClaim(workspace.id, { statement: "Original claim", evidenceIds: [evidenceId], prohibitedContexts: [] });
+  const claimId = store.value!.claims[0]!.id;
+  await service.approveClaim(workspace.id, claimId, "Kevin R. Knapp");
+  const revised = await service.reviseClaim(workspace.id, claimId, { statement: "Revised claim", evidenceIds: [evidenceId], prohibitedContexts: ["Unverified provider claims"], rationale: "Scope changed" });
+  assert.equal(revised.claims[0]?.status, "proposed");
+  assert.equal(revised.claims[0]?.revision, 3);
+  assert.equal(revised.claims[0]?.reviewedBy, undefined);
+  assert.equal(revised.claims[0]?.statement, "Revised claim");
+});
+
+test("claim rejection requires and records a named reviewer", async () => {
+  const { service, store, workspace } = await fixture();
+  await service.addClaim(workspace.id, { statement: "Draft claim", evidenceIds: [], prohibitedContexts: [] });
+  const claimId = store.value!.claims[0]!.id;
+  await assert.rejects(() => service.rejectClaim(workspace.id, claimId, ""), /named claim reviewer/);
+  const rejected = await service.rejectClaim(workspace.id, claimId, "Kevin R. Knapp");
+  assert.equal(rejected.claims[0]?.status, "rejected");
+  assert.equal(rejected.claims[0]?.reviewedBy, "Kevin R. Knapp");
+  assert.equal(rejected.claims[0]?.revision, 2);
+});
+

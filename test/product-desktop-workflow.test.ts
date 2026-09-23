@@ -20,11 +20,22 @@ test("desktop workflow loads Product Core through the guarded bootstrap", async 
   assert.match(app, /service\.updateProductTruth/);
   assert.match(app, /service\.addEvidence/);
   assert.match(app, /service\.reviewEvidence/);
+  assert.match(app, /service\.addClaim/);
+  assert.match(app, /service\.reviseClaim/);
+  assert.match(app, /service\.approveClaim/);
+  assert.match(app, /service\.rejectClaim/);
   assert.match(app, /service\.addIcpHypothesis/);
+  assert.match(app, /service\.addExperiment/);
   assert.match(app, /service\.reviewIcp/);
   assert.match(app, /service\.selectPrimaryIcp/);
   assert.match(app, /service\.recordAssessment/);
   assert.match(app, /service\.createAction/);
+});
+
+test("claim forms omit absent optional rationale rather than persisting undefined", async () => {
+  const app = await read("apps/desktop/ui/app.ts");
+  assert.match(app, /\.\.\.\(rationale \? \{ rationale \} : \{\}\)/);
+  assert.doesNotMatch(app, /rationale:\s*String\(form\.get\("rationale"\)\)\s*\|\|\s*undefined/);
 });
 
 test("desktop workflow visibly represents required state and authority boundaries", async () => {
@@ -46,6 +57,13 @@ test("desktop workflow visibly represents required state and authority boundarie
     "Selection is intentionally blocked",
     "No unexplained composite score",
     "Named selector",
+    "Review the claims ledger",
+    "Approve claim",
+    "Editing any claim returns it to proposed review",
+    "Validation experiments",
+    "Success criteria",
+    "Failure criteria",
+    "Decision criteria",
   ]) assert.match(surface, new RegExp(marker));
 });
 

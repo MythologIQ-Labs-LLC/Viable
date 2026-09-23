@@ -77,6 +77,45 @@ export class ProductCoreService {
     return this.persist({ ...workspace, claims: [...workspace.claims, record] });
   }
 
+  async reviseClaim(workspaceId: string, claimId: string, input: Readonly<{ statement: string; evidenceIds: readonly string[]; prohibitedContexts: readonly string[]; rationale?: string }>): Promise<ProductWorkspace> {
+    if (!input.statement.trim()) throw new Error("Claim statement is required");
+    const workspace = await this.required(workspaceId);
+    const claim = workspace.claims.find((candidate) => candidate.id === claimId);
+    if (!claim) throw new Error("Claim not found");
+    return this.persist({
+      ...workspace,
+      claims: workspace.claims.map((candidate): ProductClaim => {
+        if (candidate.id !== claimId) return candidate;
+        const { rationale: _rationale, reviewedBy: _reviewedBy, reviewedAt: _reviewedAt, ...unreviewed } = candidate;
+        return {
+          ...unreviewed,
+          statement: input.statement,
+          evidenceIds: input.evidenceIds,
+          prohibitedContexts: input.prohibitedContexts,
+          ...(input.rationale ? { rationale: input.rationale } : {}),
+          status: "proposed",
+          revision: candidate.revision + 1,
+        };
+      }),
+    });
+  }
+
+  async rejectClaim(workspaceId: string, claimId: string, reviewer: string): Promise<ProductWorkspace> {
+    if (!reviewer.trim()) throw new Error("A named claim reviewer is required");
+    const workspace = await this.required(workspaceId);
+    if (!workspace.claims.some((candidate) => candidate.id === claimId)) throw new Error("Claim not found");
+    return this.persist({
+      ...workspace,
+      claims: workspace.claims.map((candidate) => candidate.id === claimId ? {
+        ...candidate,
+        status: "rejected",
+        revision: candidate.revision + 1,
+        reviewedBy: reviewer,
+        reviewedAt: this.clock().toISOString(),
+      } : candidate),
+    });
+  }
+
   async approveClaim(workspaceId: string, claimId: string, reviewer: string): Promise<ProductWorkspace> {
     if (!reviewer.trim()) throw new Error("A named claim reviewer is required");
     const workspace = await this.required(workspaceId);
