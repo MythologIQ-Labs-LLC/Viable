@@ -35,7 +35,7 @@ export type MarketabilityAssessment = Readonly<{
 
 export type ReadinessAction = Readonly<{
   id: string;
-  source: "product_gap" | "icp_gap" | "assessment_gap";
+  source: "product_gap" | "icp_gap" | "assessment_gap" | "signal";
   sourceId: string;
   title: string;
   owner: string;

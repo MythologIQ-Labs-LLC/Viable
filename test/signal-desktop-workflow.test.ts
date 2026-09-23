@@ -20,9 +20,14 @@ test("desktop exposes bounded Signals and Market workflows", async () => {
     "Evidence drawer",
     "Accept with named review",
     "Convert to proposed work",
+    "Materialize in Product Core",
+    "Authoritative destination",
+    "Destination-specific fields and authority checks",
     "Evidence before action",
     "does not calculate ICP truth",
   ]) assert.match(view, new RegExp(marker));
+  assert.match(view, /SignalWorkMaterializationService/);
+  assert.match(view, /materializeProductCore/);
 });
 
 test("Signals UI includes failure, verified-empty, partial, offline, and recovery language", async () => {
