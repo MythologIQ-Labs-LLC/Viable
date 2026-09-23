@@ -31,6 +31,14 @@ A generated suggestion is not observed evidence. A broad audience, event attende
 
 Externally consequential action is outside this workflow and continues to require named human approval for the exact action scope.
 
+## Claims and validation experiments
+
+A claim begins as proposed. It may be drafted before evidence review is complete, but Product Core will not approve it unless every linked evidence record is reviewed and non-generated. Approval and rejection require a named human reviewer.
+
+Editing any claim, including an approved claim, creates a new revision in proposed state and clears the prior review metadata. This prevents an old approval from silently carrying across materially different wording, evidence, rationale, or prohibited contexts.
+
+ICP validation experiments are explicit planning records. Each experiment records the hypothesis under test, method, owner, start and observation-end dates, success criteria, failure criteria, and decision criteria. Creating an experiment does not claim that it ran, succeeded, failed, or produced provider-verified evidence.
+
 ## State behavior
 
 The desktop workflow visibly distinguishes:
