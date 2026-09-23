@@ -71,7 +71,11 @@ const storageBoundary = await read("apps/desktop/ui/local-storage-json.ts");
 requireCondition(storageBoundary.includes("CURRENT_WORKSPACE_SCHEMA_VERSION = 1"), "Workspace persistence must declare an explicit current schema version");
 requireCondition(storageBoundary.includes("LEGACY_WORKSPACE_SCHEMA_VERSION = 0"), "Workspace persistence must retain an explicit legacy-version boundary");
 requireCondition(storageBoundary.includes("schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace writes must persist the current schema version");
-requireCondition(storageBoundary.includes("newer workspace schema version"), "Workspace reads must fail closed on unsupported future schema versions");
+requireCondition(
+  storageBoundary.includes("schemaVersion > CURRENT_WORKSPACE_SCHEMA_VERSION")
+    && storageBoundary.includes("Use a compatible Viable version or restore a compatible backup before retrying."),
+  "Workspace reads must fail closed on unsupported future schema versions",
+);
 
 for (const path of gitFiles("src/**/*.ts", "apps/**/*.ts", "test/**/*.ts")) {
   const source = await read(path);
