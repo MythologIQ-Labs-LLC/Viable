@@ -32,6 +32,12 @@ test("desktop workflow loads Product Core through the guarded bootstrap", async 
   assert.match(app, /service\.createAction/);
 });
 
+test("claim forms omit absent optional rationale rather than persisting undefined", async () => {
+  const app = await read("apps/desktop/ui/app.ts");
+  assert.match(app, /\.\.\.\(rationale \? \{ rationale \} : \{\}\)/);
+  assert.doesNotMatch(app, /rationale:\s*String\(form\.get\("rationale"\)\)\s*\|\|\s*undefined/);
+});
+
 test("desktop workflow visibly represents required state and authority boundaries", async () => {
   const [app, bootstrap, html] = await Promise.all([
     read("apps/desktop/ui/app.ts"),
