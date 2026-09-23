@@ -19,33 +19,28 @@ Issues and pull requests may implement or propose changes, but they may not sile
 
 ## Start here
 
-For a new session or contributor, read:
+For someone evaluating the project or contributing to the public source, read:
 
-1. [Current session handoff](handoff/CURRENT.md)
-2. [Product Requirements Document](product/PRD.md)
-3. [ICP discovery and validation](product/icp-discovery-and-validation.md)
-4. [Architecture Decision Records](adr/README.md)
-5. [Platform architectural design](architecture/viable-platform.md)
-6. [ICP domain architectural design](architecture/icp-domain.md)
-7. [Repository Growth domain architectural design](architecture/repository-growth-domain.md)
-8. [Video Production domain architectural design](architecture/video-production-domain.md)
-9. [Calendar, Activation, Outcome, and Learning architecture](architecture/activation-and-learning-domain.md)
-10. [Website Watch domain architecture](architecture/website-watch-domain.md)
-11. [Current state](status/current-state.md)
-12. [Initial build sequence](roadmap/initial-build-sequence.md)
-13. [Open decisions](decisions/open-decisions.md)
+1. [Product Requirements Document](product/PRD.md)
+2. [Architecture Decision Records](adr/README.md)
+3. [Platform architectural design](architecture/viable-platform.md)
+4. [Current implementation state](status/current-state.md)
+5. [Product provenance and ownership](product/provenance-and-ownership.md)
+6. [Canonical glossary](GLOSSARY.md)
+7. the domain architecture and user guide relevant to the work being considered.
 
-Supporting review records:
+Maintainers resuming an active implementation session should additionally read [Current session handoff](handoff/CURRENT.md). The handoff is continuity context, not required background for a public user or contributor.
 
-- [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
-- [Documentation verification](reviews/documentation-verification-2026-07-15.md)
-- [Documentation verification closure](reviews/documentation-verification-closure-2026-07-15.md)
+## Public source, license, and contribution boundaries
 
-## Handoff and terminology
+- Viable-owned source and documentation are proposed for release under [Apache License 2.0](../LICENSE) through [ADR-0008](adr/0008-public-source-licensing-and-release-boundary.md).
+- [NOTICE](../NOTICE.md) records product ownership and source-provenance boundaries.
+- [Third-party notices](../THIRD_PARTY_NOTICES.md) record deliberately reviewed third-party source and compatibility targets.
+- [Contributing](../CONTRIBUTING.md) defines contribution, testing, provenance, and authority expectations.
+- [Security](../SECURITY.md) defines vulnerability-reporting guidance.
+- [Support](../SUPPORT.md) defines the current pre-release support posture.
 
-- [Current session handoff](handoff/CURRENT.md)
-- [Detailed session capture, 2026-07-15](handoff/session-context-2026-07-15.md)
-- [Canonical glossary](GLOSSARY.md)
+Public repository visibility is distinct from a supported end-user product release. Release readiness remains governed by the current implementation state, human acceptance gates, and release-foundation work.
 
 ## Product
 
@@ -89,6 +84,7 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 ## Governance and safety
 
 - [Research, content, and outreach safety](governance/research-and-outreach-safety.md)
+- [Public source licensing and release boundary](adr/0008-public-source-licensing-and-release-boundary.md)
 - [Third-party notices](../THIRD_PARTY_NOTICES.md)
 
 ## User guides
@@ -107,6 +103,13 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 - [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
 - [Documentation verification, 2026-07-15](reviews/documentation-verification-2026-07-15.md)
 - [Documentation verification closure, 2026-07-15](reviews/documentation-verification-closure-2026-07-15.md)
+
+## Maintainer continuity
+
+- [Current session handoff](handoff/CURRENT.md)
+- [Detailed session capture, 2026-07-15](handoff/session-context-2026-07-15.md)
+
+These files preserve implementation continuity. They do not override accepted product, architecture, licensing, or current-state authority.
 
 ## Source migration
 
