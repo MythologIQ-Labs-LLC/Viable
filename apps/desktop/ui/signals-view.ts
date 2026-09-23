@@ -67,7 +67,7 @@ export class SignalsViewController {
   );
   private inbox?: SignalsInbox;
   private website?: WebsiteWatchWorkspace;
-  private product?: ProductWorkspace;
+  private product: ProductWorkspace | undefined;
   private failure: string | undefined;
 
   constructor(
