@@ -33,7 +33,7 @@ Externally consequential action is outside this workflow and continues to requir
 
 ## Claims and validation experiments
 
-A claim begins as proposed. It may be drafted before evidence review is complete, but Product Core will not approve it unless every linked evidence record is reviewed and non-generated. Approval and rejection require a named human reviewer.
+A claim begins as proposed. It may be drafted before evidence review is complete, but Product Core will not approve it unless every linked evidence record is reviewed and non-generated. Approval and rejection require a named human reviewer. Proposed, approved, rejected, and retired are distinct claim states rather than interchangeable labels.
 
 Editing any claim, including an approved claim, creates a new revision in proposed state and clears the prior review metadata. This prevents an old approval from silently carrying across materially different wording, evidence, rationale, or prohibited contexts.
 
