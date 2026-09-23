@@ -22,7 +22,7 @@ on:
       - ".github/workflows/desktop.yml"
 
 permissions:
-  contents: read
+  contents: write
   checks: write
 
 jobs:
@@ -32,7 +32,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
+          persist-credentials: true
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
@@ -41,6 +42,32 @@ jobs:
         with:
           toolchain: "1.88.0"
           components: rustfmt
+      - name: Regenerate minimized Cargo lockfile
+        run: cargo metadata --manifest-path apps/desktop/src-tauri/Cargo.toml --format-version 1 > /dev/null
+      - name: Persist Cargo-generated lockfile
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor == 'Knapp-Kevin'
+        run: |
+          lock_path="apps/desktop/src-tauri/Cargo.lock"
+          if git diff --quiet -- "$lock_path"; then
+            echo "Cargo.lock is already synchronized."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$lock_path"
+            git commit -m "Regenerate Cargo.lock after native dependency cleanup"
+            git push origin "HEAD:${GITHUB_HEAD_REF}"
+          fi
+      - name: Capture minimized dependency graph
+        run: cargo tree --manifest-path apps/desktop/src-tauri/Cargo.toml > native-tree-after.txt
+      - name: Upload Cargo-generated dependency evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-dependency-after
+          path: |
+            apps/desktop/src-tauri/Cargo.lock
+            native-tree-after.txt
+          if-no-files-found: error
+          retention-days: 7
       - name: Audit Rust dependencies
         uses: step-security/audit-check@7fa8c70774cb92a75b0e99b7774c310b0f859b91 # v2
         with:
