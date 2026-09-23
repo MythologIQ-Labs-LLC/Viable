@@ -67,6 +67,12 @@ for (const path of storageFiles) {
   requireCondition(!content.includes("JSON.parse"), `${path} must not cast unchecked JSON directly into an authority workspace`);
 }
 
+const storageBoundary = await read("apps/desktop/ui/local-storage-json.ts");
+requireCondition(storageBoundary.includes("CURRENT_WORKSPACE_SCHEMA_VERSION = 1"), "Workspace persistence must declare an explicit current schema version");
+requireCondition(storageBoundary.includes("LEGACY_WORKSPACE_SCHEMA_VERSION = 0"), "Workspace persistence must retain an explicit legacy-version boundary");
+requireCondition(storageBoundary.includes("schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace writes must persist the current schema version");
+requireCondition(storageBoundary.includes("newer workspace schema version"), "Workspace reads must fail closed on unsupported future schema versions");
+
 for (const path of gitFiles("src/**/*.ts", "apps/**/*.ts", "test/**/*.ts")) {
   const source = await read(path);
   requireCondition(!source.includes("@ts-ignore"), `${path} must not suppress TypeScript errors with @ts-ignore`);
@@ -113,4 +119,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, pinned actions, CSP, ${storageFiles.length} local stores, TypeScript suppression, test focus, and Markdown links.`);
+console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, pinned actions, CSP, ${storageFiles.length} versioned local stores, TypeScript suppression, test focus, and Markdown links.`);
