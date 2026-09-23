@@ -42,7 +42,7 @@ Viable began with event-intelligence roots, but events are now deliberately one 
 
 ## Why it exists
 
-Small teams routinely split marketability work across product notes, spreadsheets, analytics tools, social schedulers, repository dashboards, design tools, event feeds, website monitors, CRMs, and half-finished campaign drafts. The predictable result is not merely inconvenience. It is authority drift:
+Small teams routinely split marketability work across product notes, spreadsheets, analytics tools, social schedulers, repository dashboards, design tools, event feeds, website monitors, CRMs, and half-finished campaign drafts. The predictable result is authority drift:
 
 - marketing begins before the product and ICP are sufficiently understood;
 - generated copy turns assumptions into apparent facts;
@@ -113,13 +113,13 @@ The remaining release-foundation work is tracked primarily in GitHub issue #36 a
 - hands-on accessibility and unfamiliar-user acceptance across the major workflows;
 - explicit schema versions and cross-version migration behavior;
 - backup, restore, corruption recovery, retention, and deletion propagation;
-- native dependency hardening and advisory review;
+- native dependency minimization and release-artifact license inventory;
 - signed installers and publisher identity;
 - update integrity, interruption, rollback, upgrade, and uninstall behavior;
 - Windows validation and a deliberate macOS packaging/notarization posture;
 - privacy, security, diagnostics, vulnerability intake, support, and release operations.
 
-A passing compiler, CI workflow, coverage threshold, or Debian bundle is evidence about that artifact. It is not a substitute for those release gates. Computers remain tragically unwilling to infer product readiness from our enthusiasm.
+Automated validation includes npm high/critical dependency auditing, Rust dependency advisory scanning, repository and reachable-history secret scanning, pinned GitHub Actions, deterministic tests, coverage enforcement, and native package validation. Those checks provide evidence about an artifact. They do not substitute for the remaining release gates.
 
 ## Architecture and governance
 
@@ -148,7 +148,7 @@ Future Relationships and Sales
   -> only after its authority model is approved
 ```
 
-Documentation authority is defined in [`docs/README.md`](docs/README.md). Accepted ADRs and the PRD outrank README summaries and implementation issues when they conflict.
+Documentation authority is defined in [`docs/README.md`](docs/README.md). Accepted ADRs and the PRD outrank Wiki/README summaries and implementation issues when they conflict.
 
 ## Development
 
@@ -167,13 +167,13 @@ Webdog, Context.dev, ViMax, Python, publishing credentials, analytics credential
 npm ci
 ```
 
-### Run the governed repository validation
+### Run governed repository validation
 
 ```bash
 npm run validate
 ```
 
-That validation includes repository viability checks, secret scanning, dependency audit, strict TypeScript checks, desktop TypeScript checks, deterministic tests, and coverage enforcement.
+That validation includes repository viability checks, current-tree and reachable-history secret scanning, npm dependency audit, strict TypeScript checks, deterministic tests, and coverage enforcement. Native desktop validation additionally performs Rust dependency advisory scanning, Rust formatting/tests, Tauri bundle construction, and package inspection.
 
 Useful individual commands:
 
@@ -196,8 +196,9 @@ Start with:
 4. [Current implementation state](docs/status/current-state.md)
 5. [Product provenance and ownership](docs/product/provenance-and-ownership.md)
 6. [Documentation index](docs/README.md)
+7. [Wiki source](docs/wiki/README.md)
 
-Domain and user documentation is indexed from [`docs/README.md`](docs/README.md).
+Domain and user documentation is indexed from [`docs/README.md`](docs/README.md). The source-controlled Wiki pages under `docs/wiki/` are curated orientation pages intended to be mirrored into the GitHub Wiki; they do not override repository authority.
 
 The session handoff under `docs/handoff/` is maintainer continuity context, not required reading for someone evaluating or using the public source.
 
@@ -220,7 +221,7 @@ Viable is pre-release. Public source visibility does not create a production sup
 
 ## License
 
-Viable-owned source code and documentation are available under the [Apache License 2.0](LICENSE), subject to final acceptance of [ADR-0008](docs/adr/0008-public-source-licensing-and-release-boundary.md) and the public-readiness pull request.
+Viable-owned source code and documentation are available under the [Apache License 2.0](LICENSE), as accepted in [ADR-0008](docs/adr/0008-public-source-licensing-and-release-boundary.md).
 
 Apache-2.0 permits use, modification, redistribution, and commercial use under its terms. It also includes an express contributor patent grant and does not grant rights to MythologIQ Labs or Viable trademarks and branding beyond reasonable origin attribution.
 
