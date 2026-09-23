@@ -40,16 +40,16 @@ export class SignalWorkMaterializationService {
       throw new Error(`Conversion kind ${conversion.kind} requires destination-specific authority input before materialization`);
     }
 
-    const product = await this.requiredProduct(workspaceId);
-    const existing = product.actions.find((action) => action.source === "signal" && action.sourceId === conversion.id);
-    if (existing) {
-      const synchronized = conversion.status === "materialized" && conversion.materialization?.recordId === existing.id
-        ? inbox
-        : await this.recordSuccess(inbox, conversion.id, existing.id);
-      return { inbox: synchronized, product, action: existing };
-    }
-
     try {
+      const product = await this.requiredProduct(workspaceId);
+      const existing = product.actions.find((action) => action.source === "signal" && action.sourceId === conversion.id);
+      if (existing) {
+        const synchronized = conversion.status === "materialized" && conversion.materialization?.recordId === existing.id
+          ? inbox
+          : await this.recordSuccess(inbox, conversion.id, existing.id);
+        return { inbox: synchronized, product, action: existing };
+      }
+
       const updatedProduct = await this.productService.createAction(workspaceId, {
         source: "signal",
         sourceId: conversion.id,
