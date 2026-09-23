@@ -31,6 +31,10 @@ For someone evaluating the project or contributing to the public source, read:
 
 Maintainers resuming an active implementation session should additionally read [Current session handoff](handoff/CURRENT.md). The handoff is continuity context, not required background for a public user or contributor.
 
+## Wiki source
+
+The curated GitHub Wiki content is source-controlled under [`docs/wiki/`](wiki/README.md). The Wiki is an orientation and operating layer, not a competing authority. Material changes to product scope, architecture, capability, security posture, licensing, or contribution rules should update the relevant Wiki source page in the same governed change before the GitHub Wiki copy is refreshed.
+
 ## Public source, license, and contribution boundaries
 
 - Viable-owned source and documentation are proposed for release under [Apache License 2.0](../LICENSE) through [ADR-0008](adr/0008-public-source-licensing-and-release-boundary.md).
