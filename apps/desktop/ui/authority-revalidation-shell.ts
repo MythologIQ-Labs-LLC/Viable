@@ -30,17 +30,16 @@ async function revalidate(): Promise<void> {
   try {
     const workspaceId = productStore.activeWorkspaceId();
     if (!workspaceId) return;
-    const product = await productStore.load(workspaceId);
-    if (!product) return;
-    const signature = authoritySignature(product);
+    const [product, before] = await Promise.all([productStore.load(workspaceId), campaignStore.load(workspaceId)]);
+    if (!product || !before) return;
+    const signature = authoritySignature(product, before);
     if (signature === lastSignature) return;
     lastSignature = signature;
-    const before = await campaignStore.load(workspaceId);
-    if (!before) return;
     const updated = await revision.revalidateProductAuthority(workspaceId);
     const changed = changedAuthorityCount(before, updated);
     if (changed === 0) return;
-    if (live) live.textContent = `${changed} dependent Campaign record${changed === 1 ? "" : "s"} require re-review after Product Core authority changed.`;
+    lastSignature = authoritySignature(product, updated);
+    if (live) live.textContent = `${changed} dependent Campaign record${changed === 1 ? "" : "s"} require re-review because current Product Core or selected-ICP authority no longer supports approval.`;
     const nav = sidebar?.querySelector<HTMLButtonElement>('nav button[aria-current="page"]')?.dataset.nav;
     if (nav === "campaigns" || nav === "studio") sidebar?.querySelector<HTMLButtonElement>(`button[data-nav="${nav}"]`)?.click();
   } finally {
@@ -48,13 +47,18 @@ async function revalidate(): Promise<void> {
   }
 }
 
-function authoritySignature(product: ProductWorkspace): string {
+function authoritySignature(product: ProductWorkspace, campaigns: CampaignWorkspace): string {
   return JSON.stringify({
     workspaceId: product.id,
     productRevision: product.product.revision,
     claims: product.claims.map((claim) => [claim.id, claim.revision, claim.status]),
     evidence: product.evidence.map((evidence) => [evidence.id, evidence.reviewStatus, evidence.reviewedAt]),
     icps: product.icpHypotheses.map((icp) => [icp.id, icp.revision, icp.status, icp.reviewStatus]),
+    campaignUpdatedAt: campaigns.updatedAt,
+    campaigns: campaigns.campaigns.map((record) => [record.id, record.version, record.status]),
+    contentBriefs: (campaigns.contentBriefs ?? []).map((record) => [record.id, record.version ?? 1, record.status]),
+    assets: campaigns.assets.map((record) => [record.id, record.versions.length, record.status]),
+    variants: campaigns.variants.map((record) => [record.id, record.version, record.status]),
   });
 }
 
