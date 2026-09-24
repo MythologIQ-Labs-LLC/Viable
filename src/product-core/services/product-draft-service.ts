@@ -91,6 +91,9 @@ export class ProductDraftService {
     const selected = workspace.icpHypotheses.find((hypothesis) => hypothesis.status === "selected" && hypothesis.reviewStatus === "reviewed");
     if (!selected) throw new Error("A currently reviewed selected ICP is required to complete a marketability assessment");
     const reviewedIds = reviewedEvidenceIds(workspace);
+    if (selected.evidenceIds.length === 0 || !selected.evidenceIds.some((id) => reviewedIds.has(id))) {
+      throw new Error("The selected ICP no longer has current reviewed Product Core evidence; re-review ICP authority before completing a marketability assessment");
+    }
     const findings: ReadinessFinding[] = MARKETABILITY_DIMENSIONS.map((dimension) => {
       const finding = draft.findings[dimension];
       if (!finding) throw new Error(`Assessment dimension ${dimension} is incomplete`);
