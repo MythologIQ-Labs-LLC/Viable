@@ -39,7 +39,7 @@ Manual imports are limited to 100 signals per operation. Imported content is unt
 9. For a campaign proposal, open **Materialize Campaign brief** and supply the complete Campaign authority fields, including audience, objective, outcome, approved claims, reviewed evidence, channels, call to action, asset plan, and success measures. Successful materialization creates a Campaign-owned draft, not an approved or published campaign.
 10. For a content proposal, open **Materialize content brief**, choose an approved Campaign, and supply the content objective, pillars, themes, planned deliverables, source notes, and origin. Successful materialization creates a Campaign-owned content brief that inherits the approved campaign audience, outcome, claim references, and reviewed evidence packet.
 11. For a Website Watch response proposal, materialize only when its source is a currently reviewed website-change signal and the correlated Website Watch observation remains reviewed. Supply Calendar planning kind, timing, timezone, and notes; Calendar owns the resulting response plan.
-12. For repository-growth work, keep the conversion proposed until it can bind to Repository Growth's finding-backed action authority. Viable does not invent impact, effort, or verification from a title and owner.
+12. For repository-growth work, select an existing active finding-backed Repository Growth action for the same reviewed repository signal. Viable revalidates repository identity, plan/assessment ownership, finding identity, active status, and the finding-derived recommendation, impact, effort, and verification before recording the authoritative reference.
 13. Open Market to review accepted evidence by type and the limitations that constrain interpretation.
 
 ## Materialization state
@@ -116,6 +116,24 @@ The content destination identifier is deterministic from the signal conversion. 
 
 Existing Campaign workspaces that predate the `contentBriefs` collection are normalized with an empty collection when loaded by Campaign Service, preserving the additive local-data shape while broader migration and recovery work remains tracked separately.
 
+### Repository Growth action materialization
+
+`repository_growth_action` binds a reviewed repository signal conversion to an **existing active Repository Growth action**. It does not manufacture another action from the Signals title.
+
+Materialization requires:
+
+- a reviewed `repository` or `repository_activity` signal;
+- a repository relationship matching the imported Repository Growth repository;
+- an existing growth plan owned by that repository;
+- the plan's governing readiness assessment;
+- an active `open` or `in_progress` action;
+- the action to still match its readiness finding's recommendation, impact, effort, and verification;
+- the finding to remain a readiness gap rated below ready.
+
+Signals records the Repository Growth action identifier after success. Repository Growth continues to own the finding, action owner, status, impact, effort, verification, and later completion or dismissal. Retrying the same conversion against the same action is idempotent. A conversion already materialized to a different authoritative destination cannot be silently rebound.
+
+This binding does not edit the selected growth action and does not infer impact, effort, or verification from signal prose.
+
 ### Website Watch response materialization through Calendar
 
 `website_watch_action` does not create a duplicate task record inside Website Watch. Website Watch remains authoritative for the reviewed observation, while Calendar remains authoritative for the response plan.
@@ -175,7 +193,7 @@ When content materialization succeeds, Campaigns and Assets owns the resulting c
 
 When Website Watch response materialization succeeds, Website Watch still owns the reviewed observation and Calendar owns the resulting planning entry. Signals retains the conversion and authoritative Calendar destination reference.
 
-Repository-growth conversions remain proposed until they can satisfy Repository Growth's finding-backed action authority. A conversion does not publish content, contact a person, qualify a lead, mutate the canonical ICP, or grant external-action approval.
+When Repository Growth materialization succeeds, Repository Growth owns the existing finding-backed action. Signals retains only the conversion and authoritative action reference. A conversion does not publish content, contact a person, qualify a lead, mutate the canonical ICP, or grant external-action approval.
 
 Product Core remains authoritative for product truth, claims, canonical ICP hypotheses, and Product Core readiness actions. Campaigns and Assets remains authoritative for campaign briefs, content briefs, canonical assets, variants, and their review state.
 
@@ -185,7 +203,6 @@ Product Core remains authoritative for product truth, claims, canonical ICP hypo
 - GitHub activity is a recent sample rather than a complete activity ledger.
 - Source configuration and inbox data currently belong to the local desktop profile.
 - Backup, export, restore, and complete migration/recovery behavior remain release-foundation work.
-- Repository-growth-action materialization still requires destination-specific implementation that preserves readiness-finding authority.
 - Campaign materialization creates a governed draft only; campaign review, approval, asset production, export, and external delivery remain separate workflows.
 - Content materialization creates a governed draft content brief only; canonical assets, variants, approval, export, and external delivery remain separate workflows.
 - Hands-on screen-reader review and unfamiliar-user acceptance are pending.

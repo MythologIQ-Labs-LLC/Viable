@@ -2,13 +2,14 @@ import type { CampaignWorkspace, ChannelKind } from "../../../src/campaigns/doma
 import type { StoredEventIntelligenceRun } from "../../../src/event-intelligence/ports/run-store.js";
 import { isReviewedEvidence } from "../../../src/product-core/domain/evidence.js";
 import type { ProductWorkspace } from "../../../src/product-core/domain/workspace.js";
+import type { RepositoryGrowthWorkspace } from "../../../src/repository-growth/domain/repository-growth.js";
 import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
 import { EventIntelligenceSignalSource } from "../../../src/signals/adapters/event-intelligence-signal-source.js";
 import { GitHubPublicRepositorySource } from "../../../src/signals/adapters/github-public-repository-source.js";
 import { ManualJsonSignalSource } from "../../../src/signals/adapters/manual-json-signal-source.js";
 import type { ConversionKind, SignalConversion, SignalRecord, SignalsInbox, SourceHealth } from "../../../src/signals/domain/signal.js";
 import { SignalsInboxService } from "../../../src/signals/services/signals-inbox-service.js";
-import { isCampaignMaterializationKind, isContentMaterializationKind, isProductMaterializationKind, isWebsiteWatchMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
+import { isCampaignMaterializationKind, isContentMaterializationKind, isProductMaterializationKind, isRepositoryGrowthMaterializationKind, isWebsiteWatchMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
 import { WebdogManualSignalSource, WebdogManualWebsiteWatchSource } from "../../../src/website-watch/adapters/webdog-manual-import-source.js";
 import type {
   WatchTarget,
@@ -55,13 +56,14 @@ export class SignalsViewController {
   private readonly websiteStore = new LocalStorageWebsiteWatchStore();
   private readonly productStore = new LocalStorageProductWorkspaceStore();
   private readonly campaignStore = new LocalStorageCampaignWorkspaceStore();
+  private readonly repositoryStore = new LocalStorageRepositoryGrowthStore();
   private readonly service = new SignalsInboxService(this.signalsStore);
   private readonly websiteService = new WebsiteWatchService(this.websiteStore);
   private readonly activationService = new ActivationLearningService(
     new LocalStorageActivationLearningStore(),
     this.productStore,
     this.campaignStore,
-    new LocalStorageRepositoryGrowthStore(),
+    this.repositoryStore,
     new LocalStorageVideoProductionStore(),
   );
   private readonly materializationService = new SignalWorkMaterializationService(
@@ -71,11 +73,13 @@ export class SignalsViewController {
     this.campaignStore,
     this.websiteStore,
     this.activationService,
+    this.repositoryStore,
   );
   private inbox?: SignalsInbox;
   private website?: WebsiteWatchWorkspace;
   private product: ProductWorkspace | undefined;
   private campaigns: CampaignWorkspace | undefined;
+  private repositoryGrowth: RepositoryGrowthWorkspace | undefined;
   private failure: string | undefined;
 
   constructor(
@@ -84,16 +88,18 @@ export class SignalsViewController {
   ) {}
 
   async load(): Promise<void> {
-    const [inbox, website, product, campaigns] = await Promise.all([
+    const [inbox, website, product, campaigns, repositoryGrowth] = await Promise.all([
       this.service.load(this.workspaceId),
       this.websiteService.load(this.workspaceId),
       this.productStore.load(this.workspaceId),
       this.campaignStore.load(this.workspaceId),
+      this.repositoryStore.load(this.workspaceId),
     ]);
     this.inbox = inbox;
     this.website = website;
     this.product = product;
     this.campaigns = campaigns;
+    this.repositoryGrowth = repositoryGrowth;
   }
 
   render(page: "signals" | "market"): string {
@@ -231,6 +237,14 @@ export class SignalsViewController {
         this.campaigns = result.campaigns;
         return "Signal work materialized into an authoritative content brief";
       }
+      if (kind === "signals-materialize-repository-growth") {
+        const [planId, actionId] = String(form.get("growthTarget") ?? "").split("::");
+        if (!planId || !actionId) throw new Error("Choose an active Repository Growth action");
+        const result = await this.materializationService.materializeRepositoryGrowthAction(this.workspaceId, String(form.get("conversionId")), { planId, actionId });
+        this.inbox = result.inbox;
+        this.repositoryGrowth = result.repositoryGrowth;
+        return "Signal work bound to authoritative Repository Growth action";
+      }
       if (kind === "signals-materialize-website-action") {
         const endsAt = String(form.get("endsAt") ?? "").trim();
         const result = await this.materializationService.materializeWebsiteWatchAction(this.workspaceId, String(form.get("conversionId")), {
@@ -350,7 +364,7 @@ export class SignalsViewController {
         <div class="cards signal-cards">${inbox.signals.length ? inbox.signals.slice().reverse().map((signal) => this.signalCard(signal)).join("") : `<div class="state empty"><strong>No signals yet.</strong><span>Configure a source or use a manual import. An empty inbox is not evidence that the market is empty.</span></div>`}</div>
       </section>
       <section class="panel" aria-labelledby="work-heading"><div class="section-heading"><div><p class="eyebrow">Proposed work</p><h3 id="work-heading">Signal conversions</h3></div>${pill(`${inbox.conversions.length} proposals`)}</div>
-        <p class="guidance">Product actions, ICP validation actions, and product feedback can be materialized into Product Core. Campaign proposals can become governed Campaign drafts, and content proposals can become Campaign-owned content briefs under an approved campaign. Website Watch response proposals can materialize into authoritative Calendar planning only from a currently reviewed Website Watch observation. Repository-growth conversions remain proposed.</p>
+        <p class="guidance">Product actions, ICP validation actions, and product feedback can be materialized into Product Core. Campaign proposals can become governed Campaign drafts, and content proposals can become Campaign-owned content briefs under an approved campaign. Website Watch response proposals can materialize into authoritative Calendar planning only from a currently reviewed Website Watch observation. Repository-growth proposals can bind only to an active finding-backed Repository Growth action for the same reviewed repository signal.</p>
         <div class="cards">${inbox.conversions.length ? inbox.conversions.map((item) => this.conversionCard(item)).join("") : `<div class="state empty"><strong>No conversions yet.</strong><span>Only accepted reviewed signals can become proposed work.</span></div>`}</div>
       </section>`;
   }
@@ -360,6 +374,7 @@ export class SignalsViewController {
     const productMaterialization = isProductMaterializationKind(item.kind);
     const campaignMaterialization = isCampaignMaterializationKind(item.kind);
     const contentMaterialization = isContentMaterializationKind(item.kind);
+    const repositoryGrowthMaterialization = isRepositoryGrowthMaterializationKind(item.kind);
     const websiteWatchMaterialization = isWebsiteWatchMaterializationKind(item.kind);
     const destination = item.materialization;
     const failure = item.materializationFailure;
@@ -372,8 +387,9 @@ export class SignalsViewController {
       ${productMaterialization && item.status !== "materialized" ? `<button type="button" data-signal-action="materialize-product" data-id="${escapeHtml(item.id)}">${item.status === "materialization_failed" ? "Retry Product Core materialization" : "Materialize in Product Core"}</button>` : ""}
       ${campaignMaterialization && item.status !== "materialized" ? this.campaignMaterializationForm(item) : ""}
       ${contentMaterialization && item.status !== "materialized" ? this.contentMaterializationForm(item) : ""}
+      ${repositoryGrowthMaterialization && item.status !== "materialized" ? this.repositoryGrowthMaterializationForm(item) : ""}
       ${websiteWatchMaterialization && item.status !== "materialized" ? this.websiteWatchActionMaterializationForm(item) : ""}
-      ${!productMaterialization && !campaignMaterialization && !contentMaterialization && !websiteWatchMaterialization && item.status === "proposed" ? `<small>Destination-specific fields and authority checks are still required before this proposal can create an authoritative record.</small>` : ""}
+      ${!productMaterialization && !campaignMaterialization && !contentMaterialization && !repositoryGrowthMaterialization && !websiteWatchMaterialization && item.status === "proposed" ? `<small>Destination-specific fields and authority checks are still required before this proposal can create an authoritative record.</small>` : ""}
     </article>`;
   }
 
@@ -433,6 +449,34 @@ export class SignalsViewController {
 ${escapeHtml(signal.summary)}</textarea></label>
         <label>Origin<select name="origin"><option value="human">Human-authored brief</option><option value="generated_suggestion">Generated suggestion requiring review</option></select></label>
         <button type="submit">Create governed content brief</button>
+      </form>
+    </details>`;
+  }
+
+  private repositoryGrowthMaterializationForm(item: SignalConversion): string {
+    const signal = this.inbox?.signals.find((candidate) => candidate.id === item.signalId);
+    if (!signal || !["repository", "repository_activity"].includes(signal.kind) || signal.evidenceState !== "reviewed") {
+      return `<div class="state warning"><strong>Repository Growth authority is not ready.</strong><span>This conversion requires a reviewed repository signal.</span></div>`;
+    }
+    const repositoryTargets = new Set(signal.relationships
+      .filter((relationship) => relationship.kind === "repository")
+      .map((relationship) => relationship.targetId.toLocaleLowerCase("en-US")));
+    const options = this.repositoryGrowth?.plans.flatMap((plan) => {
+      const repository = this.repositoryGrowth!.repositories.find((candidate) => candidate.id === plan.repositoryId);
+      if (!repository || !repositoryTargets.has(repository.fullName.toLocaleLowerCase("en-US"))) return [];
+      return plan.actions
+        .filter((action) => action.status === "open" || action.status === "in_progress")
+        .map((action) => `<option value="${escapeHtml(`${plan.id}::${action.id}`)}">${escapeHtml(repository.fullName)} · ${escapeHtml(action.title)} · ${escapeHtml(action.impact)} impact / ${escapeHtml(action.effort)} effort</option>`);
+    }).join("") ?? "";
+    if (!options) {
+      return `<div class="state warning"><strong>Repository Growth authority is not ready.</strong><span>Import and assess the same repository in Repository Growth, then create a growth plan with an active finding-backed action.</span></div>`;
+    }
+    return `<details><summary>${item.status === "materialization_failed" ? "Retry Repository Growth materialization" : "Bind to Repository Growth action"}</summary>
+      <form data-form="signals-materialize-repository-growth">
+        <input type="hidden" name="conversionId" value="${escapeHtml(item.id)}">
+        <p class="guidance">Repository Growth owns readiness findings and actions. Select an existing active action for the same repository. Signals will not overwrite the finding-derived recommendation, impact, effort, verification, owner, or status.</p>
+        <label>Finding-backed Repository Growth action<select name="growthTarget" required>${options}</select></label>
+        <button type="submit">Bind to authoritative Repository Growth action</button>
       </form>
     </details>`;
   }

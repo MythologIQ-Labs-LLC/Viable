@@ -115,6 +115,21 @@ The plan includes findings rated below ready, ordered by impact and effort. Each
 
 Complete or dismiss actions only with a reason grounded in repository evidence and the intended audience.
 
+## Bind reviewed Signals work to an existing growth action
+
+A reviewed `repository` or `repository_activity` signal may be converted to **Repository growth action** in Signals. The conversion does not create a second Repository Growth task.
+
+Before the conversion can materialize, this workflow must already contain:
+
+- the same imported repository;
+- a readiness assessment for that repository;
+- a growth plan created from that assessment;
+- an active `open` or `in_progress` action derived from a finding rated below ready.
+
+In Signals, choose **Bind to Repository Growth action** and select the active action. Viable revalidates the repository relationship, plan and assessment ownership, finding identity, action status, and the finding-derived recommendation, impact, effort, and verification.
+
+On success, Signals records the authoritative Repository Growth action identifier. Repository Growth keeps ownership of the action and its status. The binding does not rename the action, change its owner, alter its prioritization fields, or mark it complete.
+
 ## Create a launch room
 
 When an approved campaign asset family exists, complete the launch-room form.

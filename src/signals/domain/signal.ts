@@ -77,7 +77,7 @@ export type ConversionKind =
   | "product_feedback";
 
 export type SignalConversionStatus = "proposed" | "materialized" | "materialization_failed";
-export type SignalMaterializationContext = "product_core" | "campaigns" | "calendar";
+export type SignalMaterializationContext = "product_core" | "campaigns" | "calendar" | "repository_growth";
 
 export type SignalMaterialization = Readonly<{
   context: SignalMaterializationContext;
