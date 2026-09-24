@@ -45,6 +45,16 @@ export type ValidationExperiment = Readonly<{
   failureCriteria: readonly string[];
   decisionCriteria: readonly string[];
   status: "planned" | "active" | "completed" | "cancelled";
+  startedAt?: string;
+  startedBy?: string;
+  completedAt?: string;
+  completedBy?: string;
+  outcomeEvidence?: readonly string[];
+  outcomeSummary?: string;
+  outcomeDecision?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancellationRationale?: string;
 }>;
 
 export type IcpRevision = Readonly<{
@@ -53,6 +63,7 @@ export type IcpRevision = Readonly<{
   changedBy: string;
   rationale: string;
   snapshot: string;
+  changedFields?: readonly string[];
 }>;
 
 export type IcpHypothesis = Readonly<{
