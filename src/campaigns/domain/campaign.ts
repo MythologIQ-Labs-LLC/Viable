@@ -9,6 +9,15 @@ export type CampaignStatus =
 export type AssetReviewStatus = CampaignStatus;
 export type ChannelKind = "linkedin" | "website" | "github_release";
 
+export type AuthorityRevision = Readonly<{
+  version: number;
+  changedAt: string;
+  changedBy: string;
+  rationale: string;
+  changedFields: readonly string[];
+  snapshot: string;
+}>;
+
 export type ClaimReference = Readonly<{
   claimId: string;
   claimRevision: number;
@@ -45,6 +54,7 @@ export type CampaignBrief = Readonly<{
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNote?: string;
+  history?: readonly AuthorityRevision[];
 }>;
 
 export type ContentBrief = Readonly<{
@@ -69,6 +79,8 @@ export type ContentBrief = Readonly<{
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNote?: string;
+  version?: number;
+  history?: readonly AuthorityRevision[];
 }>;
 
 export type AssetVersion = Readonly<{
@@ -123,6 +135,7 @@ export type ChannelVariant = Readonly<{
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNote?: string;
+  history?: readonly AuthorityRevision[];
 }>;
 
 export type ManualExportPackage = Readonly<{
