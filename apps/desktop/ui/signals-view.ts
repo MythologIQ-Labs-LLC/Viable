@@ -8,7 +8,7 @@ import { GitHubPublicRepositorySource } from "../../../src/signals/adapters/gith
 import { ManualJsonSignalSource } from "../../../src/signals/adapters/manual-json-signal-source.js";
 import type { ConversionKind, SignalConversion, SignalRecord, SignalsInbox, SourceHealth } from "../../../src/signals/domain/signal.js";
 import { SignalsInboxService } from "../../../src/signals/services/signals-inbox-service.js";
-import { isCampaignMaterializationKind, isContentMaterializationKind, isProductMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
+import { isCampaignMaterializationKind, isContentMaterializationKind, isProductMaterializationKind, isWebsiteWatchMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
 import { WebdogManualSignalSource, WebdogManualWebsiteWatchSource } from "../../../src/website-watch/adapters/webdog-manual-import-source.js";
 import type {
   WatchTarget,
@@ -56,7 +56,6 @@ export class SignalsViewController {
   private readonly productStore = new LocalStorageProductWorkspaceStore();
   private readonly campaignStore = new LocalStorageCampaignWorkspaceStore();
   private readonly service = new SignalsInboxService(this.signalsStore);
-  private readonly materializationService = new SignalWorkMaterializationService(this.signalsStore, this.productStore, undefined, this.campaignStore);
   private readonly websiteService = new WebsiteWatchService(this.websiteStore);
   private readonly activationService = new ActivationLearningService(
     new LocalStorageActivationLearningStore(),
@@ -64,6 +63,14 @@ export class SignalsViewController {
     this.campaignStore,
     new LocalStorageRepositoryGrowthStore(),
     new LocalStorageVideoProductionStore(),
+  );
+  private readonly materializationService = new SignalWorkMaterializationService(
+    this.signalsStore,
+    this.productStore,
+    undefined,
+    this.campaignStore,
+    this.websiteStore,
+    this.activationService,
   );
   private inbox?: SignalsInbox;
   private website?: WebsiteWatchWorkspace;
@@ -224,6 +231,18 @@ export class SignalsViewController {
         this.campaigns = result.campaigns;
         return "Signal work materialized into an authoritative content brief";
       }
+      if (kind === "signals-materialize-website-action") {
+        const endsAt = String(form.get("endsAt") ?? "").trim();
+        const result = await this.materializationService.materializeWebsiteWatchAction(this.workspaceId, String(form.get("conversionId")), {
+          kind: String(form.get("calendarKind")) as "follow_up" | "experiment" | "event_opportunity" | "approval_deadline",
+          startsAt: toIso(form.get("startsAt"), "Calendar start"),
+          ...(endsAt ? { endsAt: toIso(endsAt, "Calendar end") } : {}),
+          timezone: String(form.get("timezone")),
+          notes: String(form.get("notes")),
+        });
+        this.inbox = result.inbox;
+        return "Website Watch response materialized into authoritative Calendar planning";
+      }
       if (kind === "signals-connect") {
         this.inbox = await this.service.connect(this.workspaceId, String(form.get("signalId")), {
           kind: String(form.get("relationshipKind")) as "product",
@@ -331,7 +350,7 @@ export class SignalsViewController {
         <div class="cards signal-cards">${inbox.signals.length ? inbox.signals.slice().reverse().map((signal) => this.signalCard(signal)).join("") : `<div class="state empty"><strong>No signals yet.</strong><span>Configure a source or use a manual import. An empty inbox is not evidence that the market is empty.</span></div>`}</div>
       </section>
       <section class="panel" aria-labelledby="work-heading"><div class="section-heading"><div><p class="eyebrow">Proposed work</p><h3 id="work-heading">Signal conversions</h3></div>${pill(`${inbox.conversions.length} proposals`)}</div>
-        <p class="guidance">Product actions, ICP validation actions, and product feedback can be materialized into Product Core. Campaign proposals can become governed Campaign drafts, and content proposals can become Campaign-owned content briefs under an approved campaign. Repository-growth and Website Watch conversions remain proposed.</p>
+        <p class="guidance">Product actions, ICP validation actions, and product feedback can be materialized into Product Core. Campaign proposals can become governed Campaign drafts, and content proposals can become Campaign-owned content briefs under an approved campaign. Website Watch response proposals can materialize into authoritative Calendar planning only from a currently reviewed Website Watch observation. Repository-growth conversions remain proposed.</p>
         <div class="cards">${inbox.conversions.length ? inbox.conversions.map((item) => this.conversionCard(item)).join("") : `<div class="state empty"><strong>No conversions yet.</strong><span>Only accepted reviewed signals can become proposed work.</span></div>`}</div>
       </section>`;
   }
@@ -341,6 +360,7 @@ export class SignalsViewController {
     const productMaterialization = isProductMaterializationKind(item.kind);
     const campaignMaterialization = isCampaignMaterializationKind(item.kind);
     const contentMaterialization = isContentMaterializationKind(item.kind);
+    const websiteWatchMaterialization = isWebsiteWatchMaterializationKind(item.kind);
     const destination = item.materialization;
     const failure = item.materializationFailure;
     return `<article class="record signal-conversion">
@@ -352,7 +372,8 @@ export class SignalsViewController {
       ${productMaterialization && item.status !== "materialized" ? `<button type="button" data-signal-action="materialize-product" data-id="${escapeHtml(item.id)}">${item.status === "materialization_failed" ? "Retry Product Core materialization" : "Materialize in Product Core"}</button>` : ""}
       ${campaignMaterialization && item.status !== "materialized" ? this.campaignMaterializationForm(item) : ""}
       ${contentMaterialization && item.status !== "materialized" ? this.contentMaterializationForm(item) : ""}
-      ${!productMaterialization && !campaignMaterialization && !contentMaterialization && item.status === "proposed" ? `<small>Destination-specific fields and authority checks are still required before this proposal can create an authoritative record.</small>` : ""}
+      ${websiteWatchMaterialization && item.status !== "materialized" ? this.websiteWatchActionMaterializationForm(item) : ""}
+      ${!productMaterialization && !campaignMaterialization && !contentMaterialization && !websiteWatchMaterialization && item.status === "proposed" ? `<small>Destination-specific fields and authority checks are still required before this proposal can create an authoritative record.</small>` : ""}
     </article>`;
   }
 
@@ -412,6 +433,32 @@ export class SignalsViewController {
 ${escapeHtml(signal.summary)}</textarea></label>
         <label>Origin<select name="origin"><option value="human">Human-authored brief</option><option value="generated_suggestion">Generated suggestion requiring review</option></select></label>
         <button type="submit">Create governed content brief</button>
+      </form>
+    </details>`;
+  }
+
+  private websiteWatchActionMaterializationForm(item: SignalConversion): string {
+    const signal = this.inbox?.signals.find((candidate) => candidate.id === item.signalId);
+    if (!signal || signal.kind !== "website_change" || signal.evidenceState !== "reviewed") {
+      return `<div class="state warning"><strong>Website Watch response authority is not ready.</strong><span>This conversion requires a reviewed website-change signal.</span></div>`;
+    }
+    const observationId = signal.facts.websiteWatchObservationId;
+    const observation = typeof observationId === "string"
+      ? this.website?.observations.find((candidate) => candidate.id === observationId)
+      : undefined;
+    if (!observation || observation.reviewState !== "reviewed") {
+      return `<div class="state warning"><strong>Website Watch response authority is not ready.</strong><span>The correlated Website Watch observation must remain reviewed before Calendar planning can be created.</span></div>`;
+    }
+    const start = localDateTime(new Date(Date.now() + 86_400_000));
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    return `<details><summary>${item.status === "materialization_failed" ? "Retry Website Watch response materialization" : "Materialize Website Watch response"}</summary>
+      <form data-form="signals-materialize-website-action">
+        <input type="hidden" name="conversionId" value="${escapeHtml(item.id)}">
+        <p class="guidance">Website Watch remains authoritative for the reviewed observation; Calendar owns the response plan. This creates planning only. It does not publish, notify a provider, alter Product Core, or claim delivery.</p>
+        <div class="two"><label>Response kind<select name="calendarKind"><option value="follow_up">Follow-up</option><option value="experiment">Experiment</option><option value="event_opportunity">Opportunity</option><option value="approval_deadline">Approval deadline</option></select></label><label>Start<input name="startsAt" type="datetime-local" required value="${start}"></label></div>
+        <div class="two"><label>Optional end<input name="endsAt" type="datetime-local"></label><label>Timezone<input name="timezone" required value="${escapeHtml(timezone)}"></label></div>
+        <label>Planning notes<textarea name="notes" rows="3">Review Website Watch observation ${escapeHtml(observation.id)} and the bounded source evidence before deciding a reversible response.</textarea></label>
+        <button type="submit">Create authoritative Calendar response plan</button>
       </form>
     </details>`;
   }

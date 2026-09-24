@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Website Watch helps you record public website-monitoring intent, import Webdog-compatible change evidence, review the evidence, and turn a reviewed change into proposed work or a Calendar follow-up.
+Website Watch helps you record public website-monitoring intent, import Webdog-compatible change evidence, review the evidence, and turn a reviewed change into proposed work or authoritative Calendar planning without moving observation authority out of Website Watch.
 
 Stage 1 works without a live website provider. It does not crawl websites, call Context.dev, open a webhook listener, or store provider credentials.
 
@@ -268,6 +268,35 @@ Enter:
 
 This creates a proposed work record. It does not perform the work or approve an external action.
 
+## Materialize a Website response proposal into Calendar
+
+When the proposed work type is **Website response action**, the Signals conversion can be materialized only while both of these remain true:
+
+- the source Signals record is a reviewed website-change signal;
+- the correlated Website Watch observation remains reviewed.
+
+Open **Materialize Website Watch response** on the conversion.
+
+Choose:
+
+- follow-up;
+- experiment;
+- opportunity;
+- approval deadline.
+
+Enter:
+
+- start date and time;
+- optional end date and time;
+- timezone;
+- planning notes.
+
+The conversion's named owner and title become the Calendar owner and title. Calendar owns the resulting planning entry. Website Watch continues to own the observation and evidence. Signals stores the authoritative Calendar record reference and materialization state.
+
+The Calendar record uses the Signals conversion as its idempotent correlation reference and records the Website Watch observation identifier in its notes. Retrying the same conversion therefore recovers the existing Calendar entry rather than creating another response plan.
+
+This is planning only. It does not publish, send a notification, revise Product Core, approve an external action, or claim provider delivery.
+
 ## Create a Calendar follow-up
 
 A Website Watch observation can enter Calendar only after:
@@ -292,9 +321,9 @@ Enter:
 - timezone;
 - notes.
 
-The Calendar entry retains the Website Watch observation identifier as the related record.
+The direct Calendar entry retains the Website Watch observation identifier as the related record. This direct path remains separate from `website_watch_action` conversion materialization, which uses the conversion as its idempotent correlation reference and preserves the observation identifier in planning notes.
 
-This is planning only. It does not publish, notify, approve an external action, or claim delivery.
+Both paths are planning only. They do not publish, notify, approve an external action, or claim delivery.
 
 ## Enable and disable records
 

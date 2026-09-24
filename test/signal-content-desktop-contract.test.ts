@@ -25,8 +25,8 @@ test("Signals desktop exposes Campaign-owned content brief materialization witho
   assert.match(view, /content proposals can become Campaign-owned content briefs under an approved campaign/);
 });
 
-test("Signals desktop keeps repository-growth and Website Watch proposals behind destination authority", async () => {
+test("Signals desktop keeps the final Repository Growth proposal behind destination authority", async () => {
   const view = await read("apps/desktop/ui/signals-view.ts");
-  assert.match(view, /Repository-growth and Website Watch conversions remain proposed/);
+  assert.match(view, /Repository-growth conversions remain proposed/);
   assert.match(view, /Destination-specific fields and authority checks are still required/);
 });

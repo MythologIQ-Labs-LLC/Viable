@@ -38,8 +38,9 @@ Manual imports are limited to 100 signals per operation. Imported content is unt
 8. For a product action, ICP validation action, or product-feedback proposal, materialize the proposal into Product Core. The Product Core record retains the signal-conversion origin, and retry is idempotent rather than duplicating work.
 9. For a campaign proposal, open **Materialize Campaign brief** and supply the complete Campaign authority fields, including audience, objective, outcome, approved claims, reviewed evidence, channels, call to action, asset plan, and success measures. Successful materialization creates a Campaign-owned draft, not an approved or published campaign.
 10. For a content proposal, open **Materialize content brief**, choose an approved Campaign, and supply the content objective, pillars, themes, planned deliverables, source notes, and origin. Successful materialization creates a Campaign-owned content brief that inherits the approved campaign audience, outcome, claim references, and reviewed evidence packet.
-11. For repository-growth or Website Watch work, keep the conversion proposed until the destination-specific authority path is implemented. Viable does not invent incomplete authoritative records from a title and owner.
-12. Open Market to review accepted evidence by type and the limitations that constrain interpretation.
+11. For a Website Watch response proposal, materialize only when its source is a currently reviewed website-change signal and the correlated Website Watch observation remains reviewed. Supply Calendar planning kind, timing, timezone, and notes; Calendar owns the resulting response plan.
+12. For repository-growth work, keep the conversion proposed until it can bind to Repository Growth's finding-backed action authority. Viable does not invent impact, effort, or verification from a title and owner.
+13. Open Market to review accepted evidence by type and the limitations that constrain interpretation.
 
 ## Materialization state
 
@@ -115,6 +116,24 @@ The content destination identifier is deterministic from the signal conversion. 
 
 Existing Campaign workspaces that predate the `contentBriefs` collection are normalized with an empty collection when loaded by Campaign Service, preserving the additive local-data shape while broader migration and recovery work remains tracked separately.
 
+### Website Watch response materialization through Calendar
+
+`website_watch_action` does not create a duplicate task record inside Website Watch. Website Watch remains authoritative for the reviewed observation, while Calendar remains authoritative for the response plan.
+
+Materialization requires:
+
+- a reviewed `website_change` signal;
+- the signal's correlated Website Watch observation identifier;
+- that observation to remain in reviewed state;
+- one Calendar planning kind: follow-up, experiment, opportunity, or approval deadline;
+- a start time and timezone;
+- optional end time and planning notes;
+- the named owner already recorded on the signal conversion.
+
+The Calendar entry uses a Signals conversion correlation reference for idempotent recovery and records the Website Watch observation identifier in its notes. Retrying after a Calendar write returns the existing Calendar entry instead of creating a duplicate.
+
+This path creates local planning only. It does not publish, notify a provider, revise Product Core, approve an external action, or claim delivery. The existing direct **Create Calendar follow-up** path from a reviewed observation remains available; the materialization path adds conversion-state provenance and retry semantics for `website_watch_action`.
+
 A failed materialization attempt remains visible and can be retried. Successful retry clears the prior failure record.
 
 ## State behavior
@@ -154,7 +173,9 @@ When Campaign materialization succeeds, Campaigns and Assets owns the resulting 
 
 When content materialization succeeds, Campaigns and Assets owns the resulting content brief and inherited source packet. Content review, canonical asset creation, asset review, channel variants, export, approval, and external action remain under their existing Campaign and approval boundaries.
 
-Repository-growth and Website Watch conversions remain proposed until their destination-specific requirements can be satisfied. A conversion does not publish content, contact a person, qualify a lead, mutate the canonical ICP, or grant external-action approval.
+When Website Watch response materialization succeeds, Website Watch still owns the reviewed observation and Calendar owns the resulting planning entry. Signals retains the conversion and authoritative Calendar destination reference.
+
+Repository-growth conversions remain proposed until they can satisfy Repository Growth's finding-backed action authority. A conversion does not publish content, contact a person, qualify a lead, mutate the canonical ICP, or grant external-action approval.
 
 Product Core remains authoritative for product truth, claims, canonical ICP hypotheses, and Product Core readiness actions. Campaigns and Assets remains authoritative for campaign briefs, content briefs, canonical assets, variants, and their review state.
 
@@ -164,7 +185,7 @@ Product Core remains authoritative for product truth, claims, canonical ICP hypo
 - GitHub activity is a recent sample rather than a complete activity ledger.
 - Source configuration and inbox data currently belong to the local desktop profile.
 - Backup, export, restore, and complete migration/recovery behavior remain release-foundation work.
-- Repository-growth-action and Website Watch action materialization still require destination-specific implementation and authority inputs.
+- Repository-growth-action materialization still requires destination-specific implementation that preserves readiness-finding authority.
 - Campaign materialization creates a governed draft only; campaign review, approval, asset production, export, and external delivery remain separate workflows.
 - Content materialization creates a governed draft content brief only; canonical assets, variants, approval, export, and external delivery remain separate workflows.
 - Hands-on screen-reader review and unfamiliar-user acceptance are pending.
