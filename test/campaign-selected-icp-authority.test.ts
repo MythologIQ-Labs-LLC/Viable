@@ -79,14 +79,17 @@ async function invalidateSelectedIcp(products: ProductStore, revision: ProductRe
   });
 }
 
-test("campaign re-approval fails closed when selected ICP authority changed after submission", async () => {
-  const { products, core, revision } = setup();
+test("campaign re-approval fails closed after selected ICP drift but changes-requested remains a recoverable exit", async () => {
+  const { products, campaigns, core, revision } = setup();
   let workspace = await core.createBrief("workspace-1", campaignInput);
   const campaignId = workspace.campaigns[0]!.id;
   await core.submitCampaign("workspace-1", campaignId);
   await invalidateSelectedIcp(products, revision);
 
   await assert.rejects(() => core.reviewCampaign("workspace-1", campaignId, "Reviewer", "approved", "Looks good"), /Product Core selected ICP authority changed/);
+  workspace = await core.reviewCampaign("workspace-1", campaignId, "Reviewer", "changes_requested", "Refresh selected ICP authority before approval");
+  assert.equal(workspace.campaigns[0]?.status, "changes_requested");
+  assert.equal(campaigns.value?.campaigns[0]?.reviewNote, "Refresh selected ICP authority before approval");
 });
 
 test("stale selected ICP authority cannot flow into new content, assets, variants, or manual export", async () => {
