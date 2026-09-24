@@ -264,17 +264,17 @@ export class SignalWorkMaterializationService {
     if (conversion.kind !== "website_watch_action") throw new Error("Signal conversion is not a Website Watch response action");
     if (!this.websiteStore || !this.planningService) throw new Error("Website Watch Calendar materialization is not configured");
 
-    const signal = inbox.signals.find((candidate) => candidate.id === conversion.signalId);
-    if (!signal || signal.kind !== "website_change" || signal.evidenceState !== "reviewed") {
-      throw new Error("Website Watch response materialization requires a reviewed website-change signal");
-    }
-    const observationId = signal.facts.websiteWatchObservationId;
-    if (typeof observationId !== "string" || !observationId) {
-      throw new Error("Website-change signal is missing its Website Watch observation reference");
-    }
-
     const relatedRecordId = `signal-conversion:${conversion.id}`;
     try {
+      const signal = inbox.signals.find((candidate) => candidate.id === conversion.signalId);
+      if (!signal || signal.kind !== "website_change" || signal.evidenceState !== "reviewed") {
+        throw new Error("Website Watch response materialization requires a reviewed website-change signal");
+      }
+      const observationId = signal.facts.websiteWatchObservationId;
+      if (typeof observationId !== "string" || !observationId) {
+        throw new Error("Website-change signal is missing its Website Watch observation reference");
+      }
+
       const website = await this.websiteStore.load(workspaceId);
       const observation = website?.observations.find((candidate) => candidate.id === observationId);
       if (!observation || observation.reviewState !== "reviewed") {
