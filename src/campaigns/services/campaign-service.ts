@@ -1,10 +1,9 @@
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
-import { isReviewedEvidence, type EvidenceRecord } from "../../product-core/domain/evidence.js";
+import { isReviewedEvidence } from "../../product-core/domain/evidence.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
 import type {
   AssetReviewStatus,
   CampaignBrief,
-  CampaignStatus,
   CampaignWorkspace,
   CanonicalAsset,
   ChannelKind,
@@ -85,10 +84,10 @@ export class CampaignService {
   async reviewCampaign(workspaceId: string, campaignId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
     requireText(reviewer, "Named campaign reviewer");
     requireText(note, "Campaign review note");
-    const product = await this.requiredProduct(workspaceId);
+    const product = decision === "approved" ? await this.requiredProduct(workspaceId) : undefined;
     return this.changeCampaign(workspaceId, campaignId, (campaign) => {
       if (campaign.status !== "in_review") throw new Error("Campaign must be in review");
-      this.validateCampaignAuthority(product, campaign);
+      if (product) this.validateCampaignAuthority(product, campaign);
       const now = this.clock().toISOString();
       return { ...campaign, status: decision, reviewedBy: reviewer.trim(), reviewedAt: now, reviewNote: note.trim(), updatedAt: now };
     });
@@ -127,13 +126,16 @@ export class CampaignService {
   async reviewContentBrief(workspaceId: string, briefId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
     requireText(reviewer, "Named content brief reviewer");
     requireText(note, "Content brief review note");
-    const [product, workspace] = await Promise.all([this.requiredProduct(workspaceId), this.load(workspaceId)]);
+    const workspace = await this.load(workspaceId);
     const brief = required(workspace.contentBriefs ?? [], briefId, "Content brief");
-    const campaign = required(workspace.campaigns, brief.campaignId, "Campaign");
-    if (campaign.status !== "approved") throw new Error("Content brief review requires an approved campaign");
-    this.validateCampaignAuthority(product, campaign);
-    this.validateReferences(product, brief.claimReferences, brief.evidenceIds, campaign.channels);
     if (brief.status !== "in_review") throw new Error("Content brief must be in review");
+    if (decision === "approved") {
+      const product = await this.requiredProduct(workspaceId);
+      const campaign = required(workspace.campaigns, brief.campaignId, "Campaign");
+      if (campaign.status !== "approved") throw new Error("Content brief approval requires an approved campaign");
+      this.validateCampaignAuthority(product, campaign);
+      this.validateReferences(product, brief.claimReferences, brief.evidenceIds, campaign.channels);
+    }
     const now = this.clock().toISOString();
     return this.persist({
       ...workspace,
@@ -200,13 +202,16 @@ export class CampaignService {
 
   async reviewAsset(workspaceId: string, assetId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
     requireText(reviewer, "Named asset reviewer"); requireText(note, "Asset review note");
-    const [product, workspace] = await Promise.all([this.requiredProduct(workspaceId), this.load(workspaceId)]);
+    const workspace = await this.load(workspaceId);
     const asset = required(workspace.assets, assetId, "Canonical asset");
     if (asset.status !== "in_review") throw new Error("Asset must be in review");
-    const campaign = required(workspace.campaigns, asset.campaignId, "Campaign");
-    if (campaign.status !== "approved") throw new Error("Asset review requires an approved campaign");
-    this.validateCampaignAuthority(product, campaign);
-    this.validateReferences(product, asset.claimReferences, asset.evidenceIds, campaign.channels);
+    if (decision === "approved") {
+      const product = await this.requiredProduct(workspaceId);
+      const campaign = required(workspace.campaigns, asset.campaignId, "Campaign");
+      if (campaign.status !== "approved") throw new Error("Asset approval requires an approved campaign");
+      this.validateCampaignAuthority(product, campaign);
+      this.validateReferences(product, asset.claimReferences, asset.evidenceIds, campaign.channels);
+    }
     const now = this.clock().toISOString();
     return this.persist({
       ...workspace,
@@ -242,15 +247,18 @@ export class CampaignService {
 
   async reviewVariant(workspaceId: string, variantId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
     requireText(reviewer, "Named variant reviewer"); requireText(note, "Variant review note");
-    const [product, workspace] = await Promise.all([this.requiredProduct(workspaceId), this.load(workspaceId)]);
+    const workspace = await this.load(workspaceId);
     const variant = required(workspace.variants, variantId, "Channel variant");
     if (variant.status !== "in_review") throw new Error("Variant must be in review");
-    const asset = required(workspace.assets, variant.canonicalAssetId, "Canonical asset");
-    if (asset.status !== "approved") throw new Error("Variant review requires an approved canonical asset");
-    const campaign = required(workspace.campaigns, asset.campaignId, "Campaign");
-    if (campaign.status !== "approved") throw new Error("Variant review requires current approved campaign authority");
-    this.validateCampaignAuthority(product, campaign);
-    this.validateReferences(product, asset.claimReferences, asset.evidenceIds, campaign.channels);
+    if (decision === "approved") {
+      const product = await this.requiredProduct(workspaceId);
+      const asset = required(workspace.assets, variant.canonicalAssetId, "Canonical asset");
+      if (asset.status !== "approved") throw new Error("Variant approval requires an approved canonical asset");
+      const campaign = required(workspace.campaigns, asset.campaignId, "Campaign");
+      if (campaign.status !== "approved") throw new Error("Variant approval requires current approved campaign authority");
+      this.validateCampaignAuthority(product, campaign);
+      this.validateReferences(product, asset.claimReferences, asset.evidenceIds, campaign.channels);
+    }
     const now = this.clock().toISOString();
     return this.persist({
       ...workspace,
