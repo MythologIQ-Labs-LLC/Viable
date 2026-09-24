@@ -12,13 +12,13 @@ export const WORKSPACE_QUARANTINE_FORMAT = "viable.workspace-quarantine" as cons
 export const PRODUCT_ACTIVE_KEY = "viable.product-workspace.active";
 
 export const WORKSPACE_CONTEXTS = [
-  { name: "product", label: "Product Core", prefix: "viable.product-workspace.", identityField: "id", recordFields: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], requiredStrings: ["createdAt", "createdBy"], requiredRecords: ["product"] },
-  { name: "campaign", label: "Campaigns and exports", prefix: "viable.campaign-workspace.", identityField: "workspaceId", recordFields: ["campaigns", "contentBriefs", "assets", "variants", "exports"], requiredStrings: ["updatedAt"], requiredRecords: [] },
-  { name: "signals", label: "Signals", prefix: "viable.signals-inbox.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "signals", "conversions"], requiredStrings: ["updatedAt"], requiredRecords: [] },
-  { name: "activation", label: "Calendar and Learning", prefix: "viable.activation-learning.", identityField: "workspaceId", recordFields: ["destinations", "calendarEntries", "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "retrospectives", "learningLedger"], requiredStrings: ["updatedAt"], requiredRecords: [] },
-  { name: "repositoryGrowth", label: "Repository Growth", prefix: "viable.repository-growth.", identityField: "workspaceId", recordFields: ["repositories", "assessments", "plans", "launchRooms", "exports", "retrospectives"], requiredStrings: ["updatedAt"], requiredRecords: [] },
-  { name: "videoProduction", label: "Video Production", prefix: "viable.video-production.", identityField: "workspaceId", recordFields: ["tools", "briefs", "packages", "artifacts", "variants"], requiredStrings: ["updatedAt"], requiredRecords: [] },
-  { name: "websiteWatch", label: "Website Watch", prefix: "viable.website-watch.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "sites", "targets", "snapshots", "observations", "generatedAnalyses"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "product", label: "Product Core", prefix: "viable.product-workspace.", identityField: "id", recordFields: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], requiredArrays: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], requiredStrings: ["createdAt", "createdBy"], requiredRecords: ["product"] },
+  { name: "campaign", label: "Campaigns and exports", prefix: "viable.campaign-workspace.", identityField: "workspaceId", recordFields: ["campaigns", "contentBriefs", "assets", "variants", "exports"], requiredArrays: ["campaigns", "assets", "variants", "exports"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "signals", label: "Signals", prefix: "viable.signals-inbox.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "signals", "conversions"], requiredArrays: ["sources", "sourceHealth", "signals", "conversions"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "activation", label: "Calendar and Learning", prefix: "viable.activation-learning.", identityField: "workspaceId", recordFields: ["destinations", "calendarEntries", "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "retrospectives", "learningLedger"], requiredArrays: ["destinations", "calendarEntries", "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "retrospectives", "learningLedger"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "repositoryGrowth", label: "Repository Growth", prefix: "viable.repository-growth.", identityField: "workspaceId", recordFields: ["repositories", "assessments", "plans", "launchRooms", "exports", "retrospectives"], requiredArrays: ["repositories", "assessments", "plans", "launchRooms", "exports", "retrospectives"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "videoProduction", label: "Video Production", prefix: "viable.video-production.", identityField: "workspaceId", recordFields: ["tools", "briefs", "packages", "artifacts", "variants"], requiredArrays: ["tools", "briefs", "packages", "artifacts", "variants"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "websiteWatch", label: "Website Watch", prefix: "viable.website-watch.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "sites", "targets", "snapshots", "observations", "generatedAnalyses"], requiredArrays: ["sources", "sourceHealth", "sites", "targets", "snapshots", "observations", "generatedAnalyses"], requiredStrings: ["updatedAt"], requiredRecords: [] },
 ] as const;
 
 export type WorkspaceContextName = typeof WORKSPACE_CONTEXTS[number]["name"];
@@ -337,7 +337,7 @@ function assertContextIdentity(value: Readonly<Record<string, unknown>>, descrip
 }
 
 function assertContextShape(value: Readonly<Record<string, unknown>>, descriptor: ContextDescriptor): void {
-  for (const field of descriptor.recordFields) {
+  for (const field of descriptor.requiredArrays) {
     if (!Array.isArray(value[field])) throw new Error(`${descriptor.label} field ${field} must be an array`);
   }
   for (const field of descriptor.requiredStrings) {
