@@ -6,7 +6,7 @@
 |---|---|
 | Status | Approved architecture baseline; implementation incomplete |
 | Version | 1.0 |
-| Last reviewed | 2026-07-16 |
+| Last reviewed | 2026-09-24 |
 | Product requirements | `docs/product/PRD.md` |
 | Architecture decisions | `docs/adr/README.md` |
 | Current state | `docs/status/current-state.md` |
@@ -198,7 +198,7 @@ Owns:
 
 Provider content is untrusted data. It cannot direct tools, credentials, prompts, or runtime behavior.
 
-Implementation status: the first internal Signals Inbox is implemented through PR #13 with provider-neutral contracts, bounded Event Intelligence import, public unauthenticated GitHub repository evidence, strict manual import, source health, review, relationships, and conversion to proposed owned work. Campaign, lead, publishing, and canonical ICP mutation authority are not granted by this implementation.
+Implementation status: the internal Signals Inbox is implemented through PRs #13–#15 and hardened by PR #35. PRs #66–#70 add governed materialization from reviewed conversions into destination-owned Product Core actions, Campaign drafts, Campaign-owned content briefs, Website Watch response planning through Calendar, and existing finding-backed Repository Growth actions. Signals retains conversion state, failure/retry evidence, and the authoritative destination reference; it does not take over Campaign, Calendar, Repository Growth, Product Core, publishing, lead, or canonical ICP authority. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
 
 ### 7.3 Marketability Assessment
 

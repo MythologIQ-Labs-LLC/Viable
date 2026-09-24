@@ -11,13 +11,14 @@ Detailed authority remains in the PRD, accepted ADRs, domain architecture, curre
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- Latest merged implementation PR: #35 at `77b9572ef00df75c734b753bcd480d8e7fe9e5b9`
+- Latest merged implementation PR: #70 at `7cc5a5da72f99e03ea8069347e9ad8f1bfc01181`
 - Automated viability review: `docs/reviews/viability-sweep-2026-07-16.md`
 - Release-foundation issue: #36
 - Current maturity: all six initial internal product slices and Website Watch Stage 1 are implemented and automatedly validated on `main`
 - Human acceptance remains open for issues #2, #5, #6, #3, #4, #7, and #29
 - ViMax execution remains open under issue #4
 - Backup, restore, migration, product-wide retention, dependency minimization, signing, updates, rollback, platform validation, and operational support are tracked under issue #36
+- Signals destination materialization is machine-complete through PRs #66–#70; issue #5 remains open for documentation reconciliation and human acceptance
 - Immediate priority: complete human acceptance and release foundations without creating duplicate product authority or another invented foundational slice
 
 ## Read before acting
@@ -68,7 +69,7 @@ Viable is not a social scheduler, content generator, event monitor, repository s
 ## Durable authority boundaries
 
 - Product Core owns canonical product truth, claims, reviewed evidence, and ICP hypotheses.
-- Signals and Market owns source health, externally observed evidence, review, and proposed-work conversion, including Website Watch.
+- Signals and Market owns source health, externally observed evidence, review, conversion state, and traceable materialization references; destination contexts retain ownership of the materialized records.
 - Campaigns owns approved campaign intent, canonical assets, and channel variants.
 - Repository Growth owns repository assessment, owned growth planning, launch-room state, bounded baselines, and repository retrospectives.
 - Video Production owns reviewed video briefs, manual production packages, imported run evidence, render review, and platform-variant review.
