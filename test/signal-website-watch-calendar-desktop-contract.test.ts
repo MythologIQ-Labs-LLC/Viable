@@ -23,11 +23,11 @@ test("Signals desktop materializes Website Watch response work through existing 
   assert.match(view, /observation\.reviewState !== "reviewed"/);
   assert.match(materializer, /relatedRecordId = `signal-conversion:\$\{conversion\.id\}`/);
   assert.match(materializer, /recordSuccess\(inbox, conversion\.id, "calendar", entry\.id\)/);
-  assert.match(domain, /SignalMaterializationContext = "product_core" \| "campaigns" \| "calendar"/);
+  assert.match(domain, /SignalMaterializationContext = "product_core" \| "campaigns" \| "calendar" \| "repository_growth"/);
 });
 
-test("Website Watch response materialization leaves Repository Growth as the only unsupported conversion destination", async () => {
+test("Website Watch response materialization coexists with finding-backed Repository Growth binding", async () => {
   const view = await read("apps/desktop/ui/signals-view.ts");
   assert.match(view, /Website Watch response proposals can materialize into authoritative Calendar planning/);
-  assert.match(view, /Repository-growth conversions remain proposed/);
+  assert.match(view, /Repository-growth proposals can bind only to an active finding-backed Repository Growth action/);
 });

@@ -6,6 +6,8 @@ import type { ReadinessAction } from "../../product-core/domain/assessment.js";
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
 import { ProductCoreService } from "../../product-core/services/product-core-service.js";
+import type { RepositoryGrowthAction, RepositoryGrowthWorkspace } from "../../repository-growth/domain/repository-growth.js";
+import type { RepositoryGrowthStore } from "../../repository-growth/ports/repository-growth-store.js";
 import type { WebsiteWatchStore } from "../../website-watch/ports/website-watch-store.js";
 import type { SignalConversion, SignalMaterializationContext, SignalsInbox } from "../domain/signal.js";
 import type { SignalsInboxStore } from "../ports/signals-inbox-store.js";
@@ -74,6 +76,17 @@ export type ContentMaterializationResult = Readonly<{
   contentBrief: ContentBrief;
 }>;
 
+export type RepositoryGrowthActionMaterializationInput = Readonly<{
+  planId: string;
+  actionId: string;
+}>;
+
+export type RepositoryGrowthActionMaterializationResult = Readonly<{
+  inbox: SignalsInbox;
+  repositoryGrowth: RepositoryGrowthWorkspace;
+  action: RepositoryGrowthAction;
+}>;
+
 export type WebsiteWatchActionMaterializationInput = Readonly<{
   kind: PlanningKind;
   startsAt: string;
@@ -97,6 +110,7 @@ const productKinds = new Map<SignalConversion["kind"], ReadinessAction["kind"]>(
 export const isProductMaterializationKind = (kind: SignalConversion["kind"]): boolean => productKinds.has(kind);
 export const isCampaignMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "campaign_brief";
 export const isContentMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "content_brief";
+export const isRepositoryGrowthMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "repository_growth_action";
 export const isWebsiteWatchMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "website_watch_action";
 
 export class SignalWorkMaterializationService {
@@ -109,6 +123,7 @@ export class SignalWorkMaterializationService {
     private readonly campaignStore?: CampaignWorkspaceStore,
     private readonly websiteStore?: WebsiteWatchStore,
     private readonly planningService?: CalendarPlanningService,
+    private readonly repositoryGrowthStore?: RepositoryGrowthStore,
   ) {
     this.productService = new ProductCoreService(productStore, clock);
   }
@@ -248,6 +263,72 @@ export class SignalWorkMaterializationService {
       if (!contentBrief) throw new Error("Campaign authority did not retain the materialized content brief");
       const updatedInbox = await this.recordSuccess(inbox, conversion.id, "campaigns", contentBrief.id);
       return { inbox: updatedInbox, campaigns: updatedCampaigns, contentBrief };
+    } catch (error) {
+      await this.recordFailure(inbox, conversion.id, error);
+      throw error;
+    }
+  }
+
+  async materializeRepositoryGrowthAction(
+    workspaceId: string,
+    conversionId: string,
+    input: RepositoryGrowthActionMaterializationInput,
+  ): Promise<RepositoryGrowthActionMaterializationResult> {
+    const inbox = await this.requiredInbox(workspaceId);
+    const conversion = this.requiredConversion(inbox, conversionId);
+    if (conversion.kind !== "repository_growth_action") throw new Error("Signal conversion is not a Repository Growth action");
+    if (!this.repositoryGrowthStore) throw new Error("Repository Growth materialization is not configured");
+
+    try {
+      const signal = inbox.signals.find((candidate) => candidate.id === conversion.signalId);
+      if (!signal || !["repository", "repository_activity"].includes(signal.kind) || signal.evidenceState !== "reviewed") {
+        throw new Error("Repository Growth materialization requires a reviewed repository signal");
+      }
+
+      const repositoryGrowth = await this.repositoryGrowthStore.load(workspaceId);
+      if (!repositoryGrowth) throw new Error("Repository Growth workspace not found");
+      const plan = repositoryGrowth.plans.find((candidate) => candidate.id === input.planId);
+      if (!plan) throw new Error("Repository Growth plan not found");
+      const action = plan.actions.find((candidate) => candidate.id === input.actionId);
+      if (!action) throw new Error("Repository Growth action not found in the selected plan");
+      if (["completed", "dismissed"].includes(action.status)) {
+        throw new Error("Repository Growth materialization requires an active open or in-progress action");
+      }
+
+      const repository = repositoryGrowth.repositories.find((candidate) => candidate.id === plan.repositoryId);
+      if (!repository) throw new Error("Repository Growth plan no longer has its repository snapshot");
+      const repositoryRelationship = signal.relationships.find((relationship) =>
+        relationship.kind === "repository"
+        && relationship.targetId.toLocaleLowerCase("en-US") === repository.fullName.toLocaleLowerCase("en-US"),
+      );
+      if (!repositoryRelationship) {
+        throw new Error("Repository signal does not match the repository owned by the selected growth plan");
+      }
+
+      const assessment = repositoryGrowth.assessments.find((candidate) => candidate.id === plan.assessmentId && candidate.repositoryId === repository.id);
+      if (!assessment) throw new Error("Repository Growth plan no longer has its governing readiness assessment");
+      const finding = assessment.findings.find((candidate) => candidate.id === action.findingId);
+      if (!finding || finding.rating >= 3) {
+        throw new Error("Repository Growth action no longer maps to an active readiness gap");
+      }
+      if (
+        action.title !== finding.recommendation
+        || action.impact !== finding.impact
+        || action.effort !== finding.effort
+        || action.verification !== finding.verification
+      ) {
+        throw new Error("Repository Growth action no longer matches its governing readiness finding");
+      }
+
+      if (conversion.status === "materialized" && conversion.materialization) {
+        if (conversion.materialization.context !== "repository_growth" || conversion.materialization.recordId !== action.id) {
+          throw new Error("Signal conversion is already materialized to a different authoritative destination");
+        }
+        return { inbox, repositoryGrowth, action };
+      }
+
+      const updatedInbox = await this.recordSuccess(inbox, conversion.id, "repository_growth", action.id);
+      return { inbox: updatedInbox, repositoryGrowth, action };
     } catch (error) {
       await this.recordFailure(inbox, conversion.id, error);
       throw error;

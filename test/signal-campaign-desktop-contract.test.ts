@@ -29,8 +29,7 @@ test("Signals desktop exposes governed Campaign materialization without bypassin
   assert.match(view, /private product: ProductWorkspace \| undefined/);
 });
 
-test("Campaign materialization keeps the final unsupported Repository Growth destination visibly proposed", async () => {
+test("Campaign materialization coexists with destination-owned Repository Growth materialization", async () => {
   const view = await read("apps/desktop/ui/signals-view.ts");
-  assert.match(view, /Repository-growth conversions remain proposed/);
-  assert.match(view, /Destination-specific fields and authority checks are still required/);
+  assert.match(view, /Repository-growth proposals can bind only to an active finding-backed Repository Growth action/);
 });
