@@ -2,7 +2,6 @@ import { ICP_DIMENSIONS, type IcpDimension, type IcpDimensionAssessment, type Ic
 import type { ProductIdentity, ProductTruth, ProductTruthRevision } from "../domain/product.js";
 import type { ProductWorkspace } from "../domain/workspace.js";
 import type { ProductWorkspaceStore } from "../ports/product-workspace-store.js";
-import { ProductCoreService } from "./product-core-service.js";
 
 type Clock = () => Date;
 
@@ -57,6 +56,7 @@ export class ProductRevisionService {
     const changedFields = productTruthChangedFields(workspace.product, input);
     if (changedFields.length === 0) throw new Error("Change at least one Product Truth field before saving a revision");
     const now = this.clock().toISOString();
+    const nextRevision = workspace.product.revision + 1;
     const { history: _history, ...snapshot } = workspace.product;
     const revision: ProductTruthRevision = {
       revision: workspace.product.revision,
@@ -66,8 +66,7 @@ export class ProductRevisionService {
       changedFields,
       snapshot: JSON.stringify(snapshot),
     };
-    const core = new ProductCoreService(this.store, this.clock);
-    const updated = await core.updateProductTruth(workspaceId, {
+    const product: ProductTruth = {
       identity: {
         name: input.identity.name.trim(),
         description: input.identity.description.trim(),
@@ -86,15 +85,22 @@ export class ProductRevisionService {
       brandVoice: clean(input.brandVoice),
       terminology: cleanRecord(input.terminology),
       accessibilityConstraints: clean(input.accessibilityConstraints),
+      revision: nextRevision,
+      updatedAt: now,
       updatedBy: input.updatedBy.trim(),
       history: [...(workspace.product.history ?? []), revision],
-    });
-    if (!updated.icpHypotheses.some((candidate) => candidate.status === "selected" && candidate.reviewStatus === "reviewed")) return updated;
+    };
     return this.persist({
-      ...updated,
-      icpHypotheses: updated.icpHypotheses.map((candidate) => candidate.status === "selected" && candidate.reviewStatus === "reviewed"
-        ? { ...candidate, reviewStatus: "suggested" as const }
-        : candidate),
+      ...workspace,
+      product,
+      icpHypotheses: workspace.icpHypotheses.map((hypothesis) => {
+        if (hypothesis.status !== "selected") return hypothesis;
+        return {
+          ...hypothesis,
+          reviewStatus: hypothesis.reviewStatus === "reviewed" ? "suggested" as const : hypothesis.reviewStatus,
+          contradictions: [...hypothesis.contradictions, `Product truth changed to revision ${nextRevision}; ICP assumptions require review`],
+        };
+      }),
     });
   }
 
