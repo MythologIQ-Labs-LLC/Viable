@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-07-16 |
+| Last reviewed | 2026-09-24 |
 | Product requirements | `docs/product/PRD.md` |
 | ICP product authority | `docs/product/icp-discovery-and-validation.md` |
 | Platform architecture | `docs/architecture/viable-platform.md` |
@@ -32,7 +32,7 @@ The following internal workflows are implemented:
 
 Website Watch Stage 1 is implemented as a post-sequence Signals and Market extension.
 
-PR #35, merged at `77b9572ef00df75c734b753bcd480d8e7fe9e5b9`, completed the current automated viability sweep. It hardened clean builds, repository consistency, secret scanning, dependency and workflow supply-chain controls, coverage floors, desktop persistence integrity, startup recovery, Campaign and Studio recovery, exact Rust minimum validation, and native workflow coverage.
+PR #35, merged at `77b9572ef00df75c734b753bcd480d8e7fe9e5b9`, completed the current automated viability sweep. It hardened clean builds, repository consistency, secret scanning, dependency and workflow supply-chain controls, coverage floors, desktop persistence integrity, startup recovery, Campaign and Studio recovery, exact Rust minimum validation, and native workflow coverage. PRs #66–#70 subsequently completed machine-verifiable Signals materialization while preserving Product Core, Campaigns and Assets, Website Watch/Calendar, and Repository Growth destination authority.
 
 Human accessibility and unfamiliar-user acceptance remain open for issues #2, #5, #6, #3, #4, #7, and #29.
 
@@ -133,6 +133,8 @@ Website Watch is a bounded Signals and Market extension, not a seventh foundatio
 - public GitHub repository metadata and activity evidence;
 - strict manual JSON import;
 - named review, save, tag, assign, connect, and proposed-work conversion;
+- governed reviewed-signal materialization into Product Core actions, Campaign drafts, Campaign-owned content briefs, Website Watch response planning through Calendar, and existing finding-backed Repository Growth actions;
+- traceable authoritative destination references with explicit materialization failure, retry, idempotency, and recovery;
 - visible verified-empty, partial, unavailable, rate-limited, validation-failed, transport-failed, offline, and recovery states;
 - reviewed evidence summary in Market.
 
@@ -276,6 +278,8 @@ PR #35 was validated at `041193349de518e708b8e80378e4de9a9f46d5ad`:
 - Desktop run #62 passed exact Rust 1.88 formatting and tests, clean desktop web compilation, Tauri bundle construction, and Debian package inspection.
 
 Shared `src/**` changes now trigger native validation.
+
+Signals materialization PRs #66–#70 were each exact-head validated before merge. The final two destination tranches passed CI #222 / Desktop #151 for Website Watch-to-Calendar and CI #224 / Desktop #153 for Repository Growth binding. These automated gates do not satisfy issue #5's remaining human accessibility or unfamiliar-user acceptance requirements.
 
 ## Designed or required but not implemented
 

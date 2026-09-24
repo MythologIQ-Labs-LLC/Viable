@@ -2,7 +2,7 @@
 
 ## Status
 
-The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18. Signals-to-Campaign materialization landed through PR #67, and the current issue #5 tranche adds Campaign-owned content briefs as the governed content destination for reviewed signal work.
+The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18. Signals-to-Campaign materialization landed through PR #67, and Campaign-owned content-brief materialization landed through PR #68 as the governed content destination for reviewed signal work.
 
 The workflow is internal. Hands-on keyboard and assistive-technology review, unfamiliar-user acceptance, and any resulting remediation remain open under issue #6 and the relevant Signals acceptance work.
 

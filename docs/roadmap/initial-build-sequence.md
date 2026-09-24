@@ -27,11 +27,11 @@ A founder creates a product workspace, verifies product truth, compares credible
 
 ## Slice 2: Signals Inbox with events and public repositories
 
-Status: Implemented and automatedly validated through PR #13. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
+Status: Implemented and automatedly validated through PRs #13–#15 and #66–#70, with viability hardening in PR #35. Machine-verifiable destination materialization is complete. Hands-on accessibility and unfamiliar-user acceptance remain open under issue #5.
 
 ### User outcome
 
-A user imports event and public repository evidence, reviews source health and provenance, and converts useful signals into proposed owned work.
+A user imports event and public repository evidence, reviews source health and provenance, converts useful signals into proposed owned work, and materializes supported conversions into destination-owned records without moving destination authority into Signals.
 
 ### Core capabilities
 
@@ -41,6 +41,8 @@ A user imports event and public repository evidence, reviews source health and p
 - strict manual JSON import;
 - evidence drawer;
 - relationships and proposed-work conversion;
+- governed materialization into Product Core actions, Campaign drafts, Campaign-owned content briefs, Website Watch response planning through Calendar, and existing finding-backed Repository Growth actions;
+- explicit materialized and materialization-failed state, authoritative destination references, idempotent retry, and recovery;
 - explicit verified-empty, partial, unavailable, rate-limited, validation, transport, offline, and recovery states;
 - Signals and Market navigation.
 
