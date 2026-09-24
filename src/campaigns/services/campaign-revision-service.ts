@@ -13,6 +13,11 @@ import type {
 import type { CampaignWorkspaceStore } from "../ports/campaign-workspace-store.js";
 
 type Clock = () => Date;
+type DescendantState = Readonly<{
+  contentBriefs: readonly ContentBrief[];
+  assets: CampaignWorkspace["assets"];
+  variants: CampaignWorkspace["variants"];
+}>;
 
 type CampaignCorrectionInput = Readonly<{
   editor: string;
@@ -77,6 +82,7 @@ export class CampaignRevisionService {
     if (changedFields.length === 0) throw new Error("Change at least one campaign field before saving a revision");
     const now = this.clock().toISOString();
     const revision = authorityRevision(current.version, now, input.editor, input.rationale, changedFields, current);
+    const status: CampaignBrief["status"] = current.status === "approved" ? "approval_invalidated" : "draft";
     const revisedBase = {
       ...current,
       title: input.title.trim(),
@@ -98,7 +104,7 @@ export class CampaignRevisionService {
       successMeasures: clean(input.successMeasures),
       dependencies: clean(input.dependencies),
       version: current.version + 1,
-      status: current.status === "approved" ? "approval_invalidated" as const : "draft" as const,
+      status,
       updatedAt: now,
       history: [...(current.history ?? []), revision],
     };
@@ -106,7 +112,7 @@ export class CampaignRevisionService {
       ? { ...stripReview(revisedBase), icpHypothesisId: input.icpHypothesisId }
       : stripIcpReference(stripReview(revisedBase));
     const campaigns = workspace.campaigns.map((candidate) => candidate.id === campaignId ? revised : candidate);
-    const descendants = invalidateCampaignDescendants(workspace, campaignId, now, "Campaign brief was revised");
+    const descendants = invalidateCampaignDescendants(workspace, campaignId, now);
     return this.persist({ ...workspace, ...descendants, campaigns, updatedAt: now });
   }
 
@@ -116,9 +122,7 @@ export class CampaignRevisionService {
     requireText(input.title, "Content brief title");
     requireText(input.objective, "Content brief objective");
     requireText(input.owner, "Content brief owner");
-    if (clean(input.pillars).length === 0 || clean(input.deliverables).length === 0) {
-      throw new Error("Content brief pillars and deliverables are required");
-    }
+    if (clean(input.pillars).length === 0 || clean(input.deliverables).length === 0) throw new Error("Content brief pillars and deliverables are required");
     const workspace = await this.load(workspaceId);
     const current = required(workspace.contentBriefs ?? [], briefId, "Content brief");
     if (current.status === "in_review") throw new Error("A content brief in review must receive a review decision before it can be revised");
@@ -128,6 +132,7 @@ export class CampaignRevisionService {
     const now = this.clock().toISOString();
     const version = current.version ?? 1;
     const revision = authorityRevision(version, now, input.editor, input.rationale, changedFields, current);
+    const status: ContentBrief["status"] = current.status === "approved" ? "approval_invalidated" : "draft";
     const revised: ContentBrief = stripReview({
       ...current,
       title: input.title.trim(),
@@ -138,7 +143,7 @@ export class CampaignRevisionService {
       sourceNotes: clean(input.sourceNotes),
       owner: input.owner.trim(),
       version: version + 1,
-      status: current.status === "approved" ? "approval_invalidated" : "draft",
+      status,
       updatedAt: now,
       history: [...(current.history ?? []), revision],
     });
@@ -161,12 +166,13 @@ export class CampaignRevisionService {
     if (changedFields.length === 0) throw new Error("Change the channel body or constraints before saving a revision");
     const now = this.clock().toISOString();
     const revision = authorityRevision(current.version, now, input.editor, input.rationale, changedFields, current);
+    const status: ChannelVariant["status"] = current.status === "approved" ? "approval_invalidated" : "draft";
     const revised: ChannelVariant = stripReview({
       ...current,
       body: input.body.trim(),
       constraints: clean(input.constraints),
       version: current.version + 1,
-      status: current.status === "approved" ? "approval_invalidated" : "draft",
+      status,
       updatedAt: now,
       history: [...(current.history ?? []), revision],
     });
@@ -188,7 +194,7 @@ export class CampaignRevisionService {
         return campaign;
       } catch {
         invalidCampaignIds.add(campaign.id);
-        return { ...campaign, status: "approval_invalidated" as const, updatedAt: now, reviewNote: "Product Core or selected ICP authority changed" };
+        return { ...campaign, status: "approval_invalidated" as const, updatedAt: now };
       }
     });
     if (invalidCampaignIds.size === 0) return workspace;
@@ -196,7 +202,7 @@ export class CampaignRevisionService {
     let assets = [...workspace.assets];
     let variants = [...workspace.variants];
     for (const campaignId of invalidCampaignIds) {
-      const descendants = invalidateCampaignDescendants({ ...workspace, contentBriefs, assets, variants }, campaignId, now, "Campaign authority was invalidated after Product Core revalidation");
+      const descendants = invalidateCampaignDescendants({ ...workspace, contentBriefs, assets, variants }, campaignId, now);
       contentBriefs = [...descendants.contentBriefs];
       assets = [...descendants.assets];
       variants = [...descendants.variants];
@@ -215,27 +221,25 @@ export class CampaignRevisionService {
     if (!selected) throw new Error("A reviewed selected ICP is required for this campaign audience");
   }
 
-  private claimReferences(product: ProductWorkspace, claimIds: readonly string[], evidenceIds: readonly string[], channels: readonly ChannelKind[]): readonly ClaimReference[] {
+  private claimReferences(product: ProductWorkspace, claimIds: readonly string[], evidenceIds: readonly string[], selectedChannels: readonly ChannelKind[]): readonly ClaimReference[] {
     const ids = unique(claimIds);
     if (ids.length === 0) throw new Error("At least one approved Product Core claim is required");
     this.validateEvidence(product, evidenceIds);
     return ids.map((claimId) => {
       const claim = product.claims.find((candidate) => candidate.id === claimId);
       if (!claim || claim.status !== "approved") throw new Error("Campaign claims must be approved in Product Core");
-      if (channels.some((channel) => claim.prohibitedContexts.includes(channel))) throw new Error("A selected claim is prohibited for a campaign channel");
+      if (selectedChannels.some((channel) => claim.prohibitedContexts.includes(channel))) throw new Error("A selected claim is prohibited for a campaign channel");
       if (claim.evidenceIds.some((id) => !evidenceIds.includes(id))) throw new Error("Campaign evidence must include every selected claim evidence reference");
       return { claimId: claim.id, claimRevision: claim.revision, statement: claim.statement, evidenceIds: [...claim.evidenceIds] };
     });
   }
 
-  private validateReferences(product: ProductWorkspace, references: readonly ClaimReference[], evidenceIds: readonly string[], channels: readonly ChannelKind[]): void {
+  private validateReferences(product: ProductWorkspace, references: readonly ClaimReference[], evidenceIds: readonly string[], selectedChannels: readonly ChannelKind[]): void {
     this.validateEvidence(product, evidenceIds);
     for (const reference of references) {
       const claim = product.claims.find((candidate) => candidate.id === reference.claimId);
-      if (!claim || claim.status !== "approved" || claim.revision !== reference.claimRevision || claim.statement !== reference.statement) {
-        throw new Error("Product Core claim authority changed");
-      }
-      if (channels.some((channel) => claim.prohibitedContexts.includes(channel))) throw new Error("A claim is prohibited for a selected channel");
+      if (!claim || claim.status !== "approved" || claim.revision !== reference.claimRevision || claim.statement !== reference.statement) throw new Error("Product Core claim authority changed");
+      if (selectedChannels.some((channel) => claim.prohibitedContexts.includes(channel))) throw new Error("A claim is prohibited for a selected channel");
     }
   }
 
@@ -275,9 +279,7 @@ function requireCampaignFields(input: CampaignCorrectionInput): void {
   requireText(input.offer, "Campaign offer");
   requireText(input.callToAction, "Campaign call to action");
   requireText(input.owner, "Campaign owner");
-  if (clean(input.messageHierarchy).length === 0 || clean(input.successMeasures).length === 0) {
-    throw new Error("Campaign message hierarchy and success measures are required");
-  }
+  if (clean(input.messageHierarchy).length === 0 || clean(input.successMeasures).length === 0) throw new Error("Campaign message hierarchy and success measures are required");
   if (unique(input.channels).length === 0) throw new Error("At least one campaign channel is required");
 }
 
@@ -319,18 +321,18 @@ function authorityRevision(version: number, changedAt: string, changedBy: string
   return { version, changedAt, changedBy: changedBy.trim(), rationale: rationale.trim(), changedFields: [...changedFields], snapshot: JSON.stringify(snapshot) };
 }
 
-function invalidateCampaignDescendants(workspace: CampaignWorkspace, campaignId: string, now: string, note: string): Pick<CampaignWorkspace, "contentBriefs" | "assets" | "variants"> {
+function invalidateCampaignDescendants(workspace: CampaignWorkspace, campaignId: string, now: string): DescendantState {
   const contentBriefs = (workspace.contentBriefs ?? []).map((brief) => brief.campaignId === campaignId && brief.status === "approved"
-    ? { ...brief, status: "approval_invalidated" as const, updatedAt: now, reviewNote: note }
+    ? { ...brief, status: "approval_invalidated" as const, updatedAt: now }
     : brief);
   const affectedAssetIds = new Set<string>();
   const assets = workspace.assets.map((asset) => {
     if (asset.campaignId !== campaignId) return asset;
     affectedAssetIds.add(asset.id);
-    return asset.status === "approved" ? { ...asset, status: "approval_invalidated" as const, updatedAt: now, reviewNote: note } : asset;
+    return asset.status === "approved" ? { ...asset, status: "approval_invalidated" as const, updatedAt: now } : asset;
   });
   const variants = workspace.variants.map((variant) => affectedAssetIds.has(variant.canonicalAssetId) && variant.status === "approved"
-    ? { ...variant, status: "approval_invalidated" as const, updatedAt: now, reviewNote: note }
+    ? { ...variant, status: "approval_invalidated" as const, updatedAt: now }
     : variant);
   return { contentBriefs, assets, variants };
 }
@@ -353,12 +355,12 @@ function unique<T>(values: readonly T[]): readonly T[] {
   return [...new Set(values)];
 }
 
-function required<T extends { id: string }>(values: readonly T[], id: string, label: string): T {
+function required<T extends { id: string }>(values: readonly T[], id: string, valueLabel: string): T {
   const value = values.find((candidate) => candidate.id === id);
-  if (!value) throw new Error(`${label} not found`);
+  if (!value) throw new Error(`${valueLabel} not found`);
   return value;
 }
 
-function requireText(value: string, label: string): void {
-  if (!value.trim()) throw new Error(`${label} is required`);
+function requireText(value: string, valueLabel: string): void {
+  if (!value.trim()) throw new Error(`${valueLabel} is required`);
 }
