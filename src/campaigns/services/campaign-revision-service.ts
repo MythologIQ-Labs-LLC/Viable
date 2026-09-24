@@ -112,7 +112,7 @@ export class CampaignRevisionService {
       ? { ...stripReview(revisedBase), icpHypothesisId: input.icpHypothesisId }
       : stripIcpReference(stripReview(revisedBase));
     const campaigns = workspace.campaigns.map((candidate) => candidate.id === campaignId ? revised : candidate);
-    const descendants = invalidateCampaignDescendants(workspace, campaignId, now);
+    const descendants = invalidateCampaignDescendants(workspace, campaignId, now, "Campaign brief was revised; re-review is required");
     return this.persist({ ...workspace, ...descendants, campaigns, updatedAt: now });
   }
 
@@ -192,9 +192,15 @@ export class CampaignRevisionService {
       try {
         this.validateCampaignAuthority(product, campaign);
         return campaign;
-      } catch {
+      } catch (error) {
         invalidCampaignIds.add(campaign.id);
-        return { ...campaign, status: "approval_invalidated" as const, updatedAt: now };
+        const reason = error instanceof Error ? error.message : "Product Core authority changed";
+        return {
+          ...campaign,
+          status: "approval_invalidated" as const,
+          updatedAt: now,
+          reviewNote: appendAuditNote(campaign.reviewNote, `Approval invalidated: ${reason}`),
+        };
       }
     });
     if (invalidCampaignIds.size === 0) return workspace;
@@ -202,7 +208,12 @@ export class CampaignRevisionService {
     let assets = [...workspace.assets];
     let variants = [...workspace.variants];
     for (const campaignId of invalidCampaignIds) {
-      const descendants = invalidateCampaignDescendants({ ...workspace, contentBriefs, assets, variants }, campaignId, now);
+      const descendants = invalidateCampaignDescendants(
+        { ...workspace, contentBriefs, assets, variants },
+        campaignId,
+        now,
+        "Parent campaign authority was invalidated after Product Core revalidation",
+      );
       contentBriefs = [...descendants.contentBriefs];
       assets = [...descendants.assets];
       variants = [...descendants.variants];
@@ -218,7 +229,7 @@ export class CampaignRevisionService {
   private validateAudience(product: ProductWorkspace, audienceKind: CampaignBrief["audienceKind"], icpHypothesisId?: string): void {
     if (audienceKind !== "selected_icp") return;
     const selected = product.icpHypotheses.find((candidate) => candidate.id === icpHypothesisId && candidate.status === "selected" && candidate.reviewStatus === "reviewed");
-    if (!selected) throw new Error("A reviewed selected ICP is required for this campaign audience");
+    if (!selected) throw new Error("Selected ICP authority changed or requires review");
   }
 
   private claimReferences(product: ProductWorkspace, claimIds: readonly string[], evidenceIds: readonly string[], selectedChannels: readonly ChannelKind[]): readonly ClaimReference[] {
@@ -321,20 +332,42 @@ function authorityRevision(version: number, changedAt: string, changedBy: string
   return { version, changedAt, changedBy: changedBy.trim(), rationale: rationale.trim(), changedFields: [...changedFields], snapshot: JSON.stringify(snapshot) };
 }
 
-function invalidateCampaignDescendants(workspace: CampaignWorkspace, campaignId: string, now: string): DescendantState {
+function invalidateCampaignDescendants(workspace: CampaignWorkspace, campaignId: string, now: string, reason: string): DescendantState {
   const contentBriefs = (workspace.contentBriefs ?? []).map((brief) => brief.campaignId === campaignId && brief.status === "approved"
-    ? { ...brief, status: "approval_invalidated" as const, updatedAt: now }
+    ? {
+        ...brief,
+        status: "approval_invalidated" as const,
+        updatedAt: now,
+        reviewNote: appendAuditNote(brief.reviewNote, `Approval invalidated: ${reason}`),
+      }
     : brief);
   const affectedAssetIds = new Set<string>();
   const assets = workspace.assets.map((asset) => {
     if (asset.campaignId !== campaignId) return asset;
     affectedAssetIds.add(asset.id);
-    return asset.status === "approved" ? { ...asset, status: "approval_invalidated" as const, updatedAt: now } : asset;
+    return asset.status === "approved"
+      ? {
+          ...asset,
+          status: "approval_invalidated" as const,
+          updatedAt: now,
+          reviewNote: appendAuditNote(asset.reviewNote, `Approval invalidated: ${reason}`),
+        }
+      : asset;
   });
   const variants = workspace.variants.map((variant) => affectedAssetIds.has(variant.canonicalAssetId) && variant.status === "approved"
-    ? { ...variant, status: "approval_invalidated" as const, updatedAt: now }
+    ? {
+        ...variant,
+        status: "approval_invalidated" as const,
+        updatedAt: now,
+        reviewNote: appendAuditNote(variant.reviewNote, `Approval invalidated: ${reason}`),
+      }
     : variant);
   return { contentBriefs, assets, variants };
+}
+
+function appendAuditNote(previous: string | undefined, note: string): string {
+  const prior = previous?.trim();
+  return prior ? `${prior}\n${note}` : note;
 }
 
 function stripReview<T extends { reviewedBy?: string; reviewedAt?: string; reviewNote?: string }>(record: T): Omit<T, "reviewedBy" | "reviewedAt" | "reviewNote"> {
