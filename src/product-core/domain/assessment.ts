@@ -13,6 +13,11 @@ export type MarketabilityDimension =
   | "sales"
   | "measurement";
 
+export const MARKETABILITY_DIMENSIONS: readonly MarketabilityDimension[] = [
+  "productTruth", "icpClarity", "audienceClarity", "urgency", "positioning", "offer", "proof",
+  "discoverability", "content", "distribution", "conversion", "sales", "measurement",
+];
+
 export type ReadinessFinding = Readonly<{
   dimension: MarketabilityDimension;
   rating: 0 | 1 | 2 | 3 | 4;
