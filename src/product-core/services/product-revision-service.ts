@@ -67,7 +67,7 @@ export class ProductRevisionService {
       snapshot: JSON.stringify(snapshot),
     };
     const core = new ProductCoreService(this.store, this.clock);
-    return core.updateProductTruth(workspaceId, {
+    const updated = await core.updateProductTruth(workspaceId, {
       identity: {
         name: input.identity.name.trim(),
         description: input.identity.description.trim(),
@@ -88,6 +88,13 @@ export class ProductRevisionService {
       accessibilityConstraints: clean(input.accessibilityConstraints),
       updatedBy: input.updatedBy.trim(),
       history: [...(workspace.product.history ?? []), revision],
+    });
+    if (!updated.icpHypotheses.some((candidate) => candidate.status === "selected" && candidate.reviewStatus === "reviewed")) return updated;
+    return this.persist({
+      ...updated,
+      icpHypotheses: updated.icpHypotheses.map((candidate) => candidate.status === "selected" && candidate.reviewStatus === "reviewed"
+        ? { ...candidate, reviewStatus: "suggested" as const }
+        : candidate),
     });
   }
 
