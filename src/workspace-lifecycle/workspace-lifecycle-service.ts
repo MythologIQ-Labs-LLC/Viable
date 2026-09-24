@@ -12,13 +12,13 @@ export const WORKSPACE_QUARANTINE_FORMAT = "viable.workspace-quarantine" as cons
 export const PRODUCT_ACTIVE_KEY = "viable.product-workspace.active";
 
 export const WORKSPACE_CONTEXTS = [
-  { name: "product", label: "Product Core", prefix: "viable.product-workspace.", identityField: "id", recordFields: ["claims", "evidence", "icpHypotheses", "assessments", "actions"] },
-  { name: "campaign", label: "Campaigns and exports", prefix: "viable.campaign-workspace.", identityField: "workspaceId", recordFields: ["campaigns", "contentBriefs", "assets", "variants", "exports"] },
-  { name: "signals", label: "Signals", prefix: "viable.signals-inbox.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "signals", "conversions"] },
-  { name: "activation", label: "Calendar and Learning", prefix: "viable.activation-learning.", identityField: "workspaceId", recordFields: ["destinations", "calendarEntries", "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "retrospectives", "learningLedger"] },
-  { name: "repositoryGrowth", label: "Repository Growth", prefix: "viable.repository-growth.", identityField: "workspaceId", recordFields: ["repositories", "assessments", "plans", "launchRooms", "exports", "retrospectives"] },
-  { name: "videoProduction", label: "Video Production", prefix: "viable.video-production.", identityField: "workspaceId", recordFields: ["tools", "briefs", "packages", "artifacts", "variants"] },
-  { name: "websiteWatch", label: "Website Watch", prefix: "viable.website-watch.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "sites", "targets", "snapshots", "observations", "generatedAnalyses"] },
+  { name: "product", label: "Product Core", prefix: "viable.product-workspace.", identityField: "id", recordFields: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], requiredStrings: ["createdAt", "createdBy"], requiredRecords: ["product"] },
+  { name: "campaign", label: "Campaigns and exports", prefix: "viable.campaign-workspace.", identityField: "workspaceId", recordFields: ["campaigns", "contentBriefs", "assets", "variants", "exports"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "signals", label: "Signals", prefix: "viable.signals-inbox.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "signals", "conversions"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "activation", label: "Calendar and Learning", prefix: "viable.activation-learning.", identityField: "workspaceId", recordFields: ["destinations", "calendarEntries", "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "retrospectives", "learningLedger"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "repositoryGrowth", label: "Repository Growth", prefix: "viable.repository-growth.", identityField: "workspaceId", recordFields: ["repositories", "assessments", "plans", "launchRooms", "exports", "retrospectives"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "videoProduction", label: "Video Production", prefix: "viable.video-production.", identityField: "workspaceId", recordFields: ["tools", "briefs", "packages", "artifacts", "variants"], requiredStrings: ["updatedAt"], requiredRecords: [] },
+  { name: "websiteWatch", label: "Website Watch", prefix: "viable.website-watch.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "sites", "targets", "snapshots", "observations", "generatedAnalyses"], requiredStrings: ["updatedAt"], requiredRecords: [] },
 ] as const;
 
 export type WorkspaceContextName = typeof WORKSPACE_CONTEXTS[number]["name"];
@@ -82,7 +82,6 @@ export type WorkspaceQuarantineEnvelope = Readonly<{
 }>;
 
 type Clock = () => Date;
-
 type ContextDescriptor = typeof WORKSPACE_CONTEXTS[number];
 
 type ParsedContext = Readonly<{
@@ -193,6 +192,7 @@ export class WorkspaceLifecycleService {
       if (value !== null && !isRecord(value)) throw new Error(`${descriptor.label} backup context must be an object or null`);
       if (value !== null) {
         assertContextIdentity(value, descriptor, parsed.workspaceId);
+        assertContextShape(value, descriptor);
         assertNoSecretFields(value, descriptor.label);
       }
       contexts[descriptor.name] = value;
@@ -302,6 +302,7 @@ export class WorkspaceLifecycleService {
       const value: unknown = JSON.parse(raw);
       if (!isRecord(value)) throw new Error("stored value is not an object");
       assertContextIdentity(value, descriptor, workspaceId);
+      assertContextShape(value, descriptor);
       return { descriptor, key, raw, value, status: "present", recordCount: countRecords(value, descriptor) };
     } catch (error) {
       return {
@@ -333,6 +334,18 @@ function countRecords(value: Readonly<Record<string, unknown>>, descriptor: Cont
 
 function assertContextIdentity(value: Readonly<Record<string, unknown>>, descriptor: ContextDescriptor, workspaceId: string): void {
   if (value[descriptor.identityField] !== workspaceId) throw new Error(`${descriptor.label} workspace identity does not match ${workspaceId}`);
+}
+
+function assertContextShape(value: Readonly<Record<string, unknown>>, descriptor: ContextDescriptor): void {
+  for (const field of descriptor.recordFields) {
+    if (!Array.isArray(value[field])) throw new Error(`${descriptor.label} field ${field} must be an array`);
+  }
+  for (const field of descriptor.requiredStrings) {
+    if (typeof value[field] !== "string") throw new Error(`${descriptor.label} field ${field} must be a string`);
+  }
+  for (const field of descriptor.requiredRecords) {
+    if (!isRecord(value[field])) throw new Error(`${descriptor.label} field ${field} must be an object`);
+  }
 }
 
 function assertNoSecretFields(value: unknown, label: string, path = ""): void {
