@@ -111,17 +111,17 @@ test("modified backup is rejected before any restore mutation", () => {
   assert.deepEqual(target.entries(), before);
 });
 
-test("structurally invalid backup context is rejected before any restore mutation", () => {
+test("malformed optional additive backup field is rejected before any restore mutation", () => {
   const source = new MemoryStorage();
   seedWorkspace(source, "workspace-1");
   const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
   const malformed = JSON.parse(backup) as { contexts: { campaign: Record<string, unknown> } };
-  malformed.contexts.campaign.campaigns = "not-an-array";
+  malformed.contexts.campaign.contentBriefs = "not-an-array";
 
   const target = new MemoryStorage();
   target.setItem("unrelated.preference", "keep-me");
   const before = target.entries();
-  assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"), /Campaigns and exports field campaigns must be an array/);
+  assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"), /Campaigns and exports optional field contentBriefs must be an array when present/);
   assert.deepEqual(target.entries(), before);
 });
 
