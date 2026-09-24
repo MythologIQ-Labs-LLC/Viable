@@ -59,7 +59,7 @@ test("workspace preview enumerates every product context and makes retention sco
   const preview = new WorkspaceLifecycleService(storage, now).inspect("workspace-1");
   assert.equal(preview.contexts.length, 7);
   assert.ok(preview.contexts.every((context) => context.status === "present"));
-  assert.equal(preview.totalRecords, 10);
+  assert.equal(preview.totalRecords, 11);
   assert.equal(preview.active, true);
   assert.deepEqual(preview.anonymized, []);
   assert.match(preview.retainedOutsideWorkspace.join(" "), /User-exported backup files/);
@@ -95,6 +95,20 @@ test("modified backup is rejected before any restore mutation", () => {
   target.setItem("unrelated.preference", "keep-me");
   const before = target.entries();
   assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(text, "empty_profile"), /integrity check failed/);
+  assert.deepEqual(target.entries(), before);
+});
+
+test("structurally invalid backup context is rejected before any restore mutation", () => {
+  const source = new MemoryStorage();
+  seedWorkspace(source, "workspace-1");
+  const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
+  const malformed = JSON.parse(backup) as { contexts: { campaign: Record<string, unknown> } };
+  malformed.contexts.campaign.campaigns = "not-an-array";
+
+  const target = new MemoryStorage();
+  target.setItem("unrelated.preference", "keep-me");
+  const before = target.entries();
+  assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"), /Campaigns and exports field campaigns must be an array/);
   assert.deepEqual(target.entries(), before);
 });
 
@@ -160,6 +174,19 @@ test("failed product-wide deletion rolls back already removed contexts", () => {
   storage.failRemoveOnce = `${WORKSPACE_CONTEXTS[2].prefix}workspace-1`;
   assert.throws(() => new WorkspaceLifecycleService(storage, now).deleteWorkspace("workspace-1"), /prior local state was restored/);
   assert.deepEqual(storage.entries(), before);
+});
+
+test("malformed stored context is treated as corrupt instead of valid workspace state", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const campaignKey = `${WORKSPACE_CONTEXTS[1].prefix}workspace-1`;
+  const campaign = JSON.parse(storage.getItem(campaignKey)!) as Record<string, unknown>;
+  campaign.campaigns = "not-an-array";
+  storage.setItem(campaignKey, JSON.stringify(campaign));
+  const preview = new WorkspaceLifecycleService(storage, now).inspect("workspace-1");
+  const context = preview.contexts.find((item) => item.name === "campaign");
+  assert.equal(context?.status, "corrupt");
+  assert.match(context?.issue ?? "", /campaigns must be an array/);
 });
 
 test("corrupt context is previewed and exportable as quarantine without destructive mutation", () => {
