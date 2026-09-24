@@ -9,9 +9,11 @@ test("desktop loads progressive draft UX after revision and authority shells", a
   const authority = html.indexOf("authority-revalidation-shell.js");
   const progressive = html.indexOf("progressive-draft-shell.js");
   const stale = html.indexOf("stale-draft-evidence-shell.js");
+  const continuity = html.indexOf("draft-step-continuity-shell.js");
   assert.ok(authority >= 0);
   assert.ok(progressive > authority);
   assert.ok(stale > progressive);
+  assert.ok(continuity > stale);
   assert.match(html, /progressive-drafts\.css/);
 });
 
@@ -43,6 +45,16 @@ test("previously linked evidence that loses authority stays visible and requires
   assert.match(stale, /no longer eligible; uncheck to remove this saved link/);
   assert.match(stale, /input\.name = `\$\{dimension\}\.evidenceIds`/);
   assert.doesNotMatch(stale, /\.save\(/);
+});
+
+test("save-and-continue restores the next progressive step without moving draft authority into session storage", async () => {
+  const continuity = await read("apps/desktop/ui/draft-step-continuity-shell.ts");
+  assert.match(continuity, /viable\.draft-step/);
+  assert.match(continuity, /Math\.min\(index \+ 1, steps\.length - 1\)/);
+  assert.match(continuity, /step\.open = step === target/);
+  assert.match(continuity, /View position is optional; draft authority remains persisted in Product Core/);
+  assert.doesNotMatch(continuity, /ProductDraftService/);
+  assert.doesNotMatch(continuity, /\.save\(/);
 });
 
 test("validation failure and navigation recovery preserve entered draft values", async () => {
