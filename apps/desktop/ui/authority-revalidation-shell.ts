@@ -34,14 +34,16 @@ async function revalidate(): Promise<void> {
     if (!product || !before) return;
     const signature = authoritySignature(product, before);
     if (signature === lastSignature) return;
-    lastSignature = signature;
     const updated = await revision.revalidateProductAuthority(workspaceId);
     const changed = changedAuthorityCount(before, updated);
-    if (changed === 0) return;
     lastSignature = authoritySignature(product, updated);
+    if (changed === 0) return;
     if (live) live.textContent = `${changed} dependent Campaign record${changed === 1 ? "" : "s"} require re-review because current Product Core or selected-ICP authority no longer supports approval.`;
     const nav = sidebar?.querySelector<HTMLButtonElement>('nav button[aria-current="page"]')?.dataset.nav;
     if (nav === "campaigns" || nav === "studio") sidebar?.querySelector<HTMLButtonElement>(`button[data-nav="${nav}"]`)?.click();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown local revalidation error";
+    if (live) live.textContent = `Dependent Campaign authority could not be revalidated: ${detail}. No revalidation success is recorded; reopen Product Core or Campaigns to retry.`;
   } finally {
     running = false;
   }
