@@ -43,3 +43,21 @@ test("Campaign, content brief, and channel variant corrections use governed revi
   ]) assert.match(shell, new RegExp(marker, "i"));
   assert.doesNotMatch(shell, /signalsStore\.save/);
 });
+
+test("Product correction parsing is captured by the visible failure path and post-save revalidation failure is not mislabeled as an unsaved correction", async () => {
+  const shell = await read("apps/desktop/ui/revision-completion-shell.ts");
+  assert.match(shell, /Promise\.resolve\(\)\.then\(\(\) => productRevision\.reviseProductTruth/);
+  assert.match(shell, /parseTerminology\(data\.get\("terminology"\)\)/);
+  assert.match(shell, /inlineSavedRevalidationFailure/);
+  assert.match(shell, /was saved, but dependent Campaign approval revalidation did not complete/);
+  assert.match(shell, /The saved correction is intact/);
+});
+
+test("background authority revalidation only records a handled signature after persistence succeeds", async () => {
+  const shell = await read("apps/desktop/ui/authority-revalidation-shell.ts");
+  const revalidate = shell.indexOf("const updated = await revision.revalidateProductAuthority(workspaceId)");
+  const handled = shell.indexOf("lastSignature = authoritySignature(product, updated)");
+  assert.ok(revalidate >= 0);
+  assert.ok(handled > revalidate);
+  assert.match(shell, /No revalidation success is recorded; reopen Product Core or Campaigns to retry/);
+});
