@@ -16,6 +16,7 @@ let enhancing = false;
 const escapeHtml = (value: unknown): string => String(value ?? "")
   .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
 
 function queueEnhance(): void {
   if (queued) return;
@@ -71,10 +72,28 @@ function enhanceCampaigns(workspace: CampaignWorkspace): void {
     if (brief && container) appendSnapshots(container.querySelectorAll<HTMLElement>(":scope > article.record"), [...(brief.history ?? [])].reverse(), "content_brief");
   });
 
+  enhanceCanonicalAssets(workspace);
+
   main?.querySelectorAll<HTMLElement>("[data-ux-variant-id]").forEach((card) => {
     const variant = workspace.variants.find((candidate) => candidate.id === card.dataset.uxVariantId);
     const container = card.querySelector<HTMLElement>("[data-ux-variant-revision] [data-ux-history-list]");
     if (variant && container) appendSnapshots(container.querySelectorAll<HTMLElement>(":scope > article.record"), [...(variant.history ?? [])].reverse(), "variant");
+  });
+}
+
+function enhanceCanonicalAssets(workspace: CampaignWorkspace): void {
+  const panel = main?.querySelector("#asset-list-heading")?.closest("section.panel");
+  if (!panel) return;
+  const cards = panel.querySelectorAll<HTMLElement>(".cards > article.record");
+  const ordered = [...workspace.assets].reverse();
+  cards.forEach((card, index) => {
+    if (card.querySelector("[data-ux-canonical-version-history]")) return;
+    const asset = ordered[index];
+    if (!asset) return;
+    const details = document.createElement("details");
+    details.dataset.uxCanonicalVersionHistory = "true";
+    details.innerHTML = `<summary>Review canonical asset versions (${asset.versions.length})</summary>${[...asset.versions].reverse().map((version) => `<article class="record"><strong>Version ${version.version}</strong><p>${escapeHtml(version.body)}</p><small>${humanDate(version.changedAt)} · ${escapeHtml(version.changedBy)} · ${escapeHtml(version.changeNote)}</small></article>`).join("")}`;
+    card.append(details);
   });
 }
 
