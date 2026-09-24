@@ -17,12 +17,16 @@ test("history shell reads owning stores and exposes prior values without taking 
   for (const marker of [
     "View prior version values",
     "Prior version values unavailable",
+    "Review canonical asset versions",
+    "data-ux-canonical-version-history",
     "summarizeRevisionSnapshot",
     "data-ux-prior-snapshot",
     "product_truth",
     "content_brief",
     "variant",
   ]) assert.match(shell, new RegExp(marker, "i"));
+  assert.match(shell, /version\.body/);
+  assert.match(shell, /version\.changeNote/);
   assert.doesNotMatch(shell, /\.save\(/);
   assert.doesNotMatch(shell, /JSON\.parse/);
 });
