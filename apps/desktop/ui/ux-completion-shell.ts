@@ -3,6 +3,7 @@ import { CampaignService } from "../../../src/campaigns/services/campaign-servic
 import type { ReadinessAction } from "../../../src/product-core/domain/assessment.js";
 import { ProductCoreService } from "../../../src/product-core/services/product-core-service.js";
 import type { SignalConversion, SignalMaterializationContext } from "../../../src/signals/domain/signal.js";
+import { OneShotSurfaceFeedback, selectActiveReadinessAction } from "../../../src/ui/ux-completion-state.js";
 import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageSignalsInboxStore } from "./local-storage-signals-inbox-store.js";
@@ -12,6 +13,7 @@ const campaignStore = new LocalStorageCampaignWorkspaceStore();
 const signalsStore = new LocalStorageSignalsInboxStore();
 const productService = new ProductCoreService(productStore);
 const campaignService = new CampaignService(campaignStore, productStore);
+const feedback = new OneShotSurfaceFeedback();
 const main = document.querySelector<HTMLElement>("#main");
 const sidebar = document.querySelector<HTMLElement>("#sidebar");
 const live = document.querySelector<HTMLElement>("#live-region");
@@ -22,8 +24,6 @@ type DestinationTarget = Readonly<{ context: SignalMaterializationContext; recor
 let pendingTarget: DestinationTarget | undefined;
 let enhancing = false;
 let queued = false;
-let productSuccess: string | undefined;
-let campaignSuccess: string | undefined;
 
 const escapeHtml = (value: unknown): string => String(value ?? "")
   .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
@@ -90,13 +90,12 @@ async function decorateHomeNextWork(): Promise<void> {
   if (!workspaceId) return;
   const workspace = await productStore.load(workspaceId);
   if (!workspace) return;
-  const action = workspace.actions.find((candidate) => candidate.status === "in_progress")
-    ?? workspace.actions.find((candidate) => candidate.status === "open");
+  const action = selectActiveReadinessAction(workspace.actions);
   if (!action) return;
   const next = main.querySelector<HTMLElement>("section.panel.next");
   if (!next || next.dataset.uxActionSummary === action.id) return;
   next.dataset.uxActionSummary = action.id;
-  next.innerHTML = `<div><p class="eyebrow">Next highest-value Product Core action</p><h3>${escapeHtml(action.title)}</h3><p>Owner: ${escapeHtml(action.owner)} · ${escapeHtml(label(action.status))}${action.verification ? ` · Verify: ${escapeHtml(action.verification)}` : ""}</p></div><button class="primary" type="button" data-ux-action="open-destination" data-context="product_core" data-kind="product_action" data-record-id="${escapeHtml(action.id)}">Open Product Core action</button>`;
+  next.innerHTML = `<div><p class="eyebrow">Active Product Core action</p><h3>${escapeHtml(action.title)}</h3><p>Owner: ${escapeHtml(action.owner)} · ${escapeHtml(label(action.status))}${action.verification ? ` · Verify: ${escapeHtml(action.verification)}` : ""}</p></div><button class="primary" type="button" data-ux-action="open-destination" data-context="product_core" data-kind="product_action" data-record-id="${escapeHtml(action.id)}">Open Product Core action</button>`;
 }
 
 async function renderProductActions(): Promise<void> {
@@ -114,18 +113,18 @@ async function renderProductActions(): Promise<void> {
   try {
     const workspace = await productStore.load(workspaceId);
     if (!workspace) throw new Error("Product workspace could not be loaded");
-    panel.innerHTML = productActionsMarkup(workspace.actions);
+    panel.innerHTML = productActionsMarkup(workspace.actions, feedback.consume("product"));
   } catch (error) {
     panel.innerHTML = recoveryMarkup("Product Core actions could not be loaded", error, "retry-product-actions");
   }
 }
 
-function productActionsMarkup(actions: readonly ReadinessAction[]): string {
+function productActionsMarkup(actions: readonly ReadinessAction[], success?: string): string {
   const active = actions.filter((item) => item.status === "open" || item.status === "in_progress");
   const closed = actions.filter((item) => !active.includes(item));
   return `<div class="section-heading"><div><p class="eyebrow">Product Core authority</p><h3>Readiness actions</h3></div>${pill(`${active.length} active`)}</div>
     <p class="guidance">Product Core owns readiness action state. Starting, reassignment, completion, and dismissal require a named human. Completion requires verification evidence or an explicit rationale.</p>
-    ${productSuccess ? `<section class="state" data-ux-success><strong>Saved.</strong><span>${escapeHtml(productSuccess)}</span></section>` : ""}
+    ${success ? `<section class="state" data-ux-success><strong>Saved.</strong><span>${escapeHtml(success)}</span></section>` : ""}
     <div class="cards" data-ux-action-list>${actions.length ? [...active, ...closed].map(actionCard).join("") : `<div class="state empty"><strong>No readiness actions yet.</strong><span>Create one from an assessment gap or materialize reviewed Signal work into Product Core.</span></div>`}</div>`;
 }
 
@@ -162,9 +161,10 @@ async function renderContentBriefs(): Promise<void> {
     const workspace = await campaignStore.load(workspaceId);
     const briefs = workspace?.contentBriefs ?? [];
     annotateCampaignCards(workspace?.campaigns ?? []);
+    const success = feedback.consume("campaign");
     section.innerHTML = `<div class="section-heading"><div><p class="eyebrow">Campaign-owned content</p><h3>Content briefs</h3></div>${pill(`${briefs.length} records`)}</div>
       <p class="guidance">A content brief inherits an approved Campaign source packet. Named review can approve, request changes, or reject the brief. Approval here does not create an asset, schedule, export, publication, delivery, or outcome claim.</p>
-      ${campaignSuccess ? `<section class="state" data-ux-success><strong>Saved.</strong><span>${escapeHtml(campaignSuccess)}</span></section>` : ""}
+      ${success ? `<section class="state" data-ux-success><strong>Saved.</strong><span>${escapeHtml(success)}</span></section>` : ""}
       <div class="cards">${briefs.length ? briefs.slice().reverse().map((brief) => contentBriefCard(brief, workspace?.campaigns.find((item) => item.id === brief.campaignId)?.title)).join("") : `<div class="state empty"><strong>No content briefs yet.</strong><span>Materialize reviewed content work from Signals under an approved Campaign.</span></div>`}</div>`;
   } catch (error) {
     section.innerHTML = recoveryMarkup("Campaign content briefs could not be loaded", error, "retry-content-briefs");
@@ -314,7 +314,7 @@ function inlineFailure(element: HTMLElement, error: unknown): void {
 }
 
 async function refreshProductPanel(message: string): Promise<void> {
-  productSuccess = message;
+  feedback.set("product", message);
   main?.querySelector("[data-ux-readiness-panel]")?.remove();
   await renderProductActions();
   await focusPendingTarget();
@@ -322,7 +322,7 @@ async function refreshProductPanel(message: string): Promise<void> {
 }
 
 async function refreshContentBriefs(message: string): Promise<void> {
-  campaignSuccess = message;
+  feedback.set("campaign", message);
   main?.querySelector("[data-ux-content-briefs]")?.remove();
   await renderContentBriefs();
   await focusPendingTarget();
