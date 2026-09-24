@@ -288,6 +288,13 @@ function inlineFailure(form: HTMLFormElement, error: unknown): void {
   announce(`Correction failed: ${detail}`);
 }
 
+function inlineSavedRevalidationFailure(form: HTMLFormElement, error: unknown, subject: string): void {
+  const region = form.querySelector<HTMLElement>("[data-ux-revision-error]");
+  const detail = error instanceof Error ? error.message : "Unknown local revalidation error";
+  if (region) region.innerHTML = `<section class="state warning" role="alert"><strong>${escapeHtml(subject)} was saved, but dependent Campaign approval revalidation did not complete.</strong><span>${escapeHtml(detail)} The saved correction is intact. Reopen Product Core or Campaigns to retry revalidation.</span></section>`;
+  announce(`${subject} saved; dependent Campaign approval revalidation failed: ${detail}`);
+}
+
 function triggerProductRefresh(): void {
   const button = document.createElement("button");
   button.type = "button";
@@ -320,7 +327,7 @@ document.addEventListener("submit", (event) => {
   const hypothesisId = form.dataset.hypothesisId;
 
   if (kind === "product-truth") {
-    void productRevision.reviseProductTruth(workspaceId, {
+    void Promise.resolve().then(() => productRevision.reviseProductTruth(workspaceId, {
       identity: {
         name: String(data.get("name")), description: String(data.get("description")),
         lifecycle: String(data.get("lifecycle")) as ProductWorkspace["product"]["identity"]["lifecycle"], supportedEnvironments: lines(data.get("supportedEnvironments")),
@@ -328,10 +335,11 @@ document.addEventListener("submit", (event) => {
       capabilities: lines(data.get("capabilities")), limitations: lines(data.get("limitations")), positioning: String(data.get("positioning")), alternatives: lines(data.get("alternatives")), differentiation: lines(data.get("differentiation")),
       pricing: lines(data.get("pricing")), packaging: lines(data.get("packaging")), offers: lines(data.get("offers")), callsToAction: lines(data.get("callsToAction")), brandVoice: lines(data.get("brandVoice")),
       terminology: parseTerminology(data.get("terminology")), accessibilityConstraints: lines(data.get("accessibilityConstraints")), updatedBy: String(data.get("editor")), rationale: String(data.get("rationale")),
-    }).then(() => campaignRevision.revalidateProductAuthority(workspaceId)).then(() => {
+    })).then(() => campaignRevision.revalidateProductAuthority(workspaceId).then(() => {
       announce("Product Truth revision saved with history; dependent Campaign authority was revalidated");
       triggerProductRefresh();
-    }).catch((error: unknown) => inlineFailure(form, error));
+    }, (error: unknown) => inlineSavedRevalidationFailure(form, error, "Product Truth revision")))
+      .catch((error: unknown) => inlineFailure(form, error));
     return;
   }
 
@@ -350,10 +358,11 @@ document.addEventListener("submit", (event) => {
         disqualifiers: lines(data.get("disqualifiers")), antiIcpConditions: lines(data.get("antiIcpConditions")), assumptions: lines(data.get("assumptions")), contradictions: lines(data.get("contradictions")),
         evidenceIds: checked(data, "evidenceIds"), confidence: String(data.get("confidence")) as "low" | "medium" | "high", owner: String(data.get("owner")), nextValidationAction: String(data.get("nextValidationAction")), changeConditions: lines(data.get("changeConditions")),
       });
-    }).then(() => campaignRevision.revalidateProductAuthority(workspaceId)).then(() => {
+    }).then(() => campaignRevision.revalidateProductAuthority(workspaceId).then(() => {
       announce("ICP correction saved for named re-review; dependent Campaign authority was revalidated");
       triggerProductRefresh();
-    }).catch((error: unknown) => inlineFailure(form, error));
+    }, (error: unknown) => inlineSavedRevalidationFailure(form, error, "ICP correction")))
+      .catch((error: unknown) => inlineFailure(form, error));
     return;
   }
 
