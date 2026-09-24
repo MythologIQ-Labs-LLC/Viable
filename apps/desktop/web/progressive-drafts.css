@@ -1,0 +1,14 @@
+.draft-workflow { margin-top: 1rem; border: 1px solid var(--line); border-radius: .85rem; padding: 1rem; background: var(--surface-1); }
+.draft-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: .75rem; }
+.draft-heading h4 { margin: .15rem 0 0; }
+.draft-workflow details { border-top: 1px solid var(--line); padding: .65rem 0; }
+.draft-workflow details:first-of-type { margin-top: .75rem; }
+.draft-workflow summary { cursor: pointer; display: flex; flex-direction: column; gap: .2rem; }
+.draft-workflow summary span { color: var(--muted); font-size: .9rem; }
+.draft-step { padding: .9rem 0 .25rem; }
+.draft-actions { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; margin-top: 1rem; }
+.evidence-picker { margin-top: .7rem; }
+.context-note { color: var(--muted); font-size: .85rem; align-self: end; }
+.field-error { display: block; margin-top: .3rem; font-size: .85rem; font-weight: 700; }
+[aria-invalid="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (max-width: 52rem) { .draft-heading { flex-direction: column; } .draft-actions { align-items: stretch; } .draft-actions button { width: 100%; } }
