@@ -19,7 +19,7 @@ const roles: IcpRoles = {
 };
 const dimensions = Object.fromEntries(ICP_DIMENSIONS.map((dimension) => [dimension, {
   rating: 3 as const, rationale: `${dimension} rationale`, evidenceIds: dimension === "proof" ? ["evidence-1"] : [], confidence: "medium" as const,
-}])) as IcpHypothesis["dimensions"];
+}])) as unknown as IcpHypothesis["dimensions"];
 
 function workspace(): ProductWorkspace {
   return {
@@ -57,7 +57,7 @@ function assessmentDraft(owner = "Kevin"): Omit<AssessmentDraft, "kind" | "updat
   const findings = Object.fromEntries(MARKETABILITY_DIMENSIONS.map((dimension) => [dimension, {
     dimension, rating: 2 as const, rationale: `${dimension} rationale`, evidenceIds: dimension === "proof" ? ["evidence-1"] : [], confidence: "medium" as const,
     freshness: "fresh" as const, owner, verification: `Verify ${dimension}`, recommendation: `Improve ${dimension}`,
-  }])) as AssessmentDraft["findings"];
+  }])) as unknown as AssessmentDraft["findings"];
   return { findings };
 }
 
