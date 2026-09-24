@@ -27,7 +27,9 @@ ICP creation is split into progressive sections:
 3. problem, fit, and proof dimensions;
 4. adoption, viability, strategic fit, and evidence quality.
 
-The user may save after any section and resume later. Completion is blocked until the candidate has the minimum complete fields required to become an ordinary unreviewed ICP hypothesis, including a name, summary, owner, next validation action, and explained rationale for every ICP dimension.
+The user may save after any section and resume later. A **Save draft and continue** action preserves the saved working state and restores the next progressive section after the Product view rerenders. The remembered section is only view position; draft authority remains in the local Product workspace.
+
+Completion is blocked until the candidate has the minimum complete fields required to become an ordinary unreviewed ICP hypothesis, including a name, summary, owner, next validation action, and explained rationale for every ICP dimension.
 
 Completing the draft creates an unreviewed candidate or generated suggestion. It does not review or select the ICP. Existing named review, evidence, disqualifier, and explicit selection safeguards remain downstream.
 
@@ -45,7 +47,7 @@ Each finding retains its own:
 - recommendation;
 - explicitly selected supporting evidence.
 
-Completion requires every modeled assessment dimension to be explained. It also requires a **currently reviewed selected ICP**. A formerly selected ICP whose review was invalidated by Product Truth changes cannot silently support a new assessment.
+Completion requires every modeled assessment dimension to be explained. It also requires a **currently reviewed selected ICP with current reviewed Product Core evidence**. A formerly selected ICP whose review was invalidated by Product Truth changes, or whose supporting evidence is no longer reviewed, cannot silently support a new assessment.
 
 ## Evidence selection
 
@@ -53,7 +55,9 @@ Reviewed Product Core evidence is presented as available context. Context is not
 
 For each ICP dimension and each assessment finding, the user intentionally checks the evidence records that support that conclusion. Unchecked reviewed evidence remains contextual and is not written into that conclusion's evidence links.
 
-At completion time, Viable verifies that every selected evidence ID still refers to currently reviewed, non-generated Product Core evidence. If evidence authority changed while a draft was open, completion fails closed and the draft remains available for repair.
+At completion time, Viable verifies that every selected evidence ID still refers to currently reviewed, non-generated Product Core evidence. If evidence authority changes while a draft is open, completion fails closed and the draft remains available for repair.
+
+A previously linked evidence record that later becomes ineligible remains visibly linked in the draft. Saving unrelated changes does not silently remove it. The user must explicitly uncheck that stale link or restore the evidence to eligible reviewed authority. Completion remains blocked while an ineligible link is retained.
 
 This prevents the earlier behavior where every reviewed evidence record was automatically attached to every ICP dimension and every assessment finding.
 
