@@ -9,8 +9,8 @@ import {
 
 class MemoryStorage implements KeyValueStorage {
   private readonly values = new Map<string, string>();
-  failSetOnce?: string;
-  failRemoveOnce?: string;
+  failSetOnce: string | undefined;
+  failRemoveOnce: string | undefined;
 
   get length(): number { return this.values.size; }
   key(index: number): string | null { return [...this.values.keys()].sort()[index] ?? null; }
