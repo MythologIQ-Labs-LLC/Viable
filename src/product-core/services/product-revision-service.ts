@@ -284,7 +284,7 @@ function cloneDimensions(dimensions: Readonly<Record<IcpDimension, IcpDimensionA
     ...dimensions[dimension],
     rationale: dimensions[dimension].rationale.trim(),
     evidenceIds: [...dimensions[dimension].evidenceIds],
-  }])) as Readonly<Record<IcpDimension, IcpDimensionAssessment>>;
+  }])) as unknown as Readonly<Record<IcpDimension, IcpDimensionAssessment>>;
 }
 
 function clean(values: readonly string[]): readonly string[] {
