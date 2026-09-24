@@ -23,7 +23,7 @@ class MemoryStorage implements KeyValueStorage {
     if (this.failRemoveOnce === key) { this.failRemoveOnce = undefined; throw new Error(`simulated remove failure for ${key}`); }
     this.values.delete(key);
   }
-  entries(): readonly [string, string][] { return [...this.values.entries()]; }
+  entries(): readonly [string, string][] { return [...this.values.entries()].sort(([left], [right]) => left.localeCompare(right)); }
 }
 
 const now = () => new Date("2026-09-24T20:00:00.000Z");
