@@ -229,7 +229,7 @@ export class CampaignRevisionService {
   private validateAudience(product: ProductWorkspace, audienceKind: CampaignBrief["audienceKind"], icpHypothesisId?: string): void {
     if (audienceKind !== "selected_icp") return;
     const selected = product.icpHypotheses.find((candidate) => candidate.id === icpHypothesisId && candidate.status === "selected" && candidate.reviewStatus === "reviewed");
-    if (!selected) throw new Error("Selected ICP authority changed or requires review");
+    if (!selected) throw new Error("Product Core selected ICP authority changed or requires review");
   }
 
   private claimReferences(product: ProductWorkspace, claimIds: readonly string[], evidenceIds: readonly string[], selectedChannels: readonly ChannelKind[]): readonly ClaimReference[] {
