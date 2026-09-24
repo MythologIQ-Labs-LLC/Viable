@@ -1,3 +1,4 @@
+import type { ActivationLearningWorkspace, CalendarEntry, CalendarEntryKind } from "../../activation-learning/domain/activation-learning.js";
 import type { CampaignBrief, CampaignWorkspace, ChannelKind, ContentBrief } from "../../campaigns/domain/campaign.js";
 import type { CampaignWorkspaceStore } from "../../campaigns/ports/campaign-workspace-store.js";
 import { CampaignService } from "../../campaigns/services/campaign-service.js";
@@ -5,10 +6,25 @@ import type { ReadinessAction } from "../../product-core/domain/assessment.js";
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
 import { ProductCoreService } from "../../product-core/services/product-core-service.js";
+import type { WebsiteWatchStore } from "../../website-watch/ports/website-watch-store.js";
 import type { SignalConversion, SignalMaterializationContext, SignalsInbox } from "../domain/signal.js";
 import type { SignalsInboxStore } from "../ports/signals-inbox-store.js";
 
 type Clock = () => Date;
+type PlanningKind = Exclude<CalendarEntryKind, "external_activation">;
+type CalendarPlanningService = Readonly<{
+  load(workspaceId: string): Promise<ActivationLearningWorkspace>;
+  createPlanningEntry(workspaceId: string, input: Readonly<{
+    kind: PlanningKind;
+    title: string;
+    owner: string;
+    startsAt: string;
+    endsAt?: string;
+    timezone: string;
+    notes: string;
+    relatedRecordId?: string;
+  }>): Promise<ActivationLearningWorkspace>;
+}>;
 
 export type ProductMaterializationResult = Readonly<{
   inbox: SignalsInbox;
@@ -58,6 +74,20 @@ export type ContentMaterializationResult = Readonly<{
   contentBrief: ContentBrief;
 }>;
 
+export type WebsiteWatchActionMaterializationInput = Readonly<{
+  kind: PlanningKind;
+  startsAt: string;
+  endsAt?: string;
+  timezone: string;
+  notes: string;
+}>;
+
+export type WebsiteWatchActionMaterializationResult = Readonly<{
+  inbox: SignalsInbox;
+  calendar: ActivationLearningWorkspace;
+  entry: CalendarEntry;
+}>;
+
 const productKinds = new Map<SignalConversion["kind"], ReadinessAction["kind"]>([
   ["product_action", "action"],
   ["icp_validation_action", "icp_experiment"],
@@ -67,6 +97,7 @@ const productKinds = new Map<SignalConversion["kind"], ReadinessAction["kind"]>(
 export const isProductMaterializationKind = (kind: SignalConversion["kind"]): boolean => productKinds.has(kind);
 export const isCampaignMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "campaign_brief";
 export const isContentMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "content_brief";
+export const isWebsiteWatchMaterializationKind = (kind: SignalConversion["kind"]): boolean => kind === "website_watch_action";
 
 export class SignalWorkMaterializationService {
   private readonly productService: ProductCoreService;
@@ -76,6 +107,8 @@ export class SignalWorkMaterializationService {
     private readonly productStore: ProductWorkspaceStore,
     private readonly clock: Clock = () => new Date(),
     private readonly campaignStore?: CampaignWorkspaceStore,
+    private readonly websiteStore?: WebsiteWatchStore,
+    private readonly planningService?: CalendarPlanningService,
   ) {
     this.productService = new ProductCoreService(productStore, clock);
   }
@@ -215,6 +248,63 @@ export class SignalWorkMaterializationService {
       if (!contentBrief) throw new Error("Campaign authority did not retain the materialized content brief");
       const updatedInbox = await this.recordSuccess(inbox, conversion.id, "campaigns", contentBrief.id);
       return { inbox: updatedInbox, campaigns: updatedCampaigns, contentBrief };
+    } catch (error) {
+      await this.recordFailure(inbox, conversion.id, error);
+      throw error;
+    }
+  }
+
+  async materializeWebsiteWatchAction(
+    workspaceId: string,
+    conversionId: string,
+    input: WebsiteWatchActionMaterializationInput,
+  ): Promise<WebsiteWatchActionMaterializationResult> {
+    const inbox = await this.requiredInbox(workspaceId);
+    const conversion = this.requiredConversion(inbox, conversionId);
+    if (conversion.kind !== "website_watch_action") throw new Error("Signal conversion is not a Website Watch response action");
+    if (!this.websiteStore || !this.planningService) throw new Error("Website Watch Calendar materialization is not configured");
+
+    const signal = inbox.signals.find((candidate) => candidate.id === conversion.signalId);
+    if (!signal || signal.kind !== "website_change" || signal.evidenceState !== "reviewed") {
+      throw new Error("Website Watch response materialization requires a reviewed website-change signal");
+    }
+    const observationId = signal.facts.websiteWatchObservationId;
+    if (typeof observationId !== "string" || !observationId) {
+      throw new Error("Website-change signal is missing its Website Watch observation reference");
+    }
+
+    const relatedRecordId = `signal-conversion:${conversion.id}`;
+    try {
+      const website = await this.websiteStore.load(workspaceId);
+      const observation = website?.observations.find((candidate) => candidate.id === observationId);
+      if (!observation || observation.reviewState !== "reviewed") {
+        throw new Error("Website Watch response materialization requires a currently reviewed Website Watch observation");
+      }
+
+      const existingCalendar = await this.planningService.load(workspaceId);
+      const existing = existingCalendar.calendarEntries.find((entry) => entry.relatedRecordId === relatedRecordId);
+      if (existing) {
+        const synchronized = conversion.status === "materialized" && conversion.materialization?.recordId === existing.id
+          ? inbox
+          : await this.recordSuccess(inbox, conversion.id, "calendar", existing.id);
+        return { inbox: synchronized, calendar: existingCalendar, entry: existing };
+      }
+
+      const notes = [input.notes.trim(), `Website Watch observation: ${observation.id}`].filter(Boolean).join("\n");
+      const updatedCalendar = await this.planningService.createPlanningEntry(workspaceId, {
+        kind: input.kind,
+        title: conversion.title,
+        owner: conversion.owner,
+        startsAt: input.startsAt,
+        ...(input.endsAt ? { endsAt: input.endsAt } : {}),
+        timezone: input.timezone,
+        notes,
+        relatedRecordId,
+      });
+      const entry = updatedCalendar.calendarEntries.find((candidate) => candidate.relatedRecordId === relatedRecordId);
+      if (!entry) throw new Error("Calendar authority did not retain the materialized Website Watch response plan");
+      const updatedInbox = await this.recordSuccess(inbox, conversion.id, "calendar", entry.id);
+      return { inbox: updatedInbox, calendar: updatedCalendar, entry };
     } catch (error) {
       await this.recordFailure(inbox, conversion.id, error);
       throw error;
