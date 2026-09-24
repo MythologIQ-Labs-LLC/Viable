@@ -20,7 +20,7 @@ test("native validation failures become visible field-associated repair guidance
     'document.addEventListener("invalid"',
     'aria-invalid',
     'aria-describedby',
-    'data.uxFieldError',
+    'dataset.uxFieldError',
     'control.validationMessage',
     'document.querySelector<HTMLElement>(\'[aria-invalid="true"]\')?.focus()',
   ]) assert.match(shell, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
