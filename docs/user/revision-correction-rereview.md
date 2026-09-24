@@ -110,7 +110,7 @@ Campaign approval depends on current Product Core claim/evidence authority and, 
 
 Product Core corrections therefore revalidate dependent Campaign authority. When the authority used by an approved Campaign is no longer valid, the Campaign becomes `approval_invalidated`, and approved descendants are invalidated under their existing ownership boundaries.
 
-Nothing is silently re-approved after the upstream authority is corrected.
+The invalidated Campaign and descendants retain prior review context and append the reason approval was invalidated. Nothing is silently re-approved after upstream authority is corrected.
 
 ## Historical exports are immutable
 
@@ -121,6 +121,10 @@ A historical export also does not become evidence of publication or delivery. It
 ## Failure and recovery
 
 Correction forms preserve entered values when validation or local storage rejects a mutation. Errors are shown in the correction context, and saved authority is not intentionally changed on a failed mutation.
+
+Product Truth input parsing is handled inside the same recoverable mutation path, so malformed terminology such as a line missing `term = preferred wording` is shown in context instead of escaping as an unhandled form error.
+
+Product Core correction and dependent Campaign revalidation are two local authority writes. If the Product Truth or ICP correction saves successfully but dependent Campaign revalidation fails afterward, Viable does **not** claim that the correction was unsaved. The correction remains durable, the UI reports that downstream revalidation is incomplete, and the background revalidator leaves that Product Core signature retryable rather than marking the failed revalidation as handled. Reopening Product Core or Campaigns retries the revalidation path.
 
 No correction workflow requires the user to edit JSON, invent internal record identifiers, or use a terminal.
 
