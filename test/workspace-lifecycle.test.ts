@@ -83,6 +83,19 @@ test("backup round-trip validates integrity and restores all contexts into an em
   assert.equal(target.getItem(PRODUCT_ACTIVE_KEY), "workspace-1");
 });
 
+test("legacy campaign workspace without additive content briefs remains backup-compatible", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const campaignKey = `${WORKSPACE_CONTEXTS[1].prefix}workspace-1`;
+  const campaign = JSON.parse(storage.getItem(campaignKey)!) as Record<string, unknown>;
+  delete campaign.contentBriefs;
+  storage.setItem(campaignKey, JSON.stringify(campaign));
+  const service = new WorkspaceLifecycleService(storage, now);
+  const preview = service.inspect("workspace-1");
+  assert.equal(preview.contexts.find((item) => item.name === "campaign")?.status, "present");
+  assert.doesNotThrow(() => service.validateBackup(service.createBackup("workspace-1")));
+});
+
 test("modified backup is rejected before any restore mutation", () => {
   const source = new MemoryStorage();
   seedWorkspace(source, "workspace-1");
