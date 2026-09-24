@@ -55,9 +55,9 @@ test("UX completion shell wires Product Core lifecycle to the executable complet
     "Your entered values are still here",
     "Retry from saved state",
     "selectActiveReadinessAction",
-    "feedback.consume(\"product\")",
-    "feedback.set(\"product\", message)",
   ]) assert.match(shell, new RegExp(marker, "i"));
+  assert.ok(shell.includes('feedback.consume("product")'));
+  assert.ok(shell.includes('feedback.set("product", message)'));
   assert.doesNotMatch(shell, /\bproductSuccess\b|\bcampaignSuccess\b|\blastSuccess\b/);
   assert.doesNotMatch(shell, /highest-value/i);
 });
@@ -74,9 +74,9 @@ test("Campaigns exposes Campaign-owned ContentBrief review lifecycle and keeps d
     "reviewContentBrief",
     "submitContentBrief",
     "does not create an asset, schedule, export, publication, delivery, or outcome claim",
-    "feedback.consume(\"campaign\")",
-    "feedback.set(\"campaign\", message)",
   ]) assert.match(shell, new RegExp(marker, "i"));
+  assert.ok(shell.includes('feedback.consume("campaign")'));
+  assert.ok(shell.includes('feedback.set("campaign", message)'));
 });
 
 test("materialized Signal conversions retain exact owning-record navigation contracts without exposing the raw identifier", async () => {
