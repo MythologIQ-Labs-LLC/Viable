@@ -91,6 +91,17 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 - [Public source licensing and release boundary](adr/0008-public-source-licensing-and-release-boundary.md)
 - [Third-party notices](../THIRD_PARTY_NOTICES.md)
 
+## Human acceptance
+
+- [Acceptance program](acceptance/README.md)
+- [Frozen UX acceptance candidate, 2026-09-25](acceptance/ux-candidate-2026-09-25.md)
+- [Accessibility and recovery acceptance runbook](acceptance/accessibility-runbook.md)
+- [Unfamiliar-user demo acceptance runbook](acceptance/unfamiliar-user-demo-runbook.md)
+- [Acceptance workspace seed specification](acceptance/acceptance-seed-spec.md)
+- [Acceptance result template](acceptance/RESULT-TEMPLATE.md)
+
+Human acceptance evidence is deliberately separate from automated CI and implementation completion. Acceptance results must identify the exact candidate, environment, workspace seed, facilitator interventions, findings, remediation, and rerun evidence.
+
 ## User guides
 
 - [Product and ICP desktop workflow](user/product-and-icp-workflow.md)
