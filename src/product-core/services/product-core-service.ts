@@ -8,6 +8,15 @@ import type { ProductWorkspaceStore } from "../ports/product-workspace-store.js"
 
 type Clock = () => Date;
 type IdFactory = () => string;
+type CreateReadinessAction = Readonly<{
+  source: ReadinessAction["source"];
+  sourceId: string;
+  title: string;
+  owner: string;
+  dueAt?: string;
+  kind: ReadinessAction["kind"];
+  verification?: string;
+}>;
 
 export class ProductCoreService {
   constructor(
@@ -205,10 +214,91 @@ export class ProductCoreService {
     return this.persist({ ...workspace, assessments: [...workspace.assessments, assessment] });
   }
 
-  async createAction(workspaceId: string, action: Omit<ReadinessAction, "id" | "status">): Promise<ProductWorkspace> {
+  async createAction(workspaceId: string, action: CreateReadinessAction): Promise<ProductWorkspace> {
     if (!action.owner.trim() || !action.title.trim()) throw new Error("Action title and owner are required");
     const workspace = await this.required(workspaceId);
-    return this.persist({ ...workspace, actions: [...workspace.actions, { ...action, id: this.createId(), status: "open" }] });
+    const verification = action.verification?.trim() || inferredVerification(workspace, action);
+    const record: ReadinessAction = {
+      ...action,
+      title: action.title.trim(),
+      owner: action.owner.trim(),
+      ...(verification ? { verification } : {}),
+      id: this.createId(),
+      status: "open",
+    };
+    return this.persist({ ...workspace, actions: [...workspace.actions, record] });
+  }
+
+  async startAction(workspaceId: string, actionId: string, actor: string): Promise<ProductWorkspace> {
+    requireNamedActor(actor, "start");
+    return this.changeAction(workspaceId, actionId, (action) => {
+      if (action.status !== "open") throw new Error("Only open readiness actions can be started");
+      const now = this.clock().toISOString();
+      return { ...action, status: "in_progress", startedAt: now, startedBy: actor.trim() };
+    });
+  }
+
+  async assignActionOwner(workspaceId: string, actionId: string, actor: string, owner: string, rationale: string): Promise<ProductWorkspace> {
+    requireNamedActor(actor, "reassign");
+    if (!owner.trim()) throw new Error("A readiness action owner is required");
+    if (!rationale.trim()) throw new Error("Owner reassignment requires a rationale");
+    return this.changeAction(workspaceId, actionId, (action) => {
+      if (!["open", "in_progress"].includes(action.status)) throw new Error("Only active readiness actions can be reassigned");
+      const now = this.clock().toISOString();
+      return {
+        ...action,
+        owner: owner.trim(),
+        ownerAssignedAt: now,
+        ownerAssignedBy: actor.trim(),
+        ownerAssignmentRationale: rationale.trim(),
+      };
+    });
+  }
+
+  async completeAction(workspaceId: string, actionId: string, input: Readonly<{ actor: string; evidence?: string; rationale?: string }>): Promise<ProductWorkspace> {
+    requireNamedActor(input.actor, "complete");
+    const evidence = input.evidence?.trim();
+    const rationale = input.rationale?.trim();
+    if (!evidence && !rationale) throw new Error("Completion requires verification evidence or a completion rationale");
+    return this.changeAction(workspaceId, actionId, (action) => {
+      if (action.status !== "in_progress") throw new Error("A readiness action must be started before completion");
+      const now = this.clock().toISOString();
+      return {
+        ...action,
+        status: "completed",
+        completedAt: now,
+        completedBy: input.actor.trim(),
+        ...(evidence ? { completionEvidence: evidence } : {}),
+        ...(rationale ? { completionRationale: rationale } : {}),
+      };
+    });
+  }
+
+  async dismissAction(workspaceId: string, actionId: string, actor: string, rationale: string): Promise<ProductWorkspace> {
+    requireNamedActor(actor, "dismiss");
+    if (!rationale.trim()) throw new Error("Dismissal requires a rationale");
+    return this.changeAction(workspaceId, actionId, (action) => {
+      if (!["open", "in_progress"].includes(action.status)) throw new Error("Only active readiness actions can be dismissed");
+      const now = this.clock().toISOString();
+      return {
+        ...action,
+        status: "dismissed",
+        dismissedAt: now,
+        dismissedBy: actor.trim(),
+        dismissalRationale: rationale.trim(),
+      };
+    });
+  }
+
+  private async changeAction(workspaceId: string, actionId: string, change: (action: ReadinessAction) => ReadinessAction): Promise<ProductWorkspace> {
+    const workspace = await this.required(workspaceId);
+    const action = workspace.actions.find((candidate) => candidate.id === actionId);
+    if (!action) throw new Error("Readiness action not found");
+    const changed = change(action);
+    return this.persist({
+      ...workspace,
+      actions: workspace.actions.map((candidate) => candidate.id === actionId ? changed : candidate),
+    });
   }
 
   private async required(id: string): Promise<ProductWorkspace> {
@@ -221,6 +311,19 @@ export class ProductCoreService {
     await this.store.save(workspace);
     return workspace;
   }
+}
+
+function inferredVerification(workspace: ProductWorkspace, action: CreateReadinessAction): string | undefined {
+  if (action.source !== "assessment_gap") return undefined;
+  const assessment = workspace.assessments.find((candidate) => candidate.id === action.sourceId);
+  if (!assessment) return undefined;
+  const dimension = action.title.trim().replace(/^Improve\s+/i, "").toLocaleLowerCase("en-US");
+  const finding = assessment.findings.find((candidate) => candidate.dimension.toLocaleLowerCase("en-US") === dimension);
+  return finding?.verification.trim() || undefined;
+}
+
+function requireNamedActor(actor: string, verb: string): void {
+  if (!actor.trim()) throw new Error(`A named actor is required to ${verb} a readiness action`);
 }
 
 function validateIcp(hypothesis: Omit<IcpHypothesis, "id" | "revision" | "history">): void {
