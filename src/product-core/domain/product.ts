@@ -5,6 +5,15 @@ export type ProductIdentity = Readonly<{
   supportedEnvironments: readonly string[];
 }>;
 
+export type ProductTruthRevision = Readonly<{
+  revision: number;
+  changedAt: string;
+  changedBy: string;
+  rationale: string;
+  changedFields: readonly string[];
+  snapshot: string;
+}>;
+
 export type ProductTruth = Readonly<{
   identity: ProductIdentity;
   capabilities: readonly string[];
@@ -22,4 +31,5 @@ export type ProductTruth = Readonly<{
   revision: number;
   updatedAt: string;
   updatedBy: string;
+  history?: readonly ProductTruthRevision[];
 }>;
