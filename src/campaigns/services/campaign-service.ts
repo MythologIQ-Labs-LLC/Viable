@@ -19,6 +19,8 @@ type Clock = () => Date;
 type IdFactory = () => string;
 type ReviewDecision = "approved" | "rejected" | "changes_requested";
 
+const ALL_CHANNELS: readonly ChannelKind[] = ["linkedin", "website", "github_release"];
+
 export class CampaignService {
   constructor(
     private readonly store: CampaignWorkspaceStore,
@@ -302,22 +304,40 @@ export class CampaignService {
     return this.persist({ ...workspace, campaigns, contentBriefs, assets, variants, updatedAt: now });
   }
 
-  async createManualExport(workspaceId: string, campaignId: string, assetId: string, creator: string): Promise<CampaignWorkspace> {
+  async createManualExport(
+    workspaceId: string,
+    campaignId: string,
+    assetId: string,
+    creator: string,
+    channels: readonly ChannelKind[] = ALL_CHANNELS,
+  ): Promise<CampaignWorkspace> {
     requireText(creator, "Named export creator");
     const [product, workspace] = await Promise.all([this.requiredProduct(workspaceId), this.load(workspaceId)]);
     const campaign = required(workspace.campaigns, campaignId, "Campaign");
     const asset = required(workspace.assets, assetId, "Canonical asset");
     if (campaign.status !== "approved" || asset.status !== "approved" || asset.campaignId !== campaignId) throw new Error("Manual export requires an approved campaign and its approved canonical asset");
+    const selectedChannels = normalizeExportChannels(channels);
+    if (selectedChannels.some((channel) => !campaign.channels.includes(channel))) throw new Error("Manual export channels must be included in the approved campaign intent");
     this.validateCampaignAuthority(product, campaign);
-    this.validateReferences(product, asset.claimReferences, asset.evidenceIds, campaign.channels);
-    const variants = workspace.variants.filter((item) => item.canonicalAssetId === assetId && item.status === "approved");
-    const availableChannels = new Set(variants.map((item) => item.channel));
-    if (!["linkedin", "website", "github_release"].every((channel) => availableChannels.has(channel as ChannelKind))) throw new Error("Manual export requires approved LinkedIn, website, and GitHub release variants");
+    this.validateReferences(product, asset.claimReferences, asset.evidenceIds, selectedChannels);
+    const variants = selectedChannels.map((channel) => {
+      const variant = workspace.variants.find((item) => item.canonicalAssetId === assetId && item.channel === channel && item.status === "approved");
+      if (!variant) throw new Error(`Manual export requires an approved ${channel.replaceAll("_", " ")} variant for every selected channel`);
+      return variant;
+    });
     const now = this.clock().toISOString();
     const record: ManualExportPackage = {
-      id: this.createId(), workspaceId, campaignId, canonicalAssetId: assetId, variantIds: variants.map((item) => item.id), createdAt: now, createdBy: creator.trim(), status: "manual_export_ready",
+      id: this.createId(), workspaceId, campaignId, canonicalAssetId: assetId, variantIds: variants.map((item) => item.id), channels: selectedChannels,
+      createdAt: now, createdBy: creator.trim(), status: "manual_export_ready",
       manifest: JSON.stringify({
-        campaign: { id: campaign.id, version: campaign.version, primaryOutcome: campaign.primaryOutcome, primaryAudience: campaign.primaryAudience },
+        campaign: {
+          id: campaign.id,
+          version: campaign.version,
+          primaryOutcome: campaign.primaryOutcome,
+          primaryAudience: campaign.primaryAudience,
+          intendedChannels: campaign.channels,
+        },
+        includedChannels: selectedChannels,
         canonicalAsset: { id: asset.id, version: asset.versions.length, claimReferences: asset.claimReferences, evidenceIds: asset.evidenceIds, rights: asset.rights, accessibilityRequirements: asset.accessibilityRequirements },
         variants: variants.map((item) => ({ id: item.id, channel: item.channel, version: item.version, body: item.body, constraints: item.constraints })),
         externalAction: { approvedForPublishing: false, delivered: false },
@@ -418,6 +438,13 @@ function clean(values: readonly string[]): readonly string[] {
 
 function unique<T>(values: readonly T[]): readonly T[] {
   return [...new Set(values)];
+}
+
+function normalizeExportChannels(values: readonly ChannelKind[]): readonly ChannelKind[] {
+  const selected = unique(values);
+  if (selected.length === 0) throw new Error("Manual export requires at least one selected channel");
+  if (selected.some((channel) => !ALL_CHANNELS.includes(channel))) throw new Error("Manual export contains an unsupported channel");
+  return selected;
 }
 
 function required<T extends { id: string }>(values: readonly T[], id: string, label: string): T {
