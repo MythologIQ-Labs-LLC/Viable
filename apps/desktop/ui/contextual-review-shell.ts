@@ -21,6 +21,8 @@ type ReviewConfig = Readonly<{
   options: readonly ReviewOption[];
 }>;
 
+const panelReviews = new WeakMap<HTMLElement, ReviewConfig>();
+
 function announce(message: string): void {
   if (live) live.textContent = message;
 }
@@ -143,7 +145,11 @@ function owningCard(button: HTMLButtonElement): HTMLElement | undefined {
 function openReviewPanel(button: HTMLButtonElement, config: ReviewConfig): void {
   const card = owningCard(button);
   if (!card) return;
-  card.querySelector<HTMLElement>("[data-contextual-review]")?.remove();
+  const previous = card.querySelector<HTMLElement>("[data-contextual-review]");
+  if (previous) {
+    panelReviews.delete(previous);
+    previous.remove();
+  }
   const actions = button.closest<HTMLElement>(".actions");
   if (actions) actions.hidden = true;
 
@@ -165,6 +171,7 @@ function openReviewPanel(button: HTMLButtonElement, config: ReviewConfig): void 
       <fieldset><legend>Decision</legend><div class="actions">${config.options.map((option) => `<button ${option.primary ? 'class="primary"' : ""} type="submit" name="decision" value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</button>`).join("")}</div></fieldset>
       <button type="button" data-contextual-review-cancel>Cancel review</button>
     </form>`;
+  panelReviews.set(panel, config);
   const anchor = actions ?? card.lastElementChild;
   if (anchor) anchor.insertAdjacentElement("beforebegin", panel);
   else card.append(panel);
@@ -196,6 +203,7 @@ function compact(value: string): string {
 function closePanel(panel: HTMLElement): void {
   const card = panel.closest<HTMLElement>("article, .record, .calendar-card");
   card?.querySelector<HTMLElement>(".actions")?.removeAttribute("hidden");
+  panelReviews.delete(panel);
   panel.remove();
 }
 
@@ -243,12 +251,7 @@ document.addEventListener("submit", (event) => {
   event.stopImmediatePropagation();
   const panel = form.closest<HTMLElement>("[data-contextual-review]");
   if (!panel) return;
-  const originalButton = panel.closest<HTMLElement>("article, .record, .calendar-card")?.querySelector<HTMLButtonElement>("button[data-action], button[data-signal-action], button[data-campaign-action], button[data-video-action], button[data-activation-action]");
-  if (!originalButton) {
-    announce("Review could not be recorded because the owning action is no longer available.");
-    return;
-  }
-  const config = reviewConfig(originalButton);
+  const config = panelReviews.get(panel);
   if (!config) {
     announce("Review could not be recorded because the owning review state changed.");
     return;
