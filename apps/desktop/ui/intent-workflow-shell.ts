@@ -12,6 +12,9 @@ const taskLabels: Readonly<Record<string, string>> = {
   analytics: "Analytics",
 };
 
+const signalsHeroCopy = "Start with the evidence waiting for review and the work it can create. Source setup remains available when you need to collect more.";
+const calendarHeroCopy = "Start with scheduled work, packages, and delivery evidence. Planning and destination setup remain available below when the next action needs them.";
+
 let queued = false;
 let arranging = false;
 
@@ -85,11 +88,8 @@ function arrangeSignals(): void {
     }
   }
 
-  const hero = main.querySelector<HTMLElement>("header.hero");
-  if (hero) {
-    const paragraph = hero.querySelector("p:not(.eyebrow)");
-    if (paragraph) paragraph.textContent = "Start with the evidence waiting for review and the work it can create. Source setup remains available when you need to collect more.";
-  }
+  const paragraph = main.querySelector<HTMLElement>("header.hero p:not(.eyebrow)");
+  if (paragraph && paragraph.textContent !== signalsHeroCopy) paragraph.textContent = signalsHeroCopy;
 }
 
 function arrangeCalendar(): void {
@@ -124,18 +124,16 @@ function arrangeCalendar(): void {
     if (body && destination.parentElement !== body) body.append(destination);
   }
 
-  const hero = main.querySelector<HTMLElement>("header.hero");
-  if (hero) {
-    const paragraph = hero.querySelector("p:not(.eyebrow)");
-    if (paragraph) paragraph.textContent = "Start with scheduled work, packages, and delivery evidence. Planning and destination setup remain available below when the next action needs them.";
-  }
+  const paragraph = main.querySelector<HTMLElement>("header.hero p:not(.eyebrow)");
+  if (paragraph && paragraph.textContent !== calendarHeroCopy) paragraph.textContent = calendarHeroCopy;
 }
 
 function replaceTechnicalActionLabels(): void {
   if (!main) return;
   for (const button of main.querySelectorAll<HTMLButtonElement>('button[data-signal-action="materialize-product"]')) {
     const failed = button.textContent?.toLowerCase().includes("retry") ?? false;
-    button.textContent = failed ? "Retry creating Product action" : "Create Product action";
+    const text = failed ? "Retry creating Product action" : "Create Product action";
+    if (button.textContent !== text) button.textContent = text;
     button.title = "Creates the authoritative action in Product Core after destination checks pass";
   }
   for (const summary of main.querySelectorAll<HTMLElement>("details > summary")) {
