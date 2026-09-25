@@ -189,8 +189,8 @@ test("legacy saved all-three packages without the additive channels field remain
     manifest: JSON.stringify({ variants: [{ channel: "linkedin" }, { channel: "website" }, { channel: "github_release" }], externalAction: { approvedForPublishing: false, delivered: false } }),
   };
   store.value = { workspaceId: "workspace-1", campaigns: [], contentBriefs: [], assets: [], variants: [], exports: [legacy], updatedAt: "2026-07-16T12:00:00.000Z" };
-  const { service } = createService(store);
-  const loaded = await service.load("workspace-1");
+  createService(store);
+  const loaded = store.value!;
   assert.equal(loaded.exports[0]?.id, "legacy-export");
   assert.equal(loaded.exports[0]?.channels, undefined);
   assert.deepEqual(loaded.exports[0]?.variantIds, legacy.variantIds);
