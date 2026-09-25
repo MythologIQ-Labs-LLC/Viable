@@ -19,7 +19,7 @@ test("desktop exposes Campaigns and Studio workflows", async () => {
     "Canonical first. Channel second.",
     "Product Core prerequisite",
     "Channel comparison",
-    "Create manual export package",
+    "Create selected-channel package",
     "Not approved for publishing",
     "Return to saved campaign workspace",
   ]) assert.match(view, new RegExp(marker));
@@ -41,10 +41,10 @@ test("campaign desktop workflow preserves authority and explicit states", async 
     "Generated suggestions excluded",
     "Campaign creation is intentionally blocked",
     "No approved campaign is available",
-    "No asset family is export-ready",
+    "No asset family has an approved intended channel yet",
     "Campaign operation failed",
     "Offline-ready campaign authority",
-    "manual export requires",
+    "Every selected channel requires its own approved variant",
     "detectClaimImpact",
   ]) assert.match(view, new RegExp(marker, "i"));
 });
