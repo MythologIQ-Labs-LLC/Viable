@@ -2,7 +2,7 @@
 
 ## Status
 
-The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18. Signals-to-Campaign materialization landed through PR #67, and Campaign-owned content-brief materialization landed through PR #68 as the governed content destination for reviewed signal work.
+The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18. Signals-to-Campaign materialization landed through PR #67, and Campaign-owned content-brief materialization landed through PR #68 as the governed content destination for reviewed signal work. UX completion issue #78 adds explicit package-level channel selection so manual exports do not silently expand beyond campaign intent.
 
 The workflow is internal. Hands-on keyboard and assistive-technology review, unfamiliar-user acceptance, and any resulting remediation remain open under issue #6 and the relevant Signals acceptance work.
 
@@ -14,7 +14,7 @@ Campaigns turns reviewed Product Core truth into one focused campaign brief.
 
 Campaigns and Assets also owns content briefs derived from approved campaigns. A content brief is a governed source packet for downstream asset work; it is not itself a canonical asset or publishing instruction.
 
-Studio turns an approved campaign into one canonical asset, channel-specific variants, and a manual export package while preserving evidence, rights, accessibility, review, and version authority.
+Studio turns an approved campaign into one canonical asset, the channel-specific variants that campaign actually intends to use, and intentional manual export packages while preserving evidence, rights, accessibility, review, and version authority.
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ Campaigns includes the missing claim-prerequisite path so a user can propose and
 5. Approve the proposed claim with a named reviewer.
 6. Enter one campaign objective, one primary outcome, and one primary audience.
 7. Choose the selected ICP or a deliberate test audience.
-8. Record the problem, trigger, offer, message hierarchy, proof, call to action, channels, asset plan, owner, success measures, and dependencies.
+8. Record the problem, trigger, offer, message hierarchy, proof, call to action, intended channels, asset plan, owner, success measures, and dependencies.
 9. Select the approved claims and reviewed evidence packet.
 10. Create the campaign draft.
 11. Submit it for review.
@@ -88,13 +88,13 @@ Generated suggestions remain drafts until named review. Material revisions inval
 
 After the canonical asset is approved:
 
-1. create a LinkedIn variant;
-2. create a website variant;
-3. create a GitHub release variant;
-4. record the body and constraints for each channel;
-5. submit each variant for named review;
-6. approve, reject, or request changes for each variant;
-7. use the channel comparison table to inspect body, constraints, and review state together.
+1. create variants only for channels the approved campaign intends to use;
+2. record the body and constraints for each needed channel;
+3. submit each variant for named review;
+4. approve, reject, or request changes for each variant;
+5. use the channel comparison table to inspect body, constraints, and review state together.
+
+A LinkedIn-only campaign does not need website or GitHub release work merely to satisfy an export rule. A two-channel campaign needs only those two channel variants for a two-channel package. Additional campaign-intended variants can remain draft or uncreated until a package actually needs them.
 
 Channel variants adapt the canonical asset. They do not replace or duplicate canonical authority.
 
@@ -106,20 +106,27 @@ The service compares each campaign claim snapshot with current Product Core stat
 
 ## Create a manual export
 
-A manual export becomes available only when all of the following are approved:
+A manual export requires:
 
-- the campaign;
-- the canonical asset;
-- the LinkedIn variant;
-- the website variant;
-- the GitHub release variant.
+- an approved campaign;
+- its approved canonical asset;
+- at least one package channel selected from the campaign's approved intent;
+- an approved channel variant for every channel selected into that package.
 
-Create the package with a named export creator, inspect the manifest, and download the JSON file.
+Studio presents each export-ready asset family separately. The package selector shows only the campaign's intended channels. Currently approved intended channels begin checked as a visible convenience preset; uncheck any approved channel that should not be part of this package. Campaign-intended channels whose variants are not yet approved remain visible but disabled rather than being silently added or silently blocking unrelated channels.
 
-Every manifest records:
+This means a one-channel or two-channel package can be created without unrelated variants. The previous all-three behavior remains available when LinkedIn, website, and GitHub release are all part of campaign intent and all three approved variants are selected.
+
+Create the package with a named export creator, inspect the included-channel summary and manifest, and download the JSON file.
+
+Every new manifest explicitly records campaign intent and package inclusion, for example:
 
 ```json
 {
+  "campaign": {
+    "intendedChannels": ["linkedin", "website"]
+  },
+  "includedChannels": ["linkedin"],
   "externalAction": {
     "approvedForPublishing": false,
     "delivered": false
@@ -129,13 +136,15 @@ Every manifest records:
 
 The package contains no destination, provider account, credential, publishing approval, scheduling instruction, or delivery claim.
 
+Calendar compatibility remains a separate authority check. Scheduling an external action still requires an approved variant whose channel exactly matches the active destination. Narrowing a manual export package does not weaken that rule and does not create scheduling authority.
+
 ## Presentation and recovery states
 
 The workflow presents explicit:
 
 - loading state while Product Core and campaign authority are read;
 - empty state when prerequisite records do not exist;
-- blocked state when evidence, claim, campaign, asset, or variant approval is missing;
+- blocked state when evidence, claim, campaign, asset, or selected variant approval is missing;
 - offline state explaining that local and manual paths remain available;
 - error state with the service rejection reason;
 - recovery action that reloads the last saved local campaign workspace.
@@ -146,7 +155,11 @@ Status is expressed in text and structure rather than color alone. Checkbox cont
 
 ## Compatibility note
 
-`contentBriefs` is an additive Campaign workspace collection. Campaign Service normalizes older saved Campaign workspaces that do not contain this collection to an empty list before using them. This is a bounded compatibility measure, not a substitute for the product-wide schema migration, backup, restore, and corruption-recovery work tracked under the release foundation.
+`contentBriefs` is an additive Campaign workspace collection. Campaign Service normalizes older saved Campaign workspaces that do not contain this collection to an empty list before using them.
+
+`channels` on `ManualExportPackage` is also additive. New packages persist their selected channel list. Older packages do not have this field because the previous service could only produce the LinkedIn + website + GitHub release all-three package. The desktop therefore represents a missing package `channels` field as a **Legacy all-channel package** without rewriting the saved record.
+
+These are bounded compatibility measures, not a substitute for the product-wide schema migration, backup, restore, and corruption-recovery work tracked under the release foundation.
 
 ## Known limitations
 
@@ -156,7 +169,6 @@ The internal workflow does not yet provide:
 - unfamiliar-user completion evidence;
 - a dedicated Campaigns/Studio presentation for browsing and reviewing content briefs created from Signals;
 - content-brief revision UI;
-- campaign-brief or channel-variant content revision methods beyond their existing review transitions;
 - external destinations, provider accounts, credentials, schedulers, publishing adapters, or delivery verification;
 - multi-user synchronization or hosted collaboration;
 - signed or cross-platform end-user installers.

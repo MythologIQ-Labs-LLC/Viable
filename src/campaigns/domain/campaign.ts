@@ -144,6 +144,7 @@ export type ManualExportPackage = Readonly<{
   campaignId: string;
   canonicalAssetId: string;
   variantIds: readonly string[];
+  channels?: readonly ChannelKind[];
   createdAt: string;
   createdBy: string;
   status: "manual_export_ready";

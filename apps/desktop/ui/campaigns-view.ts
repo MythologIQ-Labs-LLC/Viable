@@ -145,15 +145,17 @@ export class CampaignsViewController {
         return "Channel variant created as a draft";
       }
       if (kind === "campaign-create-export") {
-        const [campaignId, assetId] = String(form.get("selection")).split("::");
+        const campaignId = String(form.get("campaignId"));
+        const assetId = String(form.get("assetId"));
         if (!campaignId || !assetId) throw new Error("An approved campaign and asset family are required");
         this.campaigns = await this.campaignService.createManualExport(
           this.workspaceId,
           campaignId,
           assetId,
           String(form.get("creator")),
+          checkedValues(form, "exportChannels") as ChannelKind[],
         );
-        return "Manual export package created without publishing authority";
+        return "Manual export package created for the selected channels without publishing authority";
       }
       return undefined;
     } catch (error) {
@@ -318,7 +320,7 @@ export class CampaignsViewController {
     return `<article class="record">
       <div class="record-top"><h4>${escapeHtml(campaign.title)}</h4><div>${pill(campaign.status)} ${pill(campaign.audienceKind)}</div></div>
       <p>${escapeHtml(campaign.objective)}</p>
-      <dl><div><dt>Primary outcome</dt><dd>${escapeHtml(campaign.primaryOutcome)}</dd></div><div><dt>Primary audience</dt><dd>${escapeHtml(campaign.primaryAudience)}</dd></div><div><dt>Claims</dt><dd>${campaign.claimReferences.length}</dd></div><div><dt>Reviewed evidence</dt><dd>${campaign.evidenceIds.length}</dd></div><div><dt>Owner</dt><dd>${escapeHtml(campaign.owner)}</dd></div><div><dt>Updated</dt><dd>${humanDate(campaign.updatedAt)}</dd></div></dl>
+      <dl><div><dt>Primary outcome</dt><dd>${escapeHtml(campaign.primaryOutcome)}</dd></div><div><dt>Primary audience</dt><dd>${escapeHtml(campaign.primaryAudience)}</dd></div><div><dt>Channels</dt><dd>${escapeHtml(campaign.channels.map((channel) => CHANNEL_LABELS[channel]).join(" · "))}</dd></div><div><dt>Claims</dt><dd>${campaign.claimReferences.length}</dd></div><div><dt>Reviewed evidence</dt><dd>${campaign.evidenceIds.length}</dd></div><div><dt>Owner</dt><dd>${escapeHtml(campaign.owner)}</dd></div><div><dt>Updated</dt><dd>${humanDate(campaign.updatedAt)}</dd></div></dl>
       <details><summary>Traceability and message</summary><p><strong>Problem:</strong> ${escapeHtml(campaign.problem)}</p><p><strong>Trigger:</strong> ${escapeHtml(campaign.trigger)}</p><p><strong>Offer:</strong> ${escapeHtml(campaign.offer)}</p><p><strong>Message hierarchy:</strong> ${escapeHtml(campaign.messageHierarchy.join(" · "))}</p><p><strong>Claim snapshots:</strong> ${escapeHtml(campaign.claimReferences.map((item) => `${item.statement} (revision ${item.claimRevision})`).join(" · "))}</p></details>
       <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(campaign.status) ? `<button type="button" data-campaign-action="submit-campaign" data-id="${campaign.id}">Submit for review</button>` : ""}${campaign.status === "in_review" ? reviewButtons("campaign", campaign.id) : ""}</div>
       ${campaign.reviewNote ? `<p class="guidance">Review: ${escapeHtml(campaign.reviewNote)} · ${escapeHtml(campaign.reviewedBy ?? "Unknown reviewer")}</p>` : ""}
@@ -381,7 +383,7 @@ export class CampaignsViewController {
       <div class="section-heading"><div><p class="eyebrow">Channel variants</p><h3 id="variant-heading">Adapt and compare</h3></div>${pill(`${workspace.variants.length} variants`)}</div>
       <p class="guidance">Channel variants adapt the approved canonical asset. They do not duplicate or replace canonical authority.</p>
       ${approvedAssets.length ? `<details><summary>Create a channel variant</summary><form data-form="campaign-create-variant"><label>Approved canonical asset<select name="assetId">${approvedAssets.map((item) => `<option value="${item.id}">${escapeHtml(item.title)}</option>`).join("")}</select></label><label>Channel<select name="channel">${CHANNELS.map((channel) => `<option value="${channel}">${CHANNEL_LABELS[channel]}</option>`).join("")}</select></label><label>Channel body<textarea name="body" required rows="7"></textarea></label><label>Channel constraints, one per line<textarea name="constraints" required rows="4"></textarea></label><button class="primary" type="submit">Create channel variant draft</button></form></details>` : `<div class="state empty"><strong>No approved canonical asset is available.</strong><span>Complete named asset review before adapting channel variants.</span></div>`}
-      <div class="cards">${workspace.variants.length ? workspace.variants.map((variant) => this.variantCard(variant)).join("") : `<div class="state empty"><strong>No channel variants yet.</strong><span>Create LinkedIn, website, and GitHub release variants from an approved canonical asset.</span></div>`}</div>
+      <div class="cards">${workspace.variants.length ? workspace.variants.map((variant) => this.variantCard(variant)).join("") : `<div class="state empty"><strong>No channel variants yet.</strong><span>Create only the variants the approved campaign intends to use.</span></div>`}</div>
       ${this.variantComparison(workspace.variants)}
     </section>`;
   }
@@ -397,21 +399,26 @@ export class CampaignsViewController {
 
   private exportSection(): string {
     const workspace = this.campaigns!;
-    const eligible = workspace.assets.filter((asset) => {
+    const eligible = workspace.assets.flatMap((asset) => {
       const campaign = workspace.campaigns.find((item) => item.id === asset.campaignId);
-      const approvedChannels = new Set(workspace.variants.filter((item) => item.canonicalAssetId === asset.id && item.status === "approved").map((item) => item.channel));
-      return campaign?.status === "approved" && asset.status === "approved" && CHANNELS.every((channel) => approvedChannels.has(channel));
+      if (!campaign || campaign.status !== "approved" || asset.status !== "approved") return [];
+      const approvedChannels = new Set(workspace.variants
+        .filter((item) => item.canonicalAssetId === asset.id && item.status === "approved")
+        .map((item) => item.channel));
+      return campaign.channels.some((channel) => approvedChannels.has(channel)) ? [{ asset, campaign, approvedChannels }] : [];
     });
     return `<section class="panel" aria-labelledby="export-heading">
-      <div class="section-heading"><div><p class="eyebrow">Manual export</p><h3 id="export-heading">Prepare a channel-ready package</h3></div>${pill(`${workspace.exports.length} packages`)}</div>
-      <p class="guidance">A manual export requires an approved campaign, approved canonical asset, and approved LinkedIn, website, and GitHub release variants. The manifest always records that publishing is not approved and delivery has not occurred.</p>
-      ${eligible.length ? `<form data-form="campaign-create-export"><label>Approved asset family<select name="selection">${eligible.map((asset) => { const campaign = workspace.campaigns.find((item) => item.id === asset.campaignId)!; return `<option value="${campaign.id}::${asset.id}">${escapeHtml(campaign.title)} · ${escapeHtml(asset.title)}</option>`; }).join("")}</select></label><label>Named export creator<input name="creator" required value="${escapeHtml(this.defaultOwner)}"></label><button class="primary" type="submit">Create manual export package</button></form>` : `<div class="state empty"><strong>No asset family is export-ready.</strong><span>Approve the campaign, canonical asset, and all three required channel variants first.</span></div>`}
-      <div class="cards">${workspace.exports.length ? workspace.exports.slice().reverse().map((record) => this.exportCard(record)).join("") : `<div class="state empty"><strong>No manual exports yet.</strong><span>Export remains available without a publishing API after all review gates pass.</span></div>`}</div>
+      <div class="section-heading"><div><p class="eyebrow">Manual export</p><h3 id="export-heading">Prepare an intentional channel package</h3></div>${pill(`${workspace.exports.length} packages`)}</div>
+      <p class="guidance">Choose only the approved campaign channels this package is intended to contain. Every selected channel requires its own approved variant. The all-approved preset remains visible by default, and the manifest still records that publishing is not approved and delivery has not occurred.</p>
+      ${eligible.length ? `<div class="cards">${eligible.map(({ asset, campaign, approvedChannels }) => `<article class="record"><div class="record-top"><h4>${escapeHtml(campaign.title)} · ${escapeHtml(asset.title)}</h4>${pill("ready")}</div><p>Campaign intent: ${escapeHtml(campaign.channels.map((channel) => CHANNEL_LABELS[channel]).join(" · "))}</p><form data-form="campaign-create-export"><input type="hidden" name="campaignId" value="${campaign.id}"><input type="hidden" name="assetId" value="${asset.id}"><fieldset class="dimension"><legend>Include channels in this package</legend>${campaign.channels.map((channel) => `<label><input type="checkbox" name="exportChannels" value="${channel}" ${approvedChannels.has(channel) ? "checked" : "disabled"}> ${CHANNEL_LABELS[channel]} ${approvedChannels.has(channel) ? "approved" : "not approved yet"}</label>`).join("")}</fieldset><p class="guidance">Checked channels form the package. Disabled channels remain outside the package until their variant receives named approval.</p><label>Named export creator<input name="creator" required value="${escapeHtml(this.defaultOwner)}"></label><button class="primary" type="submit">Create selected-channel package</button></form></article>`).join("")}</div>` : `<div class="state empty"><strong>No asset family has an approved intended channel yet.</strong><span>Approve the campaign and canonical asset, then approve at least one channel variant that the campaign actually intends to use.</span></div>`}
+      <div class="cards">${workspace.exports.length ? workspace.exports.slice().reverse().map((record) => this.exportCard(record)).join("") : `<div class="state empty"><strong>No manual exports yet.</strong><span>Export remains available without a publishing API after the selected review gates pass.</span></div>`}</div>
     </section>`;
   }
 
   private exportCard(record: ManualExportPackage): string {
-    return `<article class="record"><div class="record-top"><h4>Manual export · ${humanDate(record.createdAt)}</h4>${pill(record.status)}</div><p><strong>Not approved for publishing.</strong> Not delivered. No destination or credential is included.</p><details><summary>Inspect manifest</summary><pre>${escapeHtml(record.manifest)}</pre></details><div class="actions"><button type="button" data-campaign-action="download-export" data-id="${record.id}">Download manifest</button></div></article>`;
+    const channels = record.channels ?? CHANNELS;
+    const legacy = record.channels ? "" : " · Legacy all-channel package";
+    return `<article class="record"><div class="record-top"><h4>Manual export · ${humanDate(record.createdAt)}</h4>${pill(record.status)}</div><p><strong>Included channels:</strong> ${escapeHtml(channels.map((channel) => CHANNEL_LABELS[channel]).join(" · "))}${legacy}</p><p><strong>Not approved for publishing.</strong> Not delivered. No destination or credential is included.</p><details><summary>Inspect manifest</summary><pre>${escapeHtml(record.manifest)}</pre></details><div class="actions"><button type="button" data-campaign-action="download-export" data-id="${record.id}">Download manifest</button></div></article>`;
   }
 
   private failureState(page: "campaigns" | "studio"): string {
