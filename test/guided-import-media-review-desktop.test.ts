@@ -76,9 +76,9 @@ test("guided failures identify the repair and retain selected files and entered 
   assert.match(shell, /\.focus\(\)/);
 });
 
-test("advanced raw signal adapters reject secret-like content too", async () => {
+test("advanced raw signal adapters use the same strict import safety boundaries", async () => {
   const manual = await read("src/signals/adapters/manual-json-signal-source.ts");
   const event = await read("src/signals/adapters/event-intelligence-signal-source.ts");
   assert.match(manual, /assertNoCredentialLikeText\(this\.input/);
-  assert.match(event, /assertNoCredentialLikeText\(JSON\.stringify\(this\.run\)/);
+  assert.match(event, /parseEventIntelligenceImport\(JSON\.stringify\(this\.run\)\)/);
 });
