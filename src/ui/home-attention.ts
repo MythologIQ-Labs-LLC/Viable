@@ -12,7 +12,7 @@ export type HomeAttentionSource = "product" | "signals" | "campaigns" | "reposit
 export type HomeAttentionTarget = Readonly<{
   surface: HomeAttentionSurface;
   recordKind: string;
-  recordId?: string;
+  recordId?: string | undefined;
 }>;
 
 export type HomeAttentionItem = Readonly<{
@@ -22,8 +22,8 @@ export type HomeAttentionItem = Readonly<{
   title: string;
   reason: string;
   state: string;
-  owner?: string;
-  timestamp?: string;
+  owner?: string | undefined;
+  timestamp?: string | undefined;
   evidence: readonly string[];
   target: HomeAttentionTarget;
 }>;
@@ -651,10 +651,10 @@ function addGovernedReview(items: HomeAttentionItem[], value: Readonly<{
   recordKind: string;
   recordId: string;
   title: string;
-  owner?: string;
+  owner?: string | undefined;
   status: string;
-  timestamp?: string;
-  reviewNote?: string;
+  timestamp?: string | undefined;
+  reviewNote?: string | undefined;
 }>): void {
   if (value.status !== "in_review" && value.status !== "changes_requested" && value.status !== "approval_invalidated") return;
   const invalidated = value.status === "approval_invalidated";
