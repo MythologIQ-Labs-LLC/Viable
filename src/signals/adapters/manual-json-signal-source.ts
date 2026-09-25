@@ -1,3 +1,4 @@
+import { assertNoCredentialLikeText } from "../../imports/guided-import.js";
 import type { Confidence, SignalKind, SignalRecord, SourceCollectionOutcome, SourceRegistration } from "../domain/signal.js";
 import type { SignalSource } from "../ports/signal-source.js";
 
@@ -28,6 +29,7 @@ export class ManualJsonSignalSource implements SignalSource {
   async collect(): Promise<SourceCollectionOutcome> {
     const retrievedAt = this.clock().toISOString();
     try {
+      assertNoCredentialLikeText(this.input, "Manual signal import");
       const parsed = JSON.parse(this.input) as unknown;
       if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { signals?: unknown }).signals)) throw new Error("Manual import requires a signals array");
       const records = (parsed as { signals: unknown[] }).signals;
@@ -40,7 +42,7 @@ export class ManualJsonSignalSource implements SignalSource {
         const title = text(item.title, `Signal ${index + 1} title`, 200);
         const summary = text(item.summary, `Signal ${index + 1} summary`, 1500);
         const externalId = typeof item.externalId === "string" && item.externalId.trim() ? item.externalId.trim().slice(0, 200) : `${index}`;
-        const sourceUrl = typeof item.sourceUrl === "string" && /^https?:\/\//.test(item.sourceUrl) ? item.sourceUrl.slice(0, 500) : undefined;
+        const sourceUrl = safeSourceUrl(item.sourceUrl, index);
         const observedAt = typeof item.observedAt === "string" && !Number.isNaN(Date.parse(item.observedAt)) ? new Date(item.observedAt).toISOString() : undefined;
         return {
           fingerprint: `manual:${this.id}:${externalId}:${title.toLocaleLowerCase("en-US")}`,
@@ -60,4 +62,16 @@ export class ManualJsonSignalSource implements SignalSource {
       return { source: this.registration, status: "validation_failed", signals: [], retrievedAt, detail: error instanceof Error ? error.message : "Invalid manual import" };
     }
   }
+}
+
+function safeSourceUrl(value: unknown, index: number): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") throw new Error(`Signal ${index + 1} source URL must be text`);
+  let url: URL;
+  try { url = new URL(value.trim()); } catch { throw new Error(`Signal ${index + 1} source URL must be a valid HTTP(S) URL`); }
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(`Signal ${index + 1} source URL must use HTTP or HTTPS`);
+  if (url.username || url.password) throw new Error(`Signal ${index + 1} source URL cannot contain embedded credentials`);
+  const normalized = url.toString().slice(0, 500);
+  assertNoCredentialLikeText(normalized, `Signal ${index + 1} source URL`);
+  return normalized;
 }

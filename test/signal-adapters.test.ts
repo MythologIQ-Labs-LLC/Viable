@@ -33,6 +33,14 @@ test("manual import rejects malformed data instead of silently succeeding", asyn
   assert.equal(outcome.signals.length, 0);
 });
 
+test("manual import rejects source URLs with embedded credentials", async () => {
+  const source = new ManualJsonSignalSource("manual", JSON.stringify({ signals: [{ title: "Unsafe source", summary: "Must not persist URL credentials", sourceUrl: "https://user:password@example.com/private" }] }), now, clock);
+  const outcome = await source.collect();
+  assert.equal(outcome.status, "validation_failed");
+  assert.equal(outcome.signals.length, 0);
+  assert.match(outcome.detail ?? "", /cannot contain embedded credentials/);
+});
+
 test("manual import creates untrusted suggested evidence with limitations", async () => {
   const source = new ManualJsonSignalSource("manual", JSON.stringify({ signals: [{ title: "Possible demand", summary: "A founder asked for help", confidence: "high" }] }), now, clock);
   const outcome = await source.collect();
@@ -49,4 +57,15 @@ test("failed Event Intelligence run preserves its source failure", async () => {
   const outcome = await source.collect();
   assert.equal(outcome.status, "transport_failed");
   assert.equal(outcome.signals.length, 0);
+});
+
+test("advanced Event Intelligence import fails closed on malformed runtime shape", async () => {
+  const source = new EventIntelligenceSignalSource("events", {
+    run: { runId: "run", startedAt: now, completedAt: now, status: "success", sources: [] },
+    events: [{ event: { externalId: "event-1", title: "Bad provenance", startsAt: now, tags: [], provenance: { sourceId: "calendar", sourceUrl: "file:///private/events.json", retrievedAt: now } }, score: 10, reasons: ["test"], profileVersion: "v1" }],
+  }, now);
+  const outcome = await source.collect();
+  assert.equal(outcome.status, "validation_failed");
+  assert.equal(outcome.signals.length, 0);
+  assert.match(outcome.detail ?? "", /provenance URL must use HTTP or HTTPS/);
 });
