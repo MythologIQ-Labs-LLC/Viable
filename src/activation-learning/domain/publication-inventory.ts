@@ -51,9 +51,9 @@ export type PublicationInventoryItem = Readonly<{
   expiresAt?: string;
   maxUses: number;
   useCount: number;
-  reviewedBy?: string;
-  reviewedAt?: string;
-  reviewNote?: string;
+  reviewedBy?: string | undefined;
+  reviewedAt?: string | undefined;
+  reviewNote?: string | undefined;
   createdAt: string;
   updatedAt: string;
 }>;
