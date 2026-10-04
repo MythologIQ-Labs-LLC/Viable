@@ -8,9 +8,11 @@ pub struct CredentialReference(String);
 impl CredentialReference {
     pub fn parse(value: impl Into<String>) -> Result<Self, CredentialStoreError> {
         let value = value.into();
-        let suffix = value
-            .strip_prefix(REFERENCE_PREFIX)
-            .ok_or_else(|| CredentialStoreError::InvalidReference("credential reference must use viable://credential/".into()))?;
+        let suffix = value.strip_prefix(REFERENCE_PREFIX).ok_or_else(|| {
+            CredentialStoreError::InvalidReference(
+                "credential reference must use viable://credential/".into(),
+            )
+        })?;
 
         let segments: Vec<&str> = suffix.split('/').collect();
         if segments.len() != 3 || segments.iter().any(|segment| !valid_segment(segment)) {
@@ -24,6 +26,24 @@ impl CredentialReference {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    pub(crate) fn parts(&self) -> (&str, &str, &str) {
+        let suffix = self
+            .0
+            .strip_prefix(REFERENCE_PREFIX)
+            .expect("validated credential reference lost its prefix");
+        let mut segments = suffix.split('/');
+        let provider = segments
+            .next()
+            .expect("validated credential reference lost provider segment");
+        let connection = segments
+            .next()
+            .expect("validated credential reference lost connection segment");
+        let kind = segments
+            .next()
+            .expect("validated credential reference lost kind segment");
+        (provider, connection, kind)
     }
 }
 
@@ -52,12 +72,29 @@ impl fmt::Debug for SecretValue {
     }
 }
 
+impl Drop for SecretValue {
+    fn drop(&mut self) {
+        self.0.fill(0);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CredentialCapability {
     Available,
     Inaccessible,
     Unsupported,
     PlatformFailure,
+}
+
+impl CredentialCapability {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Available => "available",
+            Self::Inaccessible => "inaccessible",
+            Self::Unsupported => "unsupported",
+            Self::PlatformFailure => "platform_failure",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,6 +104,19 @@ pub enum CredentialStoreError {
     Unsupported,
     PlatformFailure(String),
     InvalidReference(String),
+}
+
+impl CredentialStoreError {
+    pub fn capability(&self) -> CredentialCapability {
+        match self {
+            Self::Inaccessible => CredentialCapability::Inaccessible,
+            Self::Unsupported => CredentialCapability::Unsupported,
+            Self::PlatformFailure(_) | Self::InvalidReference(_) => {
+                CredentialCapability::PlatformFailure
+            }
+            Self::Missing => CredentialCapability::Available,
+        }
+    }
 }
 
 impl fmt::Display for CredentialStoreError {
@@ -92,7 +142,10 @@ pub trait CredentialStore: Send + Sync {
         reference: &CredentialReference,
         secret: &SecretValue,
     ) -> Result<(), CredentialStoreError>;
-    fn get_secret(&self, reference: &CredentialReference) -> Result<SecretValue, CredentialStoreError>;
+    fn get_secret(
+        &self,
+        reference: &CredentialReference,
+    ) -> Result<SecretValue, CredentialStoreError>;
     fn delete_secret(&self, reference: &CredentialReference) -> Result<(), CredentialStoreError>;
 
     fn has_secret(&self, reference: &CredentialReference) -> Result<bool, CredentialStoreError> {
@@ -213,6 +266,13 @@ mod tests {
     }
 
     #[test]
+    fn reference_parts_are_stable_and_non_secret() {
+        let reference = reference();
+        assert_eq!(reference.as_str(), "viable://credential/linkedin/connection-1/access_token");
+        assert_eq!(reference.parts(), ("linkedin", "connection-1", "access_token"));
+    }
+
+    #[test]
     fn secret_debug_output_is_always_redacted() {
         let secret = SecretValue::new(b"super-secret-token".to_vec());
         let rendered = format!("{secret:?}");
@@ -281,7 +341,10 @@ mod tests {
 
         assert_eq!(unsupported.capability(), CredentialCapability::Unsupported);
         assert_eq!(failed.capability(), CredentialCapability::PlatformFailure);
-        assert_eq!(unsupported.get_secret(&reference()), Err(CredentialStoreError::Unsupported));
+        assert_eq!(
+            unsupported.get_secret(&reference()),
+            Err(CredentialStoreError::Unsupported)
+        );
         assert_eq!(
             failed.get_secret(&reference()),
             Err(CredentialStoreError::PlatformFailure(
