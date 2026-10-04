@@ -3,6 +3,7 @@ use crate::credential_store::{
 };
 use keyring_core::{Entry, Error as KeyringError};
 
+#[derive(Debug)]
 pub struct NativeCredentialStore;
 
 impl NativeCredentialStore {
