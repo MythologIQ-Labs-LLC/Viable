@@ -28,6 +28,30 @@ test("Calendar exposes destination scheduling export and delivery evidence journ
   assert.match(html, /activation-learning-shell\.js/);
 });
 
+test("Calendar composes publication inventory as additive activation authority", async () => {
+  const [inventory, shell, store] = await Promise.all([
+    read("apps/desktop/ui/publication-inventory-view.ts"),
+    read("apps/desktop/ui/activation-learning-shell.ts"),
+    read("apps/desktop/ui/local-storage-activation-learning-store.ts"),
+  ]);
+  for (const marker of [
+    "Approve content once. Hold exact publication intent as stock",
+    "Stocking never publishes by itself",
+    "Create publication policy",
+    "Create draft inventory item",
+    "Submit for inventory review",
+    "Approve and stock",
+    "Recheck inventory authority",
+    "Empty inventory will always mean publish nothing",
+  ]) assert.match(inventory, new RegExp(marker, "i"));
+  assert.match(shell, /PublicationInventoryViewController/);
+  assert.match(shell, /page === "calendar"/);
+  assert.match(shell, /synchronizePublicationSourceOptions/);
+  assert.match(store, /publicationPolicies/);
+  assert.match(store, /publicationInventory/);
+  assert.match(store, /defaultArrays/);
+});
+
 test("Analytics exposes baseline explicit evidence retrospective and learning journey", async () => {
   const view = await read("apps/desktop/ui/activation-learning-view.ts");
   for (const marker of [

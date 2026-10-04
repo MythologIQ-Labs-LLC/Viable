@@ -1,8 +1,9 @@
 import type { ClaimReference } from "../../campaigns/domain/campaign.js";
+import type { PublicationInventoryItem, PublicationPolicy } from "./publication-inventory.js";
 
 export type ActivationSourceKind = "campaign_variant" | "repository_launch" | "video_variant";
 export type CalendarEntryKind = "external_activation" | "approval_deadline" | "event_opportunity" | "experiment" | "follow_up";
-export type DestinationChannel = "linkedin" | "website" | "github_release" | "instagram_reels" | "youtube_shorts";
+export type DestinationChannel = "linkedin" | "facebook_page" | "instagram_feed" | "website" | "github_release" | "instagram_reels" | "youtube_shorts";
 export type ScheduleStatus = "draft" | "in_review" | "changes_requested" | "scheduled" | "rejected" | "cancelled" | "approval_invalidated";
 export type ActivationStatus = "not_applicable" | "not_ready" | "ready_for_manual_activation" | "delivered" | "failed" | "cancelled" | "outcome_unknown";
 export type DeliveryStatus = "delivered" | "failed" | "cancelled" | "unknown";
@@ -209,6 +210,8 @@ export type ActivationLearningWorkspace = Readonly<{
   workspaceId: string;
   destinations: readonly DestinationRecord[];
   calendarEntries: readonly CalendarEntry[];
+  publicationPolicies?: readonly PublicationPolicy[];
+  publicationInventory?: readonly PublicationInventoryItem[];
   packages: readonly ManualActivationPackage[];
   exportOperations: readonly ExportOperation[];
   deliveryOutcomes: readonly DeliveryOutcome[];
