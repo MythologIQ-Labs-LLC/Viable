@@ -13,9 +13,10 @@ export class LocalStorageActivationLearningStore implements ActivationLearningSt
       { field: "workspaceId", expected: workspaceId },
       {
         arrays: [
-          "destinations", "calendarEntries", "packages", "exportOperations", "deliveryOutcomes",
+          "destinations", "calendarEntries", "publicationPolicies", "publicationInventory", "packages", "exportOperations", "deliveryOutcomes",
           "measurementPlans", "performanceImports", "retrospectives", "learningLedger",
         ],
+        defaultArrays: ["publicationPolicies", "publicationInventory"],
         strings: ["updatedAt"],
       },
     );

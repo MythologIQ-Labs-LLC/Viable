@@ -9,6 +9,7 @@ type IdentityRequirement = Readonly<{
 
 type ShapeRequirement = Readonly<{
   arrays: readonly string[];
+  defaultArrays?: readonly string[];
   records?: readonly string[];
   strings?: readonly string[];
 }>;
@@ -69,15 +70,20 @@ export function readWorkspaceJson<T>(
     throw new LocalWorkspaceStorageError(`${label} identity does not match the active workspace. The original saved value was preserved.`);
   }
 
-  const missingArrays = shape.arrays.filter((field) => !Array.isArray(workspace[field]));
-  const missingRecords = (shape.records ?? []).filter((field) => !isRecord(workspace[field]));
-  const missingStrings = (shape.strings ?? []).filter((field) => typeof workspace[field] !== "string");
+  const normalized: Record<string, unknown> = { ...workspace };
+  for (const field of shape.defaultArrays ?? []) {
+    if (!(field in normalized)) normalized[field] = [];
+  }
+
+  const missingArrays = shape.arrays.filter((field) => !Array.isArray(normalized[field]));
+  const missingRecords = (shape.records ?? []).filter((field) => !isRecord(normalized[field]));
+  const missingStrings = (shape.strings ?? []).filter((field) => typeof normalized[field] !== "string");
   const missing = [...missingArrays, ...missingRecords, ...missingStrings];
   if (missing.length > 0) {
     throw new LocalWorkspaceStorageError(`${label} data is incomplete or invalid. Required workspace fields: ${missing.join(", ")}. The original saved value was preserved.`);
   }
 
-  return workspace as T;
+  return normalized as T;
 }
 
 export function writeWorkspaceJson(storage: WriteStorage, key: string, label: string, value: unknown): void {

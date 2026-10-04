@@ -13,9 +13,11 @@ import { CampaignService } from "../../../src/campaigns/services/campaign-servic
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
 
-const CHANNELS: readonly ChannelKind[] = ["linkedin", "website", "github_release"];
+const CHANNELS: readonly ChannelKind[] = ["linkedin", "facebook_page", "instagram_feed", "website", "github_release"];
 const CHANNEL_LABELS: Record<ChannelKind, string> = {
   linkedin: "LinkedIn",
+  facebook_page: "Facebook Page",
+  instagram_feed: "Instagram Feed",
   website: "Website",
   github_release: "GitHub release",
 };

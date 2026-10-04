@@ -7,7 +7,7 @@ export type CampaignStatus =
   | "approval_invalidated";
 
 export type AssetReviewStatus = CampaignStatus;
-export type ChannelKind = "linkedin" | "website" | "github_release";
+export type ChannelKind = "linkedin" | "facebook_page" | "instagram_feed" | "website" | "github_release";
 
 export type AuthorityRevision = Readonly<{
   version: number;

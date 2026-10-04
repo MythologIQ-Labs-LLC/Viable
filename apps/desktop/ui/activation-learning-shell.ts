@@ -1,5 +1,6 @@
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { ActivationLearningViewController } from "./activation-learning-view.js";
+import { PublicationInventoryViewController } from "./publication-inventory-view.js";
 
 const productStore = new LocalStorageProductWorkspaceStore();
 const sidebar = document.querySelector<HTMLElement>("#sidebar");
@@ -7,6 +8,7 @@ const main = document.querySelector<HTMLElement>("#main");
 const live = document.querySelector<HTMLElement>("#live-region");
 let page: "calendar" | "analytics" | undefined;
 let controller: ActivationLearningViewController | undefined;
+let inventoryController: PublicationInventoryViewController | undefined;
 
 function announce(message: string): void {
   if (live) live.textContent = message;
@@ -57,15 +59,25 @@ async function open(target: "calendar" | "analytics"): Promise<void> {
   const product = await productStore.load(workspaceId);
   if (!product) throw new Error("Product workspace could not be loaded");
   if (!controller || controller.workspaceId !== workspaceId) controller = new ActivationLearningViewController(workspaceId, product.createdBy);
-  await controller.load();
+  if (!inventoryController || inventoryController.workspaceId !== workspaceId) inventoryController = new PublicationInventoryViewController(workspaceId, product.createdBy);
+  await refreshControllers();
   render();
   main.setAttribute("aria-busy", "false");
   main.focus();
 }
 
+async function refreshControllers(): Promise<void> {
+  const loads: Promise<void>[] = [];
+  if (controller) loads.push(controller.load());
+  if (inventoryController) loads.push(inventoryController.load());
+  await Promise.all(loads);
+}
+
 function render(): void {
   if (!main || !page) return;
-  main.innerHTML = controller?.render(page) ?? `<section class="state loading" role="status"><strong>Loading Calendar and Analytics</strong></section>`;
+  const primary = controller?.render(page) ?? `<section class="state loading" role="status"><strong>Loading Calendar and Analytics</strong></section>`;
+  const inventory = page === "calendar" ? inventoryController?.render() ?? "" : "";
+  main.innerHTML = primary + inventory;
   prepareForms();
   activateNavigation();
 }
@@ -74,15 +86,34 @@ function prepareForms(): void {
   if (!main) return;
   const now = new Date();
   for (const form of main.querySelectorAll<HTMLFormElement>("form")) {
-    for (const name of ["startsAt", "observedAt", "capturedAt", "observationStartsAt", "windowStartsAt"]) setDate(form, name, now);
-    for (const name of ["endsAt", "observationEndsAt", "windowEndsAt"]) setDate(form, name, addDays(now, 14));
+    for (const name of ["startsAt", "observedAt", "capturedAt", "observationStartsAt", "windowStartsAt", "availableFrom"]) setDate(form, name, now);
+    for (const name of ["endsAt", "observationEndsAt", "windowEndsAt", "expiresAt"]) setDate(form, name, addDays(now, 14));
     setDate(form, "baselineStartsAt", addDays(now, -14));
     setDate(form, "baselineEndsAt", addDays(now, -1));
   }
+  extendDestinationChannels();
   const external = main.querySelector<HTMLFormElement>('form[data-form="activation-external-entry"]');
   if (external) synchronizeSourceOptions(external);
+  const inventory = main.querySelector<HTMLFormElement>('form[data-form="publication-inventory-item"]');
+  if (inventory) synchronizePublicationSourceOptions(inventory);
   const delivery = main.querySelector<HTMLFormElement>('form[data-form="activation-delivery-outcome"]');
   if (delivery) synchronizeDeliveryEntry(delivery);
+}
+
+function extendDestinationChannels(): void {
+  const select = main?.querySelector<HTMLSelectElement>('form[data-form="activation-destination"] select[name="channel"]');
+  if (!select) return;
+  const additions = [
+    ["facebook_page", "Facebook Page"],
+    ["instagram_feed", "Instagram Feed"],
+  ] as const;
+  for (const [value, text] of additions) {
+    if ([...select.options].some((option) => option.value === value)) continue;
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    select.append(option);
+  }
 }
 
 function synchronizeSourceOptions(form: HTMLFormElement): void {
@@ -101,6 +132,28 @@ function synchronizeSourceOptions(form: HTMLFormElement): void {
     if (first) source.value = first.value;
   };
   destination.addEventListener("change", synchronize);
+  synchronize();
+}
+
+function synchronizePublicationSourceOptions(form: HTMLFormElement): void {
+  const policy = form.querySelector<HTMLSelectElement>('select[name="policyId"]');
+  const destination = form.querySelector<HTMLInputElement>('input[name="destinationId"]');
+  const source = form.querySelector<HTMLSelectElement>('select[name="source"]');
+  if (!policy || !destination || !source) return;
+  const synchronize = (): void => {
+    const selected = policy.selectedOptions[0];
+    const channel = selected?.dataset.channel;
+    destination.value = selected?.dataset.destinationId ?? "";
+    let first: HTMLOptionElement | undefined;
+    for (const option of source.options) {
+      const matches = option.dataset.channel === channel;
+      option.hidden = !matches;
+      option.disabled = !matches;
+      if (matches && !first) first = option;
+    }
+    if (first) source.value = first.value;
+  };
+  policy.addEventListener("change", synchronize);
   synchronize();
 }
 
@@ -144,11 +197,22 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (target && !["calendar", "analytics"].includes(target)) page = undefined;
-  if (!button.dataset.activationAction || !controller || !page) return;
+  if (!page) return;
+  const activationAction = button.dataset.activationAction;
+  const publicationAction = button.dataset.publicationAction;
+  if (!activationAction && !publicationAction) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   main?.setAttribute("aria-busy", "true");
-  void controller.click(button).then((message) => {
+  const operation = activationAction
+    ? controller?.click(button)
+    : inventoryController?.click(button);
+  if (!operation) {
+    main?.setAttribute("aria-busy", "false");
+    return;
+  }
+  void operation.then(async (message) => {
+    await refreshControllers();
     render();
     if (message) announce(message);
   }).catch((error: unknown) => {
@@ -159,11 +223,17 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("submit", (event) => {
   const form = event.target as HTMLFormElement;
-  if (!page || !controller || !form.dataset.form?.startsWith("activation-")) return;
+  const formKind = form.dataset.form ?? "";
+  if (!page || (!formKind.startsWith("activation-") && !formKind.startsWith("publication-"))) return;
+  const operation = formKind.startsWith("publication-")
+    ? inventoryController?.submit(form)
+    : controller?.submit(form);
+  if (!operation) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   main?.setAttribute("aria-busy", "true");
-  void controller.submit(form).then((message) => {
+  void operation.then(async (message) => {
+    await refreshControllers();
     render();
     if (message) announce(message);
   }).catch((error: unknown) => {
