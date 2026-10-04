@@ -91,12 +91,29 @@ function prepareForms(): void {
     setDate(form, "baselineStartsAt", addDays(now, -14));
     setDate(form, "baselineEndsAt", addDays(now, -1));
   }
+  extendDestinationChannels();
   const external = main.querySelector<HTMLFormElement>('form[data-form="activation-external-entry"]');
   if (external) synchronizeSourceOptions(external);
   const inventory = main.querySelector<HTMLFormElement>('form[data-form="publication-inventory-item"]');
   if (inventory) synchronizePublicationSourceOptions(inventory);
   const delivery = main.querySelector<HTMLFormElement>('form[data-form="activation-delivery-outcome"]');
   if (delivery) synchronizeDeliveryEntry(delivery);
+}
+
+function extendDestinationChannels(): void {
+  const select = main?.querySelector<HTMLSelectElement>('form[data-form="activation-destination"] select[name="channel"]');
+  if (!select) return;
+  const additions = [
+    ["facebook_page", "Facebook Page"],
+    ["instagram_feed", "Instagram Feed"],
+  ] as const;
+  for (const [value, text] of additions) {
+    if ([...select.options].some((option) => option.value === value)) continue;
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    select.append(option);
+  }
 }
 
 function synchronizeSourceOptions(form: HTMLFormElement): void {
