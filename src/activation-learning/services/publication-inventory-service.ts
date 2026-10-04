@@ -7,12 +7,10 @@ import type {
 import type {
   PublicationInventoryItem,
   PublicationInventoryReviewDecision,
-  PublicationInventoryWorkspace,
   PublicationPolicy,
   PublicationWindow,
 } from "../domain/publication-inventory.js";
 import type { ActivationLearningStore } from "../ports/activation-learning-store.js";
-import type { PublicationInventoryStore } from "../ports/publication-inventory-store.js";
 import type { PublicationSourceAuthorityPort } from "../ports/publication-source-authority.js";
 
 type Clock = () => Date;
@@ -20,15 +18,16 @@ type IdFactory = () => string;
 
 export class PublicationInventoryService {
   constructor(
-    private readonly store: PublicationInventoryStore,
-    private readonly activationStore: ActivationLearningStore,
+    private readonly store: ActivationLearningStore,
     private readonly sourceAuthority: PublicationSourceAuthorityPort,
     private readonly clock: Clock = () => new Date(),
     private readonly createId: IdFactory = () => globalThis.crypto.randomUUID(),
   ) {}
 
-  async load(workspaceId: string): Promise<PublicationInventoryWorkspace> {
-    return await this.store.load(workspaceId) ?? emptyWorkspace(workspaceId, this.clock().toISOString());
+  async load(workspaceId: string): Promise<ActivationLearningWorkspace> {
+    const workspace = await this.store.load(workspaceId);
+    if (!workspace) throw new Error("Calendar and Activation workspace not found");
+    return normalizedWorkspace(workspace);
   }
 
   async createPolicy(workspaceId: string, input: Readonly<{
@@ -42,7 +41,7 @@ export class PublicationInventoryService {
     maximumPerWeek?: number;
     lateToleranceMinutes: number;
     retryLimit: number;
-  }>): Promise<PublicationInventoryWorkspace> {
+  }>): Promise<ActivationLearningWorkspace> {
     requireText(input.label, "Publication policy label");
     requireText(input.timezone, "Publication policy timezone");
     rejectSecrets([input.label, input.timezone]);
@@ -54,9 +53,8 @@ export class PublicationInventoryService {
     requireNonNegativeInteger(input.lateToleranceMinutes, "Late tolerance minutes");
     requireNonNegativeInteger(input.retryLimit, "Retry limit");
 
-    const activation = await this.requiredActivationWorkspace(workspaceId);
-    const destination = requiredActiveDestination(activation, input.destinationId);
     const workspace = await this.load(workspaceId);
+    const destination = requiredActiveDestination(workspace, input.destinationId);
     const now = this.clock().toISOString();
     const policy: PublicationPolicy = {
       id: this.createId(),
@@ -76,16 +74,21 @@ export class PublicationInventoryService {
       createdAt: now,
       updatedAt: now,
     };
-    return this.persist({ ...workspace, policies: [...workspace.policies, policy], updatedAt: now });
+    return this.persist({
+      ...workspace,
+      publicationPolicies: [...publicationPolicies(workspace), policy],
+      updatedAt: now,
+    });
   }
 
-  async setPolicyEnabled(workspaceId: string, policyId: string, enabled: boolean): Promise<PublicationInventoryWorkspace> {
+  async setPolicyEnabled(workspaceId: string, policyId: string, enabled: boolean): Promise<ActivationLearningWorkspace> {
     const workspace = await this.load(workspaceId);
-    if (!workspace.policies.some((policy) => policy.id === policyId)) throw new Error("Publication policy not found");
+    const policies = publicationPolicies(workspace);
+    if (!policies.some((policy) => policy.id === policyId)) throw new Error("Publication policy not found");
     const now = this.clock().toISOString();
     return this.persist({
       ...workspace,
-      policies: workspace.policies.map((policy) => policy.id === policyId ? { ...policy, enabled, updatedAt: now } : policy),
+      publicationPolicies: policies.map((policy) => policy.id === policyId ? { ...policy, enabled, updatedAt: now } : policy),
       updatedAt: now,
     });
   }
@@ -99,7 +102,7 @@ export class PublicationInventoryService {
     availableFrom: string;
     expiresAt?: string;
     maxUses?: number;
-  }>): Promise<PublicationInventoryWorkspace> {
+  }>): Promise<ActivationLearningWorkspace> {
     requireFiniteNumber(input.priority, "Publication inventory priority");
     const availableFrom = normalizedDate(input.availableFrom, "Inventory availability start");
     const expiresAt = input.expiresAt ? normalizedDate(input.expiresAt, "Inventory expiration") : undefined;
@@ -109,9 +112,8 @@ export class PublicationInventoryService {
     const maxUses = input.maxUses ?? 1;
     requirePositiveInteger(maxUses, "Publication inventory maximum uses");
 
-    const activation = await this.requiredActivationWorkspace(workspaceId);
-    const destination = requiredActiveDestination(activation, input.destinationId);
     const workspace = await this.load(workspaceId);
+    const destination = requiredActiveDestination(workspace, input.destinationId);
     const policy = requiredPolicy(workspace, input.policyId);
     if (!policy.enabled) throw new Error("Publication inventory requires an enabled publication policy");
     if (policy.destinationId !== destination.id) throw new Error("Publication policy does not belong to the selected destination");
@@ -134,19 +136,21 @@ export class PublicationInventoryService {
       createdAt: now,
       updatedAt: now,
     };
-    return this.persist({ ...workspace, items: [...workspace.items, item], updatedAt: now });
+    return this.persist({
+      ...workspace,
+      publicationInventory: [...publicationInventory(workspace), item],
+      updatedAt: now,
+    });
   }
 
-  async submitInventoryItem(workspaceId: string, itemId: string): Promise<PublicationInventoryWorkspace> {
-    const [workspace, activation] = await Promise.all([
-      this.load(workspaceId),
-      this.requiredActivationWorkspace(workspaceId),
-    ]);
+  async submitInventoryItem(workspaceId: string, itemId: string): Promise<ActivationLearningWorkspace> {
+    const workspace = await this.load(workspaceId);
+    const items = publicationInventory(workspace);
     const item = requiredItem(workspace, itemId);
     if (!["draft", "changes_requested", "approval_invalidated"].includes(item.status)) {
       throw new Error("Only draft, changed, or invalidated inventory can enter review");
     }
-    const destination = requiredActiveDestination(activation, item.destinationId);
+    const destination = requiredActiveDestination(workspace, item.destinationId);
     const policy = requiredPolicy(workspace, item.policyId);
     if (!policy.enabled) throw new Error("Publication policy is disabled");
     if (policy.destinationId !== destination.id) throw new Error("Publication policy destination changed");
@@ -154,7 +158,7 @@ export class PublicationInventoryService {
     const now = this.clock().toISOString();
     return this.persist({
       ...workspace,
-      items: workspace.items.map((candidate) => candidate.id === item.id ? {
+      publicationInventory: items.map((candidate) => candidate.id === item.id ? {
         ...candidate,
         destinationUpdatedAt: destination.updatedAt,
         policyVersion: policy.version,
@@ -175,17 +179,15 @@ export class PublicationInventoryService {
     reviewer: string,
     decision: PublicationInventoryReviewDecision,
     note: string,
-  ): Promise<PublicationInventoryWorkspace> {
+  ): Promise<ActivationLearningWorkspace> {
     requireText(reviewer, "Publication inventory reviewer");
     requireText(note, "Publication inventory review note");
     rejectSecrets([reviewer, note]);
-    const [workspace, activation] = await Promise.all([
-      this.load(workspaceId),
-      this.requiredActivationWorkspace(workspaceId),
-    ]);
+    const workspace = await this.load(workspaceId);
+    const items = publicationInventory(workspace);
     const item = requiredItem(workspace, itemId);
     if (item.status !== "in_review") throw new Error("Publication inventory item must be in review");
-    const destination = requiredActiveDestination(activation, item.destinationId);
+    const destination = requiredActiveDestination(workspace, item.destinationId);
     const policy = requiredPolicy(workspace, item.policyId);
     if (!policy.enabled) throw new Error("Publication policy is disabled");
     if (policy.destinationId !== destination.id || policy.version !== item.policyVersion) {
@@ -200,7 +202,7 @@ export class PublicationInventoryService {
     const status = decision === "approved" ? "stocked" : decision;
     return this.persist({
       ...workspace,
-      items: workspace.items.map((candidate) => candidate.id === item.id ? {
+      publicationInventory: items.map((candidate) => candidate.id === item.id ? {
         ...candidate,
         status,
         reviewedBy: reviewer.trim(),
@@ -212,51 +214,46 @@ export class PublicationInventoryService {
     });
   }
 
-  async retireInventoryItem(workspaceId: string, itemId: string): Promise<PublicationInventoryWorkspace> {
+  async retireInventoryItem(workspaceId: string, itemId: string): Promise<ActivationLearningWorkspace> {
     const workspace = await this.load(workspaceId);
+    const items = publicationInventory(workspace);
     const item = requiredItem(workspace, itemId);
     if (item.status === "reserved") throw new Error("Reserved publication inventory cannot be retired until its reservation is resolved");
     if (item.status === "depleted") throw new Error("Depleted publication inventory is already exhausted");
     const now = this.clock().toISOString();
     return this.persist({
       ...workspace,
-      items: workspace.items.map((candidate) => candidate.id === item.id ? { ...candidate, status: "retired" as const, updatedAt: now } : candidate),
+      publicationInventory: items.map((candidate) => candidate.id === item.id ? { ...candidate, status: "retired" as const, updatedAt: now } : candidate),
       updatedAt: now,
     });
   }
 
-  async detectAuthorityImpact(workspaceId: string): Promise<PublicationInventoryWorkspace> {
-    const [workspace, activation] = await Promise.all([
-      this.load(workspaceId),
-      this.requiredActivationWorkspace(workspaceId),
-    ]);
+  async detectAuthorityImpact(workspaceId: string): Promise<ActivationLearningWorkspace> {
+    const workspace = await this.load(workspaceId);
     const now = this.clock().toISOString();
     const items: PublicationInventoryItem[] = [];
-    for (const item of workspace.items) {
+    for (const item of publicationInventory(workspace)) {
       if (!["in_review", "stocked"].includes(item.status)) {
         items.push(item);
         continue;
       }
-      const valid = await this.isAuthorityCurrent(workspaceId, workspace, activation, item);
+      const valid = await this.isAuthorityCurrent(workspaceId, workspace, item);
       items.push(valid ? item : { ...item, status: "approval_invalidated", reviewNote: "Source, destination, or publication policy authority changed", updatedAt: now });
     }
-    return this.persist({ ...workspace, items, updatedAt: now });
+    return this.persist({ ...workspace, publicationInventory: items, updatedAt: now });
   }
 
   async eligibleItems(workspaceId: string, at: string): Promise<readonly PublicationInventoryItem[]> {
     const instant = Date.parse(at);
     if (!Number.isFinite(instant)) throw new Error("Publication eligibility time must be a valid date and time");
-    const [workspace, activation] = await Promise.all([
-      this.load(workspaceId),
-      this.requiredActivationWorkspace(workspaceId),
-    ]);
+    const workspace = await this.load(workspaceId);
     const eligible: PublicationInventoryItem[] = [];
-    for (const item of workspace.items) {
+    for (const item of publicationInventory(workspace)) {
       if (item.status !== "stocked") continue;
       if (item.useCount >= item.maxUses) continue;
       if (Date.parse(item.availableFrom) > instant) continue;
       if (item.expiresAt && Date.parse(item.expiresAt) <= instant) continue;
-      if (!await this.isAuthorityCurrent(workspaceId, workspace, activation, item)) continue;
+      if (!await this.isAuthorityCurrent(workspaceId, workspace, item)) continue;
       eligible.push(item);
     }
     return eligible.sort(compareInventoryItems);
@@ -264,12 +261,11 @@ export class PublicationInventoryService {
 
   private async isAuthorityCurrent(
     workspaceId: string,
-    workspace: PublicationInventoryWorkspace,
-    activation: ActivationLearningWorkspace,
+    workspace: ActivationLearningWorkspace,
     item: PublicationInventoryItem,
   ): Promise<boolean> {
     try {
-      const destination = requiredActiveDestination(activation, item.destinationId);
+      const destination = requiredActiveDestination(workspace, item.destinationId);
       if (destination.updatedAt !== item.destinationUpdatedAt) return false;
       const policy = requiredPolicy(workspace, item.policyId);
       if (!policy.enabled || policy.version !== item.policyVersion || policy.destinationId !== destination.id) return false;
@@ -280,20 +276,27 @@ export class PublicationInventoryService {
     }
   }
 
-  private async requiredActivationWorkspace(workspaceId: string): Promise<ActivationLearningWorkspace> {
-    const activation = await this.activationStore.load(workspaceId);
-    if (!activation) throw new Error("Calendar and Activation workspace not found");
-    return activation;
-  }
-
-  private async persist(workspace: PublicationInventoryWorkspace): Promise<PublicationInventoryWorkspace> {
-    await this.store.save(workspace);
-    return workspace;
+  private async persist(workspace: ActivationLearningWorkspace): Promise<ActivationLearningWorkspace> {
+    const normalized = normalizedWorkspace(workspace);
+    await this.store.save(normalized);
+    return normalized;
   }
 }
 
-function emptyWorkspace(workspaceId: string, now: string): PublicationInventoryWorkspace {
-  return { workspaceId, policies: [], items: [], updatedAt: now };
+function normalizedWorkspace(workspace: ActivationLearningWorkspace): ActivationLearningWorkspace {
+  return {
+    ...workspace,
+    publicationPolicies: publicationPolicies(workspace),
+    publicationInventory: publicationInventory(workspace),
+  };
+}
+
+function publicationPolicies(workspace: ActivationLearningWorkspace): readonly PublicationPolicy[] {
+  return workspace.publicationPolicies ?? [];
+}
+
+function publicationInventory(workspace: ActivationLearningWorkspace): readonly PublicationInventoryItem[] {
+  return workspace.publicationInventory ?? [];
 }
 
 function requiredActiveDestination(workspace: ActivationLearningWorkspace, destinationId: string): DestinationRecord {
@@ -303,14 +306,14 @@ function requiredActiveDestination(workspace: ActivationLearningWorkspace, desti
   return destination;
 }
 
-function requiredPolicy(workspace: PublicationInventoryWorkspace, policyId: string): PublicationPolicy {
-  const policy = workspace.policies.find((candidate) => candidate.id === policyId);
+function requiredPolicy(workspace: ActivationLearningWorkspace, policyId: string): PublicationPolicy {
+  const policy = publicationPolicies(workspace).find((candidate) => candidate.id === policyId);
   if (!policy) throw new Error("Publication policy not found");
   return policy;
 }
 
-function requiredItem(workspace: PublicationInventoryWorkspace, itemId: string): PublicationInventoryItem {
-  const item = workspace.items.find((candidate) => candidate.id === itemId);
+function requiredItem(workspace: ActivationLearningWorkspace, itemId: string): PublicationInventoryItem {
+  const item = publicationInventory(workspace).find((candidate) => candidate.id === itemId);
   if (!item) throw new Error("Publication inventory item not found");
   return item;
 }
