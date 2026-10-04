@@ -15,49 +15,59 @@
 | Provider boundary | ADR-0002 |
 | Local authority | ADR-0001 |
 | New decision | ADR-0009 |
+| Program issue | #97 |
 
 ## Purpose
 
-This document defines the next Viable activation slice: locally managed content inventory, deterministic scheduling, automated provider publishing, provider-verified execution evidence, and guided setup orchestration for provider connections.
+This document defines the stable architecture for locally managed publication inventory and deterministic automated publishing in Viable.
 
-The immediate target is the standalone local Viable desktop application. This architecture does not assume a hosted Viable service, multi-tenant SaaS, managed provider credentials, or a future commercial distribution model.
+The immediate product is the standalone local Viable desktop application. This architecture does not assume a hosted Viable service, multi-tenant SaaS, managed customer credentials, CoreForge, or a future commercial distribution model.
 
-The implementation exists to solve a concrete internal operating need: approved MythologIQ content should be prepared in advance, placed into inventory, and distributed consistently without requiring a human to manually copy and publish each item at the scheduled time.
+The operating need is concrete: approved MythologIQ content should be prepared in advance, held as inventory, and distributed consistently without requiring a human to manually copy and publish each item at the scheduled time.
+
+The document deliberately separates:
+
+- **settled architecture**, which is ready to implement;
+- **provider-specific decision frontier**, where facts must be established before implementation planning is trustworthy.
+
+This separation follows the QOR Roadmap / Wayfinder discipline: do not turn future uncertainty into fictional implementation slices merely because the destination is visible.
 
 ## Product outcome
 
-A user can:
+The intended end state is:
 
-1. create or import campaign content through existing Viable workflows;
-2. approve an exact channel variant for an exact destination and bounded publication policy;
-3. place that approved publication unit into inventory;
-4. allow Viable to select eligible inventory deterministically;
-5. publish through a connected provider without inference;
-6. record provider response evidence and failure state;
-7. preserve manual export as a fallback;
-8. later measure outcomes through the existing Measurement and Learning context.
+1. a user creates or imports campaign content through existing Viable workflows;
+2. an exact channel variant is approved for external use;
+3. the approved publication unit enters durable inventory under a bounded publication policy;
+4. Viable deterministically selects only eligible approved inventory;
+5. a provider-neutral execution ledger creates and tracks publication jobs;
+6. a live provider adapter, once separately qualified, publishes without inference;
+7. provider response or failure evidence is recorded truthfully;
+8. manual activation remains available when direct publishing is unavailable;
+9. provider metrics may later feed the existing Measurement and Learning context.
 
-The core activation path must continue to operate when no model provider or agent is available.
+The core inventory and scheduling path must work without an LLM or agent.
 
 ## Non-goals
 
-This slice does not:
+This architecture does not:
 
-- create a hosted Viable service;
-- create a shared MythologIQ social-publishing backend;
+- create hosted Viable infrastructure;
+- create shared MythologIQ social-publishing infrastructure;
 - require CoreForge;
-- allow a generator, model, scheduler, provider adapter, or setup agent to approve its own content;
-- generate new content because inventory is low;
+- allow a generator, model, scheduler, provider adapter, or setup agent to approve its own output;
+- generate replacement content when inventory is empty;
 - silently modify Product Core, campaign claims, ICPs, or canonical assets;
-- automate provider legal attestations, MFA, passkeys, CAPTCHAs, or consent that must be performed by the user;
+- automate provider legal attestations, MFA, passkeys, CAPTCHAs, or consequential consent that must be performed by the user;
 - automate personal Facebook profile publishing;
-- promise support for every provider before a provider adapter is implemented and validated;
-- use browser automation as the publishing runtime;
-- make direct publishing a prerequisite for the existing manual activation workflow.
+- promise a particular provider before that provider is qualified;
+- require browser automation for normal publication;
+- make direct publishing a prerequisite for existing manual activation;
+- pre-build a generalized setup-agent ecosystem before real provider evidence proves one is needed.
 
 ## Architectural principle
 
-The system separates three concerns that must not collapse into one another:
+The system separates content authority, activation authority, execution, and evidence.
 
 ```text
 CONTENT AUTHORITY
@@ -75,18 +85,18 @@ Publication Inventory
         |
         v
 DETERMINISTIC EXECUTION
-Scheduler -> Publication Job -> Provider Adapter
+Scheduler -> Publication Job -> Provider Port
         |
         v
 EVIDENCE
-Provider receipt / failure / publication identifier
+provider receipt / failure / publication identity
         |
         v
 MEASUREMENT AND LEARNING
 existing Viable outcome loop
 ```
 
-Inference may help create content before approval. It is not required to select, schedule, execute, retry, verify, or record an approved publication.
+Inference may help create content before approval. It is not required to select, schedule, reserve, retry, reconcile, verify, or record an approved publication.
 
 ## Relationship to ADR-0005
 
@@ -96,16 +106,16 @@ Automated publishing does not mean automatic approval.
 
 A publication may execute without a human present only when a named human has already approved an exact immutable publication intent containing:
 
-- the exact source variant and version;
+- exact source variant and version;
 - destination identity;
-- intended audience inherited from the approved source;
+- audience inherited from the approved source;
 - claims and evidence snapshot;
-- rights, consent, disclosures, and accessibility requirements;
-- allowed publication window;
+- rights, consent, disclosure, and accessibility requirements;
+- availability window;
 - publication policy;
 - approving human identity and time.
 
-Material source or destination changes invalidate the inventory approval before execution.
+Material source, destination, or policy changes invalidate unexecuted approval.
 
 The scheduler executes authority. It does not create authority.
 
@@ -117,117 +127,73 @@ The scheduler executes authority. It does not create authority.
 - canonical assets;
 - channel variants;
 - source content versions;
-- claim and evidence relationships;
-- rights, disclosure, and accessibility metadata;
+- claims and evidence relationships;
+- rights, disclosures, and accessibility metadata;
 - content review and approval.
 
 ### Approval and External Action owns
 
+Implementation-ready now:
+
 - destinations;
-- provider connections;
-- provider capability snapshots;
-- publication inventory;
 - publication policies;
-- inventory approval;
+- publication inventory;
+- inventory review and approval;
+- inventory eligibility;
 - reservation and scheduling;
 - publication jobs;
-- execution attempts;
-- provider receipts;
-- direct-publishing failures;
-- setup recipes and setup state;
-- executor capability routing for optional setup assistance.
+- publication attempts;
+- deterministic execution bookkeeping;
+- direct-publication outcome state once a provider port exists.
+
+Future provider-specific extensions may include:
+
+- provider connections;
+- provider capability snapshots;
+- provider setup sessions;
+- secure credential references;
+- provider receipts.
+
+Those extensions must preserve this context boundary but are not implementation-authorized merely by appearing here.
 
 ### Measurement and Learning owns
 
 - observation windows;
-- provider metric imports;
+- performance imports;
+- metric evidence states;
 - comparisons;
 - retrospectives;
 - learning-ledger entries.
 
-No new component owns duplicate campaign, claim, evidence, ICP, or learning authority.
+No automated-publishing component owns duplicate campaign, claim, evidence, ICP, or learning authority.
 
-## Domain model
+# Implementation-ready architecture
 
-### DestinationRecord extension
+The following domain contracts are sufficiently specified to build now.
 
-The current `DestinationRecord` is manual-only. It should be extended without moving credentials into the workspace.
+## Channel model
 
-Proposed additions:
+The current Campaign and Activation channel types are narrower than publication inventory requires.
 
-```ts
-export type DeliveryMode = "manual_only" | "provider_connected";
-
-export type DestinationRecord = Readonly<{
-  // existing fields
-  deliveryMode: DeliveryMode;
-  providerConnectionId?: string;
-}>;
-```
-
-A destination may remain manual-only permanently.
-
-Disabling a destination blocks new reservations and new provider execution. Historical evidence remains intact.
-
-### ProviderConnection
-
-A provider connection contains only non-secret metadata and a reference to credentials held outside the Viable workspace.
+The first additive channel vocabulary should support the content surfaces already required by the immediate product direction:
 
 ```ts
-export type ProviderKind = "linkedin" | "meta" | "x";
-
-export type ProviderConnectionState =
-  | "setup_required"
-  | "ready"
-  | "degraded"
-  | "reauthorization_required"
-  | "revoked"
-  | "disabled";
-
-export type ProviderConnection = Readonly<{
-  id: string;
-  workspaceId: string;
-  provider: ProviderKind;
-  label: string;
-  accountReference: string;
-  credentialReference: string;
-  state: ProviderConnectionState;
-  capabilitySnapshotId?: string;
-  lastValidatedAt?: string;
-  limitation?: string;
-  createdAt: string;
-  updatedAt: string;
-}>;
+export type ChannelKind =
+  | "linkedin"
+  | "facebook_page"
+  | "instagram_feed"
+  | "instagram_reels"
+  | "website"
+  | "github_release";
 ```
 
-`credentialReference` is an opaque identifier for an operating-system credential-store entry. It is not a token, client secret, refresh token, cookie, password, or browser session.
+A channel type indicates the user-facing publication surface. It does not imply that a live provider adapter exists.
 
-### ProviderCapabilitySnapshot
+Do not add unused future channels merely because they may be interesting later.
 
-Provider capability must be observed rather than assumed.
+## PublicationPolicy
 
-```ts
-export type ProviderCapabilitySnapshot = Readonly<{
-  id: string;
-  connectionId: string;
-  capturedAt: string;
-  canPublishText: boolean;
-  canPublishLink: boolean;
-  canPublishImage: boolean;
-  canPublishVideo: boolean;
-  canReadPublicationStatus: boolean;
-  canReadMetrics: boolean;
-  accountKinds: readonly string[];
-  providerLimits: readonly string[];
-  limitations: readonly string[];
-}>;
-```
-
-UI labels must reflect actual capability state. A connected account is not automatically a publish-capable account.
-
-### PublicationPolicy
-
-A publication policy is deterministic scheduling authority, not content authority.
+A publication policy expresses deterministic timing and quota rules. It does not approve content.
 
 ```ts
 export type PublicationPolicy = Readonly<{
@@ -237,7 +203,10 @@ export type PublicationPolicy = Readonly<{
   destinationId: string;
   timezone: string;
   allowedWeekdays: readonly number[];
-  allowedWindows: readonly Readonly<{ start: string; end: string }>[];
+  allowedWindows: readonly Readonly<{
+    start: string;
+    end: string;
+  }>[];
   minimumCooldownMinutes: number;
   maximumPerDay?: number;
   maximumPerWeek?: number;
@@ -249,11 +218,17 @@ export type PublicationPolicy = Readonly<{
 }>;
 ```
 
-The scheduler may choose only a time allowed by the policy.
+Required rules:
 
-### PublicationInventoryItem
+- the policy cannot grant content approval;
+- disabling a policy blocks new reservations;
+- changing a material policy field invalidates approval where that change alters the publication intent;
+- timing calculations use the policy timezone explicitly;
+- missing inventory never authorizes generation.
 
-The inventory item is the central new record.
+## PublicationInventoryItem
+
+The inventory item is the central new authority record.
 
 ```ts
 export type PublicationInventoryStatus =
@@ -286,15 +261,20 @@ export type PublicationInventoryItem = Readonly<{
 }>;
 ```
 
-For the first implementation, `maxUses` defaults to `1`. Reuse must be explicit. Viable must not repeatedly recycle a post merely because inventory is empty.
+First-delivery rules:
 
-An item becomes `stocked` only after named human approval.
+- `maxUses` defaults to `1`;
+- reuse must be explicit;
+- an item becomes `stocked` only through named human review;
+- no generator, scheduler, or provider port can create a stocked item;
+- current source authority is revalidated before review completion, reservation, and execution;
+- material source change produces `approval_invalidated` for unexecuted stock;
+- a retired or depleted item cannot be selected;
+- zero eligible stock produces no publication.
 
-An item becomes `approval_invalidated` when the exact source authority, destination, or governing publication policy changes materially.
+## PublicationJob
 
-### PublicationJob
-
-A publication job is an execution record created only after an eligible inventory item is reserved.
+A publication job represents one intended execution of one reserved inventory use.
 
 ```ts
 export type PublicationJobStatus =
@@ -313,7 +293,6 @@ export type PublicationJob = Readonly<{
   workspaceId: string;
   inventoryItemId: string;
   destinationId: string;
-  connectionId: string;
   scheduledFor: string;
   idempotencyKey: string;
   status: PublicationJobStatus;
@@ -330,9 +309,11 @@ export type PublicationJob = Readonly<{
 }>;
 ```
 
-### PublicationAttempt
+A connection identifier may be added after the live-provider connection contract is resolved. Do not bake an unqualified credential architecture into this initial record.
 
-Each provider call is separately recorded so retry behavior is auditable.
+## PublicationAttempt
+
+Each execution attempt is separately auditable.
 
 ```ts
 export type PublicationAttempt = Readonly<{
@@ -341,44 +322,45 @@ export type PublicationAttempt = Readonly<{
   attemptNumber: number;
   startedAt: string;
   completedAt: string;
-  outcome: "published" | "retryable_failure" | "terminal_failure" | "unknown";
+  outcome:
+    | "published"
+    | "retryable_failure"
+    | "terminal_failure"
+    | "unknown";
   providerResponseId?: string;
   failureClass?: string;
   redactedDetail: string;
 }>;
 ```
 
-No secret-bearing provider payload is retained.
+No secret-bearing provider payload may be persisted in an attempt.
 
 ## Deterministic scheduler
 
-The scheduler does not use inference.
+At each scheduler evaluation, Viable:
 
-At each scheduler tick it:
-
-1. loads active publication policies;
-2. calculates destinations eligible to publish at the current time;
-3. excludes destinations already at daily or weekly limits;
+1. loads enabled publication policies;
+2. determines which policies permit activity at the candidate time;
+3. excludes destinations or policies that reached configured daily/weekly limits;
 4. excludes destinations inside cooldown periods;
-5. selects `stocked` inventory items whose availability window includes the candidate time;
-6. revalidates current source authority;
-7. validates destination state and provider capability;
-8. orders eligible items by:
+5. selects only `stocked` inventory whose availability range includes the candidate time;
+6. revalidates source and destination authority;
+7. orders eligible items by:
    1. lower numeric priority value;
    2. earliest expiration;
    3. oldest approval time;
-   4. stable item identifier as the final deterministic tie-breaker;
-9. atomically reserves one item;
-10. creates one publication job with an idempotency key;
-11. executes at `scheduledFor`.
+   4. stable item identifier as final tie-breaker;
+8. atomically reserves one use;
+9. creates one publication job with a stable idempotency identity;
+10. leaves execution to the provider port once one is available.
 
-The scheduler must never generate content to satisfy a schedule.
+The scheduler must never create or rewrite content.
 
-When no approved item is eligible, Viable records an inventory-gap state and publishes nothing.
+When no item is eligible, Viable records or exposes an inventory-gap state and publishes nothing.
 
 ## Idempotency and duplicate prevention
 
-Every automated publication must have a stable idempotency identity derived from:
+Every automated publication has a stable Viable identity derived from:
 
 - workspace;
 - inventory item;
@@ -386,228 +368,66 @@ Every automated publication must have a stable idempotency identity derived from
 - exact source version;
 - use ordinal.
 
-A provider retry must reuse the same Viable job identity.
+Retry preserves the same job identity.
 
-Before retrying an ambiguous provider failure, the adapter should query provider state when supported. If the provider cannot disambiguate whether the previous request succeeded, the job becomes `outcome_unknown` rather than risking an automatic duplicate.
+Provider-specific duplicate prevention is intentionally not assumed. Until a selected provider proves a safe reconciliation mechanism, ambiguous execution results must become `outcome_unknown` rather than triggering a blind retry.
 
-## Provider adapter contract
+## Provider-neutral port
 
-Adapters implement a provider-neutral port.
+The provider-neutral execution seam can be defined and tested before any live provider is chosen.
 
 ```ts
-export interface PublishingProviderAdapter {
-  provider: ProviderKind;
-
-  validateConnection(connection: ProviderConnection): Promise<ConnectionValidationResult>;
-  discoverCapabilities(connection: ProviderConnection): Promise<ProviderCapabilitySnapshot>;
+export interface PublishingProviderPort {
   publish(request: PublishRequest): Promise<PublishResult>;
-  lookupPublication?(request: PublicationLookupRequest): Promise<PublicationLookupResult>;
-  collectMetrics?(request: MetricCollectionRequest): Promise<MetricCollectionResult>;
+  lookupPublication?(
+    request: PublicationLookupRequest,
+  ): Promise<PublicationLookupResult>;
 }
 ```
 
-`PublishRequest` receives an already approved immutable source snapshot plus destination identity. It never receives authority to modify the content.
+The initial deterministic suite should use a fake provider implementation supporting:
 
-Provider-specific formatting may reject an invalid payload. It may not rewrite the substantive message without returning the item to review.
+- success;
+- retryable failure;
+- terminal failure;
+- ambiguous outcome;
+- optional lookup reconciliation.
 
-## Initial provider sequence
+`PublishRequest` receives an already approved immutable source snapshot and destination identity. The provider port has no authority to modify substantive content.
 
-Implementation should proceed in this order:
+## Restart behavior
 
-1. provider-neutral inventory, scheduler, execution ledger, and connection contracts;
-2. LinkedIn member publishing as the first live provider proof because it offers the smallest useful integration surface;
-3. Meta Facebook Page publishing using a user-owned Meta developer application;
-4. Meta Instagram Professional publishing through the same self-managed Meta application where supported;
-5. X only after the first three paths are stable enough to justify another adapter.
+All jobs persist before execution.
 
-This is sequencing, not a commitment to a future hosted product.
+On restart:
 
-## Provider setup orchestration
-
-Provider setup is modeled as a task that Viable attempts to simplify, not as documentation the user must decipher.
-
-### Setup method ranking
-
-For each provider recipe, Viable should prefer methods in this order:
-
-1. native provider API or SDK;
-2. official provider CLI;
-3. trusted MCP or machine-readable integration surface;
-4. compatible desktop/browser-control agent;
-5. guided manual setup.
-
-The first compatible, policy-safe method wins unless the user explicitly chooses another supported path.
-
-### SetupRecipe
-
-```ts
-export type SetupMethod = "native" | "cli" | "mcp" | "desktop_agent" | "guided_manual";
-
-export type SetupRequirement =
-  | "browser_navigation"
-  | "desktop_control"
-  | "local_shell"
-  | "mcp"
-  | "filesystem"
-  | "session_resume"
-  | "human_handoff"
-  | "secret_safe";
-
-export type SetupRecipe = Readonly<{
-  provider: ProviderKind;
-  version: string;
-  methods: readonly Readonly<{
-    method: SetupMethod;
-    requirements: readonly SetupRequirement[];
-    instructionsTemplateId: string;
-  }>[];
-  requiredHumanGates: readonly string[];
-  validationChecks: readonly string[];
-}>;
-```
-
-### ExecutorCapabilityDescriptor
-
-Viable must reason about the actual harness, not just a model or vendor name.
-
-```ts
-export type ExecutorCapabilityDescriptor = Readonly<{
-  id: string;
-  label: string;
-  capabilities: readonly SetupRequirement[];
-  availability: "available" | "unavailable" | "unknown";
-  invocationMode: "direct" | "external_launch" | "instruction_packet";
-  securityNotes: readonly string[];
-}>;
-```
-
-A text-only assistant and a desktop-control agent are different executors even when they use the same underlying model family.
-
-### Deterministic executor selection
-
-Viable selects an executor by:
-
-1. evaluating the setup recipe requirements;
-2. eliminating executors missing any required capability;
-3. eliminating executors that cannot satisfy required human checkpoints or secret-handling constraints;
-4. preferring a direct machine contract over an external launch;
-5. preferring a provider-supported CLI or MCP path over generic browser automation;
-6. displaying the selected method and why it is appropriate;
-7. falling back to guided manual setup when no compatible automation path exists.
-
-A model does not choose its own executor.
-
-### Human checkpoints
-
-Automation must pause for user action when the provider requires:
-
-- account login;
-- MFA or passkey confirmation;
-- CAPTCHA;
-- legal or business attestations;
-- granting consequential permissions;
-- explicit provider consent;
-- any secret-reveal interaction that the provider intentionally gates behind user action.
-
-The setup process resumes from durable state after the checkpoint.
-
-## Setup agent boundary
-
-An agent is an optional installer assistant, not part of normal publishing.
-
-The setup agent may:
-
-- navigate provider developer portals;
-- fill non-secret configuration fields;
-- enter redirect URIs provided by Viable;
-- select documented products or scopes;
-- return non-secret identifiers;
-- pause for login, MFA, CAPTCHA, consent, or legal confirmation;
-- resume after the user completes the checkpoint;
-- run Viable-provided validation checks.
-
-The setup agent may not:
-
-- accept legal terms for the user;
-- bypass access controls;
-- defeat MFA or CAPTCHA;
-- invent permission choices;
-- approve content;
-- publish campaign content during setup;
-- retain provider secrets in prompts, transcripts, logs, or workspace records.
-
-## Credential authority
-
-Provider credentials are not part of the Viable workspace.
-
-The implementation must add an OS-vault abstraction exposed to the TypeScript service layer through narrow Tauri commands.
-
-Required operations:
-
-```text
-storeCredential(reference, secretMaterial)
-readCredential(reference)
-deleteCredential(reference)
-credentialExists(reference)
-```
-
-The workspace stores only the opaque reference.
-
-Diagnostics, exports, backups, screenshots, tests, and logs must never include secret material.
-
-Credential reads should occur only immediately before a provider operation and should not be persisted in application state longer than required for that operation.
-
-## Local background execution
-
-The initial automated publishing runtime remains local.
-
-For reliable unattended publication, the desktop application should support a local background mode:
-
-- start at user login when the user enables publishing automation;
-- keep the scheduler and provider worker active while the main window is hidden or minimized;
-- expose a visible status indicator and a way to pause all automation;
-- resume queued jobs after application restart;
-- never require a hosted Viable service.
-
-Tauri tray and autostart capabilities should be added only when this worker is implemented. They were previously removed as unused dependencies and should not return before they have executable responsibility.
-
-The system must not install a privileged operating-system service in the initial slice.
-
-## Restart and missed-job behavior
-
-All publication jobs persist before execution.
-
-On restart, Viable:
-
-1. loads waiting, executing, and retry-wait jobs;
-2. treats jobs left in `executing` as indeterminate until provider lookup or reconciliation occurs;
-3. executes a late waiting job only if it remains inside the policy `lateToleranceMinutes` window;
-4. otherwise records the job as missed and requires rescheduling or a new reservation;
-5. never silently publishes stale content simply because the app was offline.
+1. load waiting, executing, and retry-wait jobs;
+2. treat jobs left in `executing` as indeterminate until reconciliation occurs;
+3. execute a late waiting job only when still within `lateToleranceMinutes`;
+4. otherwise mark it as missed/failed in a truthful state that requires deliberate rescheduling;
+5. never silently publish stale content because the application was offline.
 
 ## Retry behavior
 
-Retryable failures include provider-declared temporary availability, rate limiting, and selected transport failures.
+The provider-neutral state machine supports retryable and terminal failure classes without assuming provider-specific semantics.
 
-Retry behavior:
+Rules:
 
-- honor provider `Retry-After` or equivalent when available;
-- use bounded exponential backoff otherwise;
-- never exceed policy retry limit;
-- revalidate source authority, destination state, connection state, and credential availability before each retry;
-- stop immediately for revoked authorization, invalid permission, invalid content, rights invalidation, or destination disablement;
-- preserve the original job and idempotency identity.
+- bounded retries only;
+- preserve the same job identity;
+- revalidate source, destination, and policy authority before every retry;
+- stop for authority invalidation;
+- ambiguous outcome becomes `outcome_unknown` unless a provider-specific lookup contract can resolve it;
+- provider-specific rate-limit and authentication classification is added only with evidence from the chosen provider.
 
 ## Manual fallback
 
-Existing manual activation remains supported.
-
-When a provider connection is unavailable, unsupported, revoked, or degraded, Viable may offer:
+Existing manual activation remains first-class.
 
 ```text
 Approved inventory item
         |
-        +--> automated provider path unavailable
+        +--> direct provider path unavailable
         |
         v
 existing credential-free manual activation package
@@ -619,272 +439,246 @@ human publishes manually
 existing delivery evidence workflow
 ```
 
-The failure of direct publishing must not strand approved content.
+Direct-publishing failure must never strand approved content.
 
-## Channel model expansion
-
-The existing Campaign `ChannelKind` and Activation `DestinationChannel` sets are narrower than this initiative requires.
-
-The first schema change should introduce explicit supported social channels without conflating account type with provider identity.
-
-Initial target set:
-
-```ts
-export type ChannelKind =
-  | "linkedin"
-  | "facebook_page"
-  | "instagram_feed"
-  | "instagram_reels"
-  | "website"
-  | "github_release";
-```
-
-`x` should be added with its provider adapter rather than as unused schema surface.
-
-Channel additions require updates to Campaign variant creation, filtering, export selection, Calendar source resolution, desktop forms, fixtures, and deterministic tests.
-
-## UI model
-
-### Inventory
-
-Add a first-class Inventory surface under Calendar/Activation rather than a new top-level bounded context.
-
-Each item shows:
-
-- campaign and source title;
-- destination;
-- channel;
-- approval status;
-- available window;
-- expiration;
-- uses remaining;
-- priority;
-- next eligibility;
-- invalidation or block reason.
-
-Primary actions:
-
-- review;
-- approve and stock;
-- request changes;
-- retire;
-- reschedule policy;
-- publish manually;
-- inspect source authority.
-
-### Automation status
-
-The Calendar/Activation surface shows:
-
-- automation enabled or paused;
-- next scheduled publication;
-- inventory coverage by destination;
-- connection health;
-- blocked inventory;
-- failed or unknown jobs;
-- replenishment warnings.
-
-### Provider setup
-
-Provider setup must be one Viable task.
-
-The UI should show:
-
-```text
-Connect Facebook Page
-
-Viable can automate most of this setup.
-Recommended setup method: <detected method>
-Human actions required: login, MFA, permission confirmation
-
-[Start setup]
-```
-
-If no compatible automation executor exists, the same workflow becomes guided manual setup. The user should not have to locate separate documentation to complete ordinary setup.
-
-## Persistence changes
+## Persistence additions for the first implementation
 
 Extend the Activation and Learning workspace with additive collections:
 
 ```ts
-providerConnections
-providerCapabilitySnapshots
 publicationPolicies
 publicationInventory
 publicationJobs
 publicationAttempts
-setupSessions
 ```
 
-Existing legacy workspaces must load with these collections defaulted to empty until a schema migration framework supersedes additive normalization.
+Legacy workspaces load these as empty collections until a general migration framework supersedes additive normalization.
 
-No credential material enters these collections.
+No provider credentials enter these collections.
 
-## Security invariants
+## UI model for the first implementation
 
-1. Provider credentials remain in the OS credential store.
-2. Prompt or agent transcripts cannot contain provider secrets.
-3. A provider adapter can publish only a currently approved inventory item.
-4. A scheduler cannot approve content.
-5. A setup agent cannot publish content.
-6. A provider adapter cannot rewrite substantive content.
-7. Revoked credentials fail closed.
-8. Unknown execution outcomes do not trigger blind retries that can create duplicates.
-9. Every provider response stored by Viable is redacted and bounded.
-10. Manual fallback remains available without copying secrets into export packages.
+### Inventory
+
+Add Inventory beneath Calendar/Activation rather than creating a new top-level bounded context.
+
+Each item shows:
+
+- campaign/source title;
+- destination;
+- channel;
+- approval state;
+- available window;
+- expiration;
+- uses remaining;
+- priority;
+- block/invalidation reason.
+
+Primary actions:
+
+- submit for review;
+- approve and stock;
+- request changes;
+- reject;
+- retire;
+- inspect source authority;
+- use existing manual activation path when desired.
+
+### Automation status
+
+Before a live provider exists, the status surface can truthfully show:
+
+- automation enabled/paused for deterministic scheduling;
+- next reserved/waiting job in fake or test mode only where appropriate;
+- inventory coverage;
+- blocked/invalidated inventory;
+- failed or unknown jobs;
+- inventory depletion warnings.
+
+Do not display a live-provider-ready claim before live provider evidence exists.
 
 ## Deterministic test requirements
 
-The implementation must add tests proving at minimum:
+The provider-neutral implementation must prove at minimum:
 
 - draft inventory cannot be reserved;
 - a generator cannot create stocked inventory;
 - source authority changes invalidate stocked inventory;
-- destination changes block reservation;
-- disabled policies block reservation;
-- cooldown and quota rules are deterministic;
+- destination changes block eligibility;
+- disabled policies block eligibility;
+- availability, expiry, cooldown, and quota rules are deterministic;
 - tie-breaking produces repeatable selection;
-- one inventory item cannot be concurrently reserved twice;
-- the same publication job does not publish twice;
-- ambiguous provider outcomes become unknown rather than blind retry;
-- terminal authentication failures do not retry;
-- provider credentials never appear in persisted workspace data;
-- setup executor matching rejects insufficient capabilities;
-- required human checkpoints cannot be auto-completed;
-- manual fallback remains usable when the provider adapter is unavailable;
-- restart reconciliation does not silently republish an indeterminate job.
+- one inventory use cannot be concurrently reserved twice;
+- empty stock produces no publication candidate;
+- the same job cannot execute twice after confirmed publication;
+- ambiguous execution becomes unknown rather than a blind duplicate retry;
+- authority invalidation halts retry;
+- restart reconciliation does not silently republish an indeterminate job;
+- existing manual activation behavior remains valid;
+- persisted provider-neutral workspace data contains no secret material.
 
-## Implementation sequence
+# Provider-specific decision frontier
 
-### Slice A: inventory and authority foundation
+The following work is intentionally not implementation-authorized yet.
 
-1. Expand channel types for Facebook Page and Instagram feed.
-2. Add `PublicationPolicy` and `PublicationInventoryItem` domain types.
-3. Add create, submit, review, stock, retire, invalidate, and eligibility service operations.
-4. Reuse `ActivationSourceSnapshot` resolution and asynchronous source revalidation.
-5. Add additive workspace persistence and legacy normalization.
-6. Add deterministic inventory and approval tests.
-7. Add Inventory UI beneath Calendar/Activation.
+## Secure credential boundary
 
-Exit condition: approved content can sit in durable inventory, but nothing publishes automatically.
+Settled requirement:
 
-### Slice B: deterministic scheduler and publication ledger
+> Provider secret material must not enter Viable workspace authority, exported packages, ordinary logs, prompts, screenshots, or backups.
 
-1. Add reservation algorithm.
-2. Add `PublicationJob` and `PublicationAttempt` records.
-3. Add idempotency and restart reconciliation.
-4. Add retry classification and bounded backoff.
-5. Add automation pause and status UI.
-6. Add a fake provider adapter for complete deterministic tests.
+Unresolved facts:
 
-Exit condition: the full scheduling and execution state machine is proven without a live provider.
+- which OS-native or Rust/Tauri mechanism satisfies this on the operating systems we will actually support;
+- Linux keyring/backend behavior and failure modes;
+- the first truthful supported-platform boundary;
+- the narrow test seam for proving secret isolation.
 
-### Slice C: credential vault and connection core
+Tracked by issue #100.
 
-1. Add narrow Rust/Tauri OS-vault abstraction.
-2. Add `ProviderConnection` and `ProviderCapabilitySnapshot`.
-3. Add connection validation and capability discovery ports.
-4. Add secret scanning and persistence tests covering the new boundary.
-5. Add connect, revalidate, revoke, and delete flows.
+No architecture document should pretend the exact library or platform mechanism is selected until that issue resolves.
 
-Exit condition: Viable can hold a provider connection without storing credentials in workspace authority.
+## First live provider
 
-### Slice D: LinkedIn live proof
+No provider is architecturally privileged as the first implementation.
 
-1. Implement self-managed LinkedIn connection recipe.
-2. Implement LinkedIn member publishing adapter.
-3. Publish a real approved MythologIQ inventory item.
-4. Record publication identifier, response identifier, URL, and delivery evidence.
-5. Test failure, revocation, retry, and duplicate prevention.
+The first live proof should be selected from current evidence using:
 
-Exit condition: a scheduled MythologIQ LinkedIn publication completes end to end from stocked content to provider-verified evidence.
+- self-managed access feasibility;
+- authentication/setup complexity;
+- ability to publish from a local desktop app;
+- publication identifiers and reconciliation support;
+- duplicate-risk behavior;
+- policy and permission constraints;
+- real MythologIQ distribution value;
+- smallest useful unproven surface.
 
-### Slice E: Meta self-managed setup and Facebook Page publishing
+Tracked by issue #101.
 
-1. Add Meta setup recipe for a user-owned developer application.
-2. Detect compatible setup automation paths.
-3. Add guided manual setup as guaranteed fallback.
-4. Implement Facebook Page capability discovery and publishing.
-5. Validate token refresh/revalidation and revoked-permission handling.
-6. Publish a real MythologIQ Facebook Page item.
+LinkedIn member publishing and Facebook Page publishing are candidates, not a pre-decided sequence.
 
-Exit condition: clean local setup plus real scheduled Facebook Page publication works without Viable-operated provider infrastructure.
+## Meta self-managed setup
 
-### Slice F: Instagram Professional publishing
+The intended Meta posture remains local/self-managed if Meta is selected or later added:
 
-1. Reuse the Meta connection where valid.
-2. Add Instagram Professional account discovery.
-3. Add feed publishing.
-4. Add Reels only after feed behavior is stable and media requirements are proven.
-5. Record provider-verified outcomes.
+- user-owned developer application;
+- user-controlled account/page assets;
+- Viable absorbs avoidable setup complexity;
+- human checkpoints remain human.
 
-Exit condition: supported Instagram content publishes through the same deterministic inventory and job path.
+But the exact setup path is not yet settled.
 
-### Slice G: background reliability
+Research must establish:
 
-1. Add local autostart opt-in.
-2. Add background/tray lifecycle.
-3. Exercise restart and late-job behavior.
-4. Add prominent pause-all control.
-5. Validate Windows and Linux behavior on real installations.
+- what Meta requires today;
+- which steps have supported APIs/CLIs/machine interfaces;
+- what MCP actually contributes;
+- whether browser/desktop automation is safe and worthwhile;
+- what must remain login/MFA/consent/legal human interaction;
+- how Viable validates completion afterward.
 
-Exit condition: Viable can run the local publishing worker unattended without a hosted service.
+Tracked by issue #102.
 
-### Slice H: connected outcome collection
+## Setup executor abstraction
 
-Only after direct publication is stable:
+A generalized executor-capability registry is **not** yet part of the implementation-ready architecture.
 
-1. collect provider-supported publication metrics;
-2. map them into existing explicit metric evidence states;
-3. preserve unavailable and partial distinctions;
-4. feed existing retrospectives and learning ledger.
+If real provider research shows several setup paths genuinely vary by capabilities such as browser navigation, local shell, MCP, session resume, or human handoff, Viable may introduce a capability descriptor at that seam.
 
-This does not authorize automatic Product Core or ICP mutation.
+Until then, provider-specific guided setup may be the simpler and more truthful design.
 
-## First implementation boundary
+This preserves the original product requirement:
 
-Implementation should begin immediately with Slice A and the provider-neutral portion of Slice B.
+> The user should be told which available method can actually complete the next step, rather than being forced to guess which AI service or harness has the needed capabilities.
 
-Do not block that work on:
+It does not force us to build an abstraction before we have two real implementations to compare.
 
-- Meta app review;
-- LinkedIn organization access;
-- a CoreForge plugin;
-- MCP availability;
-- desktop-agent availability;
-- hosted infrastructure;
-- connected analytics;
-- a future commercial Viable distribution decision.
+## Background execution
 
-The first useful milestone is local and self-contained: MythologIQ-approved content can be stocked in Viable and deterministically selected for publication.
+The destination requires unattended local publication eventually, but the exact mechanism remains unresolved.
 
-## Future CoreForge relationship
+Potential mechanisms include desktop background/tray lifecycle, start-at-login, OS task scheduling, or another local runtime pattern.
+
+Do not select one until the first live provider path proves:
+
+- how precise timing needs to be;
+- whether the main application must remain alive;
+- what restart/reconciliation looks like with real provider behavior;
+- which operating systems are actually in the supported boundary.
+
+No privileged operating-system service is justified by current evidence.
+
+## Connected metrics
+
+Provider metric collection is downstream of reliable publication.
+
+Do not implement connected analytics until:
+
+- a live publication adapter is stable;
+- provider metric semantics are understood;
+- observations can map cleanly into the existing explicit `observed`, `verified_zero`, `partial`, `delayed`, `unavailable`, and `not_collected` evidence states.
+
+Metrics never authorize automatic Product Core or ICP mutation.
+
+# Current implementation frontier
+
+## Scope A: publication inventory and approval authority
+
+Tracked by #98.
+
+Exit evidence:
+
+- approved content can sit durably in inventory;
+- only named-human review can produce stocked authority;
+- source/policy/destination invalidation is truthful;
+- no live provider is required;
+- manual activation remains unchanged.
+
+## Scope B: deterministic scheduler and execution ledger
+
+Tracked by #99.
+
+Exit evidence:
+
+- deterministic candidate selection and reservation are proven;
+- job/attempt state is restart-safe;
+- fake-provider success/failure/unknown behavior is proven;
+- duplicate prevention rules are explicit;
+- no credential or live provider is required.
+
+## Handoff rule
+
+After #98 and #99, do not automatically proceed to a hard-coded provider slice.
+
+Resolve the credential/provider/setup frontier first. When those facts and authority decisions are settled, create the smallest named implementation scope that is genuinely ready and hand that scope to normal implementation planning.
+
+# Future CoreForge relationship
 
 CoreForge is not a dependency of this architecture.
 
-If a future Viable integration is justified, CoreForge should call a narrow Viable control surface such as:
+If a future integration is justified by dogfood, CoreForge should call a narrow Viable control surface such as:
 
 - inspect inventory health;
 - request or import proposed content;
-- inspect blocked setup or publication work;
+- inspect blocked publication/setup work;
 - pause or resume automation;
 - read campaign and publication outcomes.
 
 CoreForge must not bypass Viable approval, source authority, destination authority, or execution evidence.
 
-No CoreForge plugin should be implemented until the standalone Viable workflow is proven through dogfood.
+No CoreForge plugin should be implemented until the standalone Viable workflow is proven.
 
-## Acceptance criteria for the program
+## Program acceptance boundary
 
-The automated publishing program is successful when:
+The first automated-publishing program succeeds when:
 
-- MythologIQ can maintain approved content inventory inside Viable;
-- Viable selects publication units deterministically;
-- no inference is required for normal scheduled publishing;
-- a human approves exact source authority before unattended execution;
-- provider credentials stay outside workspace persistence;
-- at least LinkedIn and Facebook Page publishing complete from the local desktop application;
-- failures, revocation, retries, unknown outcomes, and restart recovery are truthful and visible;
-- provider setup is a guided Viable task rather than an external documentation hunt;
-- manual activation remains available whenever automation is unavailable;
-- provider-verified publication evidence can enter the existing measurement and learning loop.
+- MythologIQ can maintain named-human-approved publication inventory inside Viable;
+- Viable selects inventory deterministically without inference;
+- the scheduler/job state machine is proven against deterministic provider behavior;
+- a separately qualified live provider eventually completes one real end-to-end publication path;
+- provider secret material remains outside workspace authority;
+- failure, revocation, unknown outcomes, and restart behavior are truthful;
+- provider setup is presented as one Viable task with complexity absorbed where evidence permits;
+- manual activation remains usable whenever automation is unavailable.
+
+Provider breadth, generalized setup-agent infrastructure, connected analytics, hosted infrastructure, and commercial onboarding are not required to prove this first product capability.
