@@ -26,8 +26,7 @@ export class PublicationInventoryService {
 
   async load(workspaceId: string): Promise<ActivationLearningWorkspace> {
     const workspace = await this.store.load(workspaceId);
-    if (!workspace) throw new Error("Calendar and Activation workspace not found");
-    return normalizedWorkspace(workspace);
+    return normalizedWorkspace(workspace ?? emptyWorkspace(workspaceId, this.clock().toISOString()));
   }
 
   async createPolicy(workspaceId: string, input: Readonly<{
@@ -281,6 +280,24 @@ export class PublicationInventoryService {
     await this.store.save(normalized);
     return normalized;
   }
+}
+
+function emptyWorkspace(workspaceId: string, now: string): ActivationLearningWorkspace {
+  return {
+    workspaceId,
+    destinations: [],
+    calendarEntries: [],
+    publicationPolicies: [],
+    publicationInventory: [],
+    packages: [],
+    exportOperations: [],
+    deliveryOutcomes: [],
+    measurementPlans: [],
+    performanceImports: [],
+    retrospectives: [],
+    learningLedger: [],
+    updatedAt: now,
+  };
 }
 
 function normalizedWorkspace(workspace: ActivationLearningWorkspace): ActivationLearningWorkspace {
