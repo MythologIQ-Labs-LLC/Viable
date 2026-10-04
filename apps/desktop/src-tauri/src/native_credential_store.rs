@@ -2,20 +2,31 @@ use crate::credential_store::{
     CredentialCapability, CredentialReference, CredentialStore, CredentialStoreError, SecretValue,
 };
 use keyring_core::{Entry, Error as KeyringError};
+use std::sync::{Mutex, MutexGuard};
 
 #[derive(Debug)]
-pub struct NativeCredentialStore;
+pub struct NativeCredentialStore {
+    operation_gate: Mutex<()>,
+}
 
 impl NativeCredentialStore {
     pub fn initialize() -> Result<Self, CredentialStoreError> {
         initialize_platform_store()?;
-        Ok(Self)
+        Ok(Self {
+            operation_gate: Mutex::new(()),
+        })
     }
 
     fn entry(reference: &CredentialReference) -> Result<Entry, CredentialStoreError> {
         let (provider, connection, kind) = reference.parts();
         let service = format!("com.mythologiq.viable.{provider}.{kind}");
         Entry::new(&service, connection).map_err(map_keyring_error)
+    }
+
+    fn lock_operations(&self) -> Result<MutexGuard<'_, ()>, CredentialStoreError> {
+        self.operation_gate
+            .lock()
+            .map_err(|_| classified_failure("credential_operation_lock_poisoned"))
     }
 }
 
@@ -29,6 +40,7 @@ impl CredentialStore for NativeCredentialStore {
         reference: &CredentialReference,
         secret: &SecretValue,
     ) -> Result<(), CredentialStoreError> {
+        let _guard = self.lock_operations()?;
         Self::entry(reference)?
             .set_secret(secret.expose())
             .map_err(map_keyring_error)
@@ -38,6 +50,7 @@ impl CredentialStore for NativeCredentialStore {
         &self,
         reference: &CredentialReference,
     ) -> Result<SecretValue, CredentialStoreError> {
+        let _guard = self.lock_operations()?;
         Self::entry(reference)?
             .get_secret()
             .map(SecretValue::new)
@@ -45,6 +58,7 @@ impl CredentialStore for NativeCredentialStore {
     }
 
     fn delete_secret(&self, reference: &CredentialReference) -> Result<(), CredentialStoreError> {
+        let _guard = self.lock_operations()?;
         Self::entry(reference)?
             .delete_credential()
             .map_err(map_keyring_error)
