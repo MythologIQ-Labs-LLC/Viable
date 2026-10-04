@@ -175,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn public_error_contract_discards invalid_reference_detail() {
+    fn public_error_contract_discards_invalid_reference_detail() {
         let error = CredentialStoreError::InvalidReference("secret-like input".into());
         assert_eq!(public_error(error), "credential_reference_invalid");
     }
