@@ -1,7 +1,4 @@
-import type {
-  ActivationSourceSnapshot,
-  DestinationRecord,
-} from "../domain/activation-learning.js";
+import type { ActivationSourceSnapshot, DestinationRecord } from "../domain/activation-learning.js";
 import type {
   PublicationAttempt,
   PublicationAutomationStatus,
@@ -16,6 +13,9 @@ import type { PublicationSourceAuthorityPort } from "../ports/publication-source
 
 type Clock = () => Date;
 type IdFactory = () => string;
+type ReconcileResult =
+  | Readonly<{ changed: false; workspace: PublicationExecutionWorkspace }>
+  | Readonly<{ changed: true; workspace: PublicationExecutionWorkspace; jobId: string }>;
 
 const MINUTE_MS = 60_000;
 const SCHEDULING_HORIZON_MINUTES = 14 * 24 * 60;
@@ -34,7 +34,7 @@ export class PublicationSchedulerService {
     return withWorkspaceLock(workspaceId, async () => {
       const workspace = await this.load(workspaceId);
       const now = this.clock().toISOString();
-      await this.save({
+      const updated: PublicationExecutionWorkspace = {
         ...workspace,
         publicationAutomation: {
           paused,
@@ -42,15 +42,9 @@ export class PublicationSchedulerService {
           ...(reason?.trim() ? { reason: reason.trim() } : {}),
         },
         updatedAt: now,
-      });
-      return this.statusFromWorkspace({
-        ...workspace,
-        publicationAutomation: {
-          paused,
-          updatedAt: now,
-          ...(reason?.trim() ? { reason: reason.trim() } : {}),
-        },
-      });
+      };
+      await this.save(updated);
+      return this.statusFromWorkspace(updated);
     });
   }
 
@@ -64,14 +58,12 @@ export class PublicationSchedulerService {
       const workspace = await this.load(workspaceId);
       if (workspace.publicationAutomation?.paused) return { action: "paused" };
 
-      const candidates = await this.eligibleStock(workspace, instant);
-      for (const item of candidates) {
+      for (const item of await this.eligibleStock(workspace, instant)) {
         const policy = requiredPolicy(workspace, item.policyId);
         const slot = findNextSlot(instant, policy, jobs(workspace));
         if (!slot) continue;
         const destination = requiredActiveDestination(workspace, item.destinationId);
-        if (policy.destinationId !== destination.id) continue;
-        if (!await this.authorityCurrent(workspace, item)) continue;
+        if (policy.destinationId !== destination.id || !await this.authorityCurrent(workspace, item)) continue;
 
         const now = this.clock().toISOString();
         const job: PublicationJob = {
@@ -90,15 +82,14 @@ export class PublicationSchedulerService {
           createdAt: now,
           updatedAt: now,
         };
-        const updated: PublicationExecutionWorkspace = {
+        await this.save({
           ...workspace,
           publicationInventory: inventory(workspace).map((candidate) => candidate.id === item.id
             ? { ...candidate, status: "reserved" as const, updatedAt: now }
             : candidate),
           publicationJobs: [...jobs(workspace), job],
           updatedAt: now,
-        };
-        await this.save(updated);
+        });
         return { action: "scheduled", jobId: job.id };
       }
       return { action: "none" };
@@ -113,8 +104,7 @@ export class PublicationSchedulerService {
 
       const reconciled = reconcileExecuting(workspace, this.clock().toISOString());
       if (reconciled.changed) {
-        workspace = reconciled.workspace;
-        await this.save(workspace);
+        await this.save(reconciled.workspace);
         return {
           action: "outcome_unknown",
           jobId: reconciled.jobId,
@@ -138,22 +128,17 @@ export class PublicationSchedulerService {
         await this.save(workspace);
         return { action: "cancelled", jobId: job.id, detail: "Publication missed its configured late-tolerance window." };
       }
-
       if (item.expiresAt && Date.parse(item.expiresAt) <= instant.getTime()) {
         workspace = cancelExpiredJob(workspace, job, item, this.clock().toISOString());
         await this.save(workspace);
         return { action: "cancelled", jobId: job.id, detail: "Publication inventory expired before execution." };
       }
-
       if (!await this.authorityCurrent(workspace, item)) {
         workspace = invalidateJob(workspace, job, item, this.clock().toISOString(), "Source, destination, or publication policy authority changed");
         await this.save(workspace);
         return { action: "authority_invalidated", jobId: job.id };
       }
-
-      if (!this.provider) {
-        return { action: "none", jobId: job.id, detail: "No publication provider is configured." };
-      }
+      if (!this.provider) return { action: "none", jobId: job.id, detail: "No publication provider is configured." };
 
       const destination = requiredActiveDestination(workspace, job.destinationId);
       const attemptNumber = job.attemptCount + 1;
@@ -183,12 +168,7 @@ export class PublicationSchedulerService {
 
       let outcome: PublicationProviderOutcome;
       try {
-        outcome = await this.provider.publish({
-          job: executingJob,
-          destination,
-          source: item.source,
-          attemptNumber,
-        });
+        outcome = await this.provider.publish({ job: executingJob, destination, source: item.source, attemptNumber });
       } catch (error) {
         outcome = {
           kind: "outcome_unknown",
@@ -196,7 +176,7 @@ export class PublicationSchedulerService {
         };
       }
 
-      workspace = await this.applyOutcome(workspace, executingJob, attempt, item, policy, outcome, instant);
+      workspace = this.applyOutcome(workspace, executingJob, attempt, item, policy, outcome, instant);
       await this.save(workspace);
       const completed = jobs(workspace).find((candidate) => candidate.id === job.id);
       if (!completed) return { action: "failed", jobId: job.id, detail: "Publication job disappeared during execution." };
@@ -210,8 +190,7 @@ export class PublicationSchedulerService {
 
   async reconcileRestart(workspaceId: string): Promise<PublicationSchedulerResult> {
     return withWorkspaceLock(workspaceId, async () => {
-      const workspace = await this.load(workspaceId);
-      const reconciled = reconcileExecuting(workspace, this.clock().toISOString());
+      const reconciled = reconcileExecuting(await this.load(workspaceId), this.clock().toISOString());
       if (!reconciled.changed) return { action: "none" };
       await this.save(reconciled.workspace);
       return {
@@ -238,22 +217,20 @@ export class PublicationSchedulerService {
           ? { ...item, status: "stocked", updatedAt: now }
           : { ...item, status: "approval_invalidated", reviewNote: "Authority changed while publication job was reserved", updatedAt: now };
       }
-      const updatedJob: PublicationJob = {
-        ...job,
-        status: "cancelled",
-        updatedAt: now,
-        failureClass: "cancelled_by_user",
-        failureDetail: "Publication job cancelled before a successful provider outcome.",
-      };
-      const updated: PublicationExecutionWorkspace = {
+      await this.save({
         ...workspace,
-        publicationJobs: replaceJob(jobs(workspace), updatedJob),
+        publicationJobs: replaceJob(jobs(workspace), {
+          ...job,
+          status: "cancelled",
+          updatedAt: now,
+          failureClass: "cancelled_by_user",
+          failureDetail: "Publication job cancelled before a successful provider outcome.",
+        }),
         publicationInventory: item && nextItem
           ? inventory(workspace).map((candidate) => candidate.id === item.id ? nextItem! : candidate)
           : inventory(workspace),
         updatedAt: now,
-      };
-      await this.save(updated);
+      });
       return { action: "cancelled", jobId };
     });
   }
@@ -269,7 +246,7 @@ export class PublicationSchedulerService {
     return execution.action === "none" ? scheduled : execution;
   }
 
-  private async applyOutcome(
+  private applyOutcome(
     workspace: PublicationExecutionWorkspace,
     job: PublicationJob,
     attempt: PublicationAttempt,
@@ -277,31 +254,29 @@ export class PublicationSchedulerService {
     policy: PublicationPolicy,
     outcome: PublicationProviderOutcome,
     instant: Date,
-  ): Promise<PublicationExecutionWorkspace> {
+  ): PublicationExecutionWorkspace {
     const now = this.clock().toISOString();
     if (outcome.kind === "published") {
       const nextUseCount = item.useCount + 1;
-      const completedAttempt: PublicationAttempt = {
-        ...attempt,
-        status: "published",
-        completedAt: now,
-        publicationId: outcome.publicationId,
-        ...(outcome.providerResponseId ? { providerResponseId: outcome.providerResponseId } : {}),
-        ...(outcome.deliveryUrl ? { deliveryUrl: outcome.deliveryUrl } : {}),
-      };
-      const completedJob: PublicationJob = {
-        ...job,
-        status: "published",
-        publishedAt: now,
-        updatedAt: now,
-        publicationId: outcome.publicationId,
-        ...(outcome.providerResponseId ? { providerResponseId: outcome.providerResponseId } : {}),
-        ...(outcome.deliveryUrl ? { deliveryUrl: outcome.deliveryUrl } : {}),
-      };
       return {
         ...workspace,
-        publicationJobs: replaceJob(jobs(workspace), completedJob),
-        publicationAttempts: replaceAttempt(attempts(workspace), completedAttempt),
+        publicationJobs: replaceJob(jobs(workspace), {
+          ...job,
+          status: "published",
+          publishedAt: now,
+          updatedAt: now,
+          publicationId: outcome.publicationId,
+          ...(outcome.providerResponseId ? { providerResponseId: outcome.providerResponseId } : {}),
+          ...(outcome.deliveryUrl ? { deliveryUrl: outcome.deliveryUrl } : {}),
+        }),
+        publicationAttempts: replaceAttempt(attempts(workspace), {
+          ...attempt,
+          status: "published",
+          completedAt: now,
+          publicationId: outcome.publicationId,
+          ...(outcome.providerResponseId ? { providerResponseId: outcome.providerResponseId } : {}),
+          ...(outcome.deliveryUrl ? { deliveryUrl: outcome.deliveryUrl } : {}),
+        }),
         publicationInventory: inventory(workspace).map((candidate) => candidate.id === item.id
           ? {
               ...candidate,
@@ -323,81 +298,77 @@ export class PublicationSchedulerService {
         failureDetail: outcome.detail,
       };
       if (attempt.sequence <= policy.retryLimit) {
-        const backoffStart = new Date(instant.getTime() + retryBackoffMinutes(attempt.sequence) * MINUTE_MS);
-        const retryAt = findNextWindowInstant(backoffStart, policy);
+        const retryAt = findNextWindowInstant(
+          new Date(instant.getTime() + retryBackoffMinutes(attempt.sequence) * MINUTE_MS),
+          policy,
+        );
         if (retryAt) {
-          const retryJob: PublicationJob = {
-            ...job,
-            status: "retry_wait",
-            nextAttemptAt: retryAt.toISOString(),
-            updatedAt: now,
-            failureClass: outcome.failureClass,
-            failureDetail: outcome.detail,
-          };
           return {
             ...workspace,
-            publicationJobs: replaceJob(jobs(workspace), retryJob),
+            publicationJobs: replaceJob(jobs(workspace), {
+              ...job,
+              status: "retry_wait",
+              nextAttemptAt: retryAt.toISOString(),
+              updatedAt: now,
+              failureClass: outcome.failureClass,
+              failureDetail: outcome.detail,
+            }),
             publicationAttempts: replaceAttempt(attempts(workspace), completedAttempt),
             updatedAt: now,
           };
         }
       }
-      const failedJob: PublicationJob = {
-        ...job,
-        status: "failed",
-        updatedAt: now,
-        failureClass: outcome.failureClass,
-        failureDetail: outcome.detail,
-      };
       return {
         ...workspace,
-        publicationJobs: replaceJob(jobs(workspace), failedJob),
+        publicationJobs: replaceJob(jobs(workspace), {
+          ...job,
+          status: "failed",
+          updatedAt: now,
+          failureClass: outcome.failureClass,
+          failureDetail: outcome.detail,
+        }),
         publicationAttempts: replaceAttempt(attempts(workspace), completedAttempt),
         updatedAt: now,
       };
     }
 
     if (outcome.kind === "terminal_failure") {
-      const failedAttempt: PublicationAttempt = {
-        ...attempt,
-        status: "terminal_failure",
-        completedAt: now,
-        failureClass: outcome.failureClass,
-        failureDetail: outcome.detail,
-      };
-      const failedJob: PublicationJob = {
-        ...job,
-        status: "failed",
-        updatedAt: now,
-        failureClass: outcome.failureClass,
-        failureDetail: outcome.detail,
-      };
       return {
         ...workspace,
-        publicationJobs: replaceJob(jobs(workspace), failedJob),
-        publicationAttempts: replaceAttempt(attempts(workspace), failedAttempt),
+        publicationJobs: replaceJob(jobs(workspace), {
+          ...job,
+          status: "failed",
+          updatedAt: now,
+          failureClass: outcome.failureClass,
+          failureDetail: outcome.detail,
+        }),
+        publicationAttempts: replaceAttempt(attempts(workspace), {
+          ...attempt,
+          status: "terminal_failure",
+          completedAt: now,
+          failureClass: outcome.failureClass,
+          failureDetail: outcome.detail,
+        }),
         updatedAt: now,
       };
     }
 
-    const unknownAttempt: PublicationAttempt = {
-      ...attempt,
-      status: "outcome_unknown",
-      completedAt: now,
-      failureClass: "provider_outcome_unknown",
-      failureDetail: outcome.detail,
-    };
-    const unknownJob: PublicationJob = {
-      ...job,
-      status: "outcome_unknown",
-      updatedAt: now,
-      failureClass: "provider_outcome_unknown",
-      failureDetail: outcome.detail,
-    };
     return {
       ...workspace,
-      publicationJobs: replaceJob(jobs(workspace), unknownJob),
-      publicationAttempts: replaceAttempt(attempts(workspace), unknownAttempt),
+      publicationJobs: replaceJob(jobs(workspace), {
+        ...job,
+        status: "outcome_unknown",
+        updatedAt: now,
+        failureClass: "provider_outcome_unknown",
+        failureDetail: outcome.detail,
+      }),
+      publicationAttempts: replaceAttempt(attempts(workspace), {
+        ...attempt,
+        status: "outcome_unknown",
+        completedAt: now,
+        failureClass: "provider_outcome_unknown",
+        failureDetail: outcome.detail,
+      }),
       updatedAt: now,
     };
   }
@@ -409,8 +380,7 @@ export class PublicationSchedulerService {
       if (item.useCount >= item.maxUses) continue;
       if (Date.parse(item.availableFrom) > at.getTime()) continue;
       if (item.expiresAt && Date.parse(item.expiresAt) <= at.getTime()) continue;
-      if (!await this.authorityCurrent(workspace, item)) continue;
-      result.push(item);
+      if (await this.authorityCurrent(workspace, item)) result.push(item);
     }
     return result.sort(compareInventoryItems);
   }
@@ -456,35 +426,26 @@ export class PublicationSchedulerService {
 }
 
 function normalizeExecutionWorkspace(workspace: PublicationExecutionWorkspace): PublicationExecutionWorkspace {
-  return {
-    ...workspace,
-    publicationJobs: jobs(workspace),
-    publicationAttempts: attempts(workspace),
-  };
+  return { ...workspace, publicationJobs: jobs(workspace), publicationAttempts: attempts(workspace) };
 }
 
 function policies(workspace: PublicationExecutionWorkspace): readonly PublicationPolicy[] {
   return workspace.publicationPolicies ?? [];
 }
-
 function inventory(workspace: PublicationExecutionWorkspace): readonly PublicationInventoryItem[] {
   return workspace.publicationInventory ?? [];
 }
-
 function jobs(workspace: PublicationExecutionWorkspace): readonly PublicationJob[] {
   return workspace.publicationJobs ?? [];
 }
-
 function attempts(workspace: PublicationExecutionWorkspace): readonly PublicationAttempt[] {
   return workspace.publicationAttempts ?? [];
 }
-
 function requiredPolicy(workspace: PublicationExecutionWorkspace, policyId: string): PublicationPolicy {
   const policy = policies(workspace).find((candidate) => candidate.id === policyId);
   if (!policy) throw new Error("Publication policy not found");
   return policy;
 }
-
 function requiredActiveDestination(workspace: PublicationExecutionWorkspace, destinationId: string): DestinationRecord {
   const destination = workspace.destinations.find((candidate) => candidate.id === destinationId);
   if (!destination) throw new Error("Publication destination not found");
@@ -530,35 +491,30 @@ function dueJobs(workspace: PublicationExecutionWorkspace, at: Date): Publicatio
   return jobs(workspace)
     .filter((job) => {
       if (job.status === "waiting") return Date.parse(job.scheduledFor) <= at.getTime();
-      if (job.status === "retry_wait" && job.nextAttemptAt) return Date.parse(job.nextAttemptAt) <= at.getTime();
-      return false;
+      return job.status === "retry_wait" && Boolean(job.nextAttemptAt) && Date.parse(job.nextAttemptAt!) <= at.getTime();
     })
-    .sort((left, right) => {
-      const leftDue = Date.parse(left.status === "retry_wait" && left.nextAttemptAt ? left.nextAttemptAt : left.scheduledFor);
-      const rightDue = Date.parse(right.status === "retry_wait" && right.nextAttemptAt ? right.nextAttemptAt : right.scheduledFor);
-      return leftDue - rightDue || left.id.localeCompare(right.id);
-    });
+    .sort((left, right) => dueTime(left) - dueTime(right) || left.id.localeCompare(right.id));
+}
+
+function dueTime(job: PublicationJob): number {
+  return Date.parse(job.status === "retry_wait" && job.nextAttemptAt ? job.nextAttemptAt : job.scheduledFor);
 }
 
 function replaceJob(values: readonly PublicationJob[], replacement: PublicationJob): PublicationJob[] {
   return values.map((candidate) => candidate.id === replacement.id ? replacement : candidate);
 }
-
 function replaceAttempt(values: readonly PublicationAttempt[], replacement: PublicationAttempt): PublicationAttempt[] {
   return values.map((candidate) => candidate.id === replacement.id ? replacement : candidate);
 }
 
-function reconcileExecuting(workspace: PublicationExecutionWorkspace, now: string): Readonly<{
-  changed: boolean;
-  workspace: PublicationExecutionWorkspace;
-  jobId?: string;
-}> {
+function reconcileExecuting(workspace: PublicationExecutionWorkspace, now: string): ReconcileResult {
   const interrupted = jobs(workspace).filter((job) => job.status === "executing");
   if (interrupted.length === 0) return { changed: false, workspace };
+  const jobId = interrupted[0]!.id;
   const ids = new Set(interrupted.map((job) => job.id));
   return {
     changed: true,
-    jobId: interrupted[0]?.id,
+    jobId,
     workspace: {
       ...workspace,
       publicationJobs: jobs(workspace).map((job) => ids.has(job.id) ? {
@@ -587,16 +543,15 @@ function invalidateJob(
   now: string,
   detail: string,
 ): PublicationExecutionWorkspace {
-  const invalidatedJob: PublicationJob = {
-    ...job,
-    status: "authority_invalidated",
-    updatedAt: now,
-    failureClass: "authority_invalidated",
-    failureDetail: detail,
-  };
   return {
     ...workspace,
-    publicationJobs: replaceJob(jobs(workspace), invalidatedJob),
+    publicationJobs: replaceJob(jobs(workspace), {
+      ...job,
+      status: "authority_invalidated",
+      updatedAt: now,
+      failureClass: "authority_invalidated",
+      failureDetail: detail,
+    }),
     publicationInventory: item
       ? inventory(workspace).map((candidate) => candidate.id === item.id ? {
           ...candidate,
@@ -615,16 +570,15 @@ function cancelLateJob(
   item: PublicationInventoryItem,
   now: string,
 ): PublicationExecutionWorkspace {
-  const cancelledJob: PublicationJob = {
-    ...job,
-    status: "cancelled",
-    updatedAt: now,
-    failureClass: "late_tolerance_exceeded",
-    failureDetail: "Publication job exceeded its configured late-tolerance window without provider execution.",
-  };
   return {
     ...workspace,
-    publicationJobs: replaceJob(jobs(workspace), cancelledJob),
+    publicationJobs: replaceJob(jobs(workspace), {
+      ...job,
+      status: "cancelled",
+      updatedAt: now,
+      failureClass: "late_tolerance_exceeded",
+      failureDetail: "Publication job exceeded its configured late-tolerance window without provider execution.",
+    }),
     publicationInventory: inventory(workspace).map((candidate) => candidate.id === item.id && candidate.status === "reserved"
       ? { ...candidate, status: "stocked" as const, updatedAt: now }
       : candidate),
@@ -638,16 +592,15 @@ function cancelExpiredJob(
   item: PublicationInventoryItem,
   now: string,
 ): PublicationExecutionWorkspace {
-  const cancelledJob: PublicationJob = {
-    ...job,
-    status: "cancelled",
-    updatedAt: now,
-    failureClass: "inventory_expired",
-    failureDetail: "Publication inventory expired before provider execution.",
-  };
   return {
     ...workspace,
-    publicationJobs: replaceJob(jobs(workspace), cancelledJob),
+    publicationJobs: replaceJob(jobs(workspace), {
+      ...job,
+      status: "cancelled",
+      updatedAt: now,
+      failureClass: "inventory_expired",
+      failureDetail: "Publication inventory expired before provider execution.",
+    }),
     publicationInventory: inventory(workspace).map((candidate) => candidate.id === item.id
       ? { ...candidate, status: "retired" as const, updatedAt: now }
       : candidate),
@@ -675,10 +628,9 @@ function findNextSlot(start: Date, policy: PublicationPolicy, existingJobs: read
   const candidate = ceilToMinute(start);
   for (let offset = 0; offset <= SCHEDULING_HORIZON_MINUTES; offset += 1) {
     const value = new Date(candidate.getTime() + offset * MINUTE_MS);
-    if (!withinPublicationWindow(value, policy)) continue;
-    if (!withinQuota(value, policy, existingJobs)) continue;
-    if (!outsideCooldown(value, policy, existingJobs)) continue;
-    return value;
+    if (withinPublicationWindow(value, policy)
+      && withinQuota(value, policy, existingJobs)
+      && outsideCooldown(value, policy, existingJobs)) return value;
   }
   return undefined;
 }
@@ -693,8 +645,7 @@ function findNextWindowInstant(start: Date, policy: PublicationPolicy): Date | u
 }
 
 function ceilToMinute(value: Date): Date {
-  const milliseconds = value.getTime();
-  return new Date(Math.ceil(milliseconds / MINUTE_MS) * MINUTE_MS);
+  return new Date(Math.ceil(value.getTime() / MINUTE_MS) * MINUTE_MS);
 }
 
 function withinPublicationWindow(value: Date, policy: PublicationPolicy): boolean {
@@ -711,13 +662,11 @@ function withinQuota(value: Date, policy: PublicationPolicy, existingJobs: reado
   const counted = existingJobs.filter((job) => job.policyId === policy.id && countsAgainstQuota(job.status));
   if (policy.maximumPerDay !== undefined) {
     const date = localParts(value, policy.timezone).dateKey;
-    const daily = counted.filter((job) => localParts(new Date(job.scheduledFor), policy.timezone).dateKey === date).length;
-    if (daily >= policy.maximumPerDay) return false;
+    if (counted.filter((job) => localParts(new Date(job.scheduledFor), policy.timezone).dateKey === date).length >= policy.maximumPerDay) return false;
   }
   if (policy.maximumPerWeek !== undefined) {
     const week = localWeekKey(value, policy.timezone);
-    const weekly = counted.filter((job) => localWeekKey(new Date(job.scheduledFor), policy.timezone) === week).length;
-    if (weekly >= policy.maximumPerWeek) return false;
+    if (counted.filter((job) => localWeekKey(new Date(job.scheduledFor), policy.timezone) === week).length >= policy.maximumPerWeek) return false;
   }
   return true;
 }
@@ -739,11 +688,7 @@ function clockMinutes(value: string): number {
   return Number(hourText) * 60 + Number(minuteText);
 }
 
-function localParts(value: Date, timezone: string): Readonly<{
-  dateKey: string;
-  weekday: number;
-  minuteOfDay: number;
-}> {
+function localParts(value: Date, timezone: string): Readonly<{ dateKey: string; weekday: number; minuteOfDay: number }> {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     year: "numeric",
@@ -759,20 +704,17 @@ function localParts(value: Date, timezone: string): Readonly<{
     ["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6],
   ]).get(pick("weekday"));
   if (weekday === undefined) throw new Error(`Unable to resolve weekday in timezone ${timezone}`);
-  const hour = Number(pick("hour"));
-  const minute = Number(pick("minute"));
   return {
     dateKey: `${pick("year")}-${pick("month")}-${pick("day")}`,
     weekday,
-    minuteOfDay: hour * 60 + minute,
+    minuteOfDay: Number(pick("hour")) * 60 + Number(pick("minute")),
   };
 }
 
 function localWeekKey(value: Date, timezone: string): string {
   const local = localParts(value, timezone);
   const date = new Date(`${local.dateKey}T00:00:00.000Z`);
-  const daysSinceMonday = (local.weekday + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
+  date.setUTCDate(date.getUTCDate() - ((local.weekday + 6) % 7));
   return date.toISOString().slice(0, 10);
 }
 
