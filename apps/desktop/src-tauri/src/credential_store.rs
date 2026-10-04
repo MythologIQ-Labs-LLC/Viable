@@ -268,8 +268,14 @@ mod tests {
     #[test]
     fn reference_parts_are_stable_and_non_secret() {
         let reference = reference();
-        assert_eq!(reference.as_str(), "viable://credential/linkedin/connection-1/access_token");
-        assert_eq!(reference.parts(), ("linkedin", "connection-1", "access_token"));
+        assert_eq!(
+            reference.as_str(),
+            "viable://credential/linkedin/connection-1/access_token"
+        );
+        assert_eq!(
+            reference.parts(),
+            ("linkedin", "connection-1", "access_token")
+        );
     }
 
     #[test]
@@ -293,7 +299,10 @@ mod tests {
             .expect("fake store accepts secret");
         assert!(store.has_secret(&reference).expect("stored is true"));
         assert_eq!(
-            store.get_secret(&reference).expect("stored secret").expose(),
+            store
+                .get_secret(&reference)
+                .expect("stored secret")
+                .expose(),
             b"token-value"
         );
         store.delete_secret(&reference).expect("delete succeeds");

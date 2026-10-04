@@ -132,6 +132,8 @@ mod tests {
             invalid,
             CredentialStoreError::PlatformFailure("platform_invalid_value".into())
         );
-        assert!(!invalid.to_string().contains("contains-sensitive-provider-detail"));
+        assert!(!invalid
+            .to_string()
+            .contains("contains-sensitive-provider-detail"));
     }
 }

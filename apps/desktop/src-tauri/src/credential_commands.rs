@@ -61,7 +61,9 @@ pub struct CredentialReferenceResponse {
 }
 
 #[tauri::command]
-pub fn credential_capability(state: State<'_, CredentialVaultState>) -> CredentialCapabilityResponse {
+pub fn credential_capability(
+    state: State<'_, CredentialVaultState>,
+) -> CredentialCapabilityResponse {
     capability_response(state.capability)
 }
 
@@ -162,7 +164,9 @@ mod tests {
     fn unavailable_state_fails_closed_without_platform_detail() {
         let inaccessible = CredentialVaultState::unavailable(CredentialCapability::Inaccessible);
         assert_eq!(
-            inaccessible.store().expect_err("store must remain unavailable"),
+            inaccessible
+                .store()
+                .expect_err("store must remain unavailable"),
             CredentialStoreError::Inaccessible
         );
 
