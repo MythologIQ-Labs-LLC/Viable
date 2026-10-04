@@ -1,4 +1,5 @@
 import type { ClaimReference } from "../../campaigns/domain/campaign.js";
+import type { PublicationInventoryItem, PublicationPolicy } from "./publication-inventory.js";
 
 export type ActivationSourceKind = "campaign_variant" | "repository_launch" | "video_variant";
 export type CalendarEntryKind = "external_activation" | "approval_deadline" | "event_opportunity" | "experiment" | "follow_up";
@@ -209,6 +210,8 @@ export type ActivationLearningWorkspace = Readonly<{
   workspaceId: string;
   destinations: readonly DestinationRecord[];
   calendarEntries: readonly CalendarEntry[];
+  publicationPolicies: readonly PublicationPolicy[];
+  publicationInventory: readonly PublicationInventoryItem[];
   packages: readonly ManualActivationPackage[];
   exportOperations: readonly ExportOperation[];
   deliveryOutcomes: readonly DeliveryOutcome[];
