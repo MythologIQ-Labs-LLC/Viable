@@ -26,6 +26,7 @@ ADRs answer **why a boundary exists**. The PRD defines required outcomes, the ar
 | [ADR-0006](0006-marketability-loop-and-event-boundary.md) | The marketability loop is the top-level product model; Event Intelligence is a bounded signal subsystem | Accepted |
 | [ADR-0007](0007-icp-hypothesis-and-validation-authority.md) | ICP hypotheses and validation belong to Product Core and cannot be silently rewritten downstream | Accepted |
 | [ADR-0008](0008-public-source-licensing-and-release-boundary.md) | Public source licensing and repository visibility remain distinct from supported product release | Proposed |
+| [ADR-0009](0009-deterministic-publishing-and-capability-routed-setup.md) | Automated publishing is deterministic and provider-specific setup is evidence-gated | Proposed |
 
 ## Required ADR sections
 
