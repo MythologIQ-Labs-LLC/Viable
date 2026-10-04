@@ -5,9 +5,7 @@ import type {
   ActivationSourceSnapshot,
   DestinationChannel,
 } from "../src/activation-learning/domain/activation-learning.js";
-import type { PublicationInventoryWorkspace } from "../src/activation-learning/domain/publication-inventory.js";
 import type { ActivationLearningStore } from "../src/activation-learning/ports/activation-learning-store.js";
-import type { PublicationInventoryStore } from "../src/activation-learning/ports/publication-inventory-store.js";
 import type { PublicationSourceAuthorityPort } from "../src/activation-learning/ports/publication-source-authority.js";
 import { PublicationInventoryService } from "../src/activation-learning/services/publication-inventory-service.js";
 
@@ -15,12 +13,6 @@ class ActivationStore implements ActivationLearningStore {
   constructor(public value: ActivationLearningWorkspace) {}
   async load(): Promise<ActivationLearningWorkspace | undefined> { return this.value; }
   async save(value: ActivationLearningWorkspace): Promise<void> { this.value = value; }
-}
-
-class InventoryStore implements PublicationInventoryStore {
-  value?: PublicationInventoryWorkspace;
-  async load(): Promise<PublicationInventoryWorkspace | undefined> { return this.value; }
-  async save(value: PublicationInventoryWorkspace): Promise<void> { this.value = value; }
 }
 
 class SourceAuthority implements PublicationSourceAuthorityPort {
@@ -83,17 +75,15 @@ const sourceSnapshot = (version = 1): ActivationSourceSnapshot => ({
 
 const createHarness = () => {
   const activation = new ActivationStore(activationWorkspace());
-  const inventory = new InventoryStore();
   const authority = new SourceAuthority(sourceSnapshot());
   let nextId = 0;
   const service = new PublicationInventoryService(
-    inventory,
     activation,
     authority,
     () => new Date(now),
     () => `id-${++nextId}`,
   );
-  return { activation, inventory, authority, service };
+  return { activation, authority, service };
 };
 
 const createPolicyAndItem = async (service: PublicationInventoryService) => {
@@ -109,7 +99,7 @@ const createPolicyAndItem = async (service: PublicationInventoryService) => {
     lateToleranceMinutes: 30,
     retryLimit: 2,
   });
-  const policyId = workspace.policies[0]!.id;
+  const policyId = workspace.publicationPolicies![0]!.id;
   workspace = await service.createInventoryItem("workspace-1", {
     destinationId: "destination-1",
     policyId,
@@ -119,8 +109,15 @@ const createPolicyAndItem = async (service: PublicationInventoryService) => {
     availableFrom: "2026-10-04T00:00:00.000Z",
     expiresAt: "2026-10-10T00:00:00.000Z",
   });
-  return { workspace, policyId, itemId: workspace.items[0]!.id };
+  return { workspace, policyId, itemId: workspace.publicationInventory![0]!.id };
 };
+
+test("publication inventory normalizes legacy activation workspaces without duplicate storage authority", async () => {
+  const { service } = createHarness();
+  const workspace = await service.load("workspace-1");
+  assert.deepEqual(workspace.publicationPolicies, []);
+  assert.deepEqual(workspace.publicationInventory, []);
+});
 
 test("publication inventory requires named review before content becomes eligible", async () => {
   const { service } = createHarness();
@@ -129,12 +126,12 @@ test("publication inventory requires named review before content becomes eligibl
   assert.equal((await service.eligibleItems("workspace-1", now)).length, 0);
 
   let workspace = await service.submitInventoryItem("workspace-1", itemId);
-  assert.equal(workspace.items[0]!.status, "in_review");
+  assert.equal(workspace.publicationInventory![0]!.status, "in_review");
   assert.equal((await service.eligibleItems("workspace-1", now)).length, 0);
 
   workspace = await service.reviewInventoryItem("workspace-1", itemId, "Kevin", "approved", "Approved exact copy for the named destination");
-  assert.equal(workspace.items[0]!.status, "stocked");
-  assert.equal(workspace.items[0]!.reviewedBy, "Kevin");
+  assert.equal(workspace.publicationInventory![0]!.status, "stocked");
+  assert.equal(workspace.publicationInventory![0]!.reviewedBy, "Kevin");
 
   const eligible = await service.eligibleItems("workspace-1", now);
   assert.equal(eligible.length, 1);
@@ -152,7 +149,7 @@ test("source authority drift invalidates stocked inventory", async () => {
 
   assert.equal((await service.eligibleItems("workspace-1", now)).length, 0);
   const workspace = await service.detectAuthorityImpact("workspace-1");
-  assert.equal(workspace.items[0]!.status, "approval_invalidated");
+  assert.equal(workspace.publicationInventory![0]!.status, "approval_invalidated");
 });
 
 test("destination or policy disablement blocks stocked inventory", async () => {
@@ -184,7 +181,7 @@ test("inventory eligibility enforces availability, expiry, and deterministic pri
     lateToleranceMinutes: 0,
     retryLimit: 0,
   });
-  const policyId = workspace.policies[0]!.id;
+  const policyId = workspace.publicationPolicies![0]!.id;
 
   for (const [priority, sourceId] of [[20, "variant-later"], [5, "variant-first"]] as const) {
     workspace = await service.createInventoryItem("workspace-1", {
@@ -196,7 +193,7 @@ test("inventory eligibility enforces availability, expiry, and deterministic pri
       availableFrom: "2026-10-04T00:00:00.000Z",
       expiresAt: "2026-10-05T00:00:00.000Z",
     });
-    const itemId = workspace.items.at(-1)!.id;
+    const itemId = workspace.publicationInventory!.at(-1)!.id;
     await service.submitInventoryItem("workspace-1", itemId);
     await service.reviewInventoryItem("workspace-1", itemId, "Kevin", "approved", `Approved ${sourceId}`);
   }
