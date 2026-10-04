@@ -58,13 +58,6 @@ export type PublicationInventoryItem = Readonly<{
   updatedAt: string;
 }>;
 
-export type PublicationInventoryWorkspace = Readonly<{
-  workspaceId: string;
-  policies: readonly PublicationPolicy[];
-  items: readonly PublicationInventoryItem[];
-  updatedAt: string;
-}>;
-
 export type PublicationInventoryEligibility = Readonly<{
   eligible: boolean;
   reason?:
