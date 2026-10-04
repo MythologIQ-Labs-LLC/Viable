@@ -13,10 +13,10 @@ export class LocalStorageActivationLearningStore implements ActivationLearningSt
       { field: "workspaceId", expected: workspaceId },
       {
         arrays: [
-          "destinations", "calendarEntries", "publicationPolicies", "publicationInventory", "packages", "exportOperations", "deliveryOutcomes",
-          "measurementPlans", "performanceImports", "retrospectives", "learningLedger",
+          "destinations", "calendarEntries", "publicationPolicies", "publicationInventory", "publicationJobs", "publicationAttempts",
+          "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "retrospectives", "learningLedger",
         ],
-        defaultArrays: ["publicationPolicies", "publicationInventory"],
+        defaultArrays: ["publicationPolicies", "publicationInventory", "publicationJobs", "publicationAttempts"],
         strings: ["updatedAt"],
       },
     );
