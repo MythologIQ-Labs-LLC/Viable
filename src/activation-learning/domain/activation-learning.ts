@@ -210,8 +210,8 @@ export type ActivationLearningWorkspace = Readonly<{
   workspaceId: string;
   destinations: readonly DestinationRecord[];
   calendarEntries: readonly CalendarEntry[];
-  publicationPolicies: readonly PublicationPolicy[];
-  publicationInventory: readonly PublicationInventoryItem[];
+  publicationPolicies?: readonly PublicationPolicy[];
+  publicationInventory?: readonly PublicationInventoryItem[];
   packages: readonly ManualActivationPackage[];
   exportOperations: readonly ExportOperation[];
   deliveryOutcomes: readonly DeliveryOutcome[];
