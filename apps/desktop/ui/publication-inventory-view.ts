@@ -3,9 +3,14 @@ import type {
   ActivationSourceKind,
   DestinationChannel,
 } from "../../../src/activation-learning/domain/activation-learning.js";
+import type {
+  PublicationExecutionWorkspace,
+  PublicationJob,
+} from "../../../src/activation-learning/domain/publication-execution.js";
 import type { PublicationInventoryReviewDecision } from "../../../src/activation-learning/domain/publication-inventory.js";
 import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
 import { PublicationInventoryService } from "../../../src/activation-learning/services/publication-inventory-service.js";
+import { PublicationSchedulerService } from "../../../src/activation-learning/services/publication-scheduler-service.js";
 import type { CampaignWorkspace } from "../../../src/campaigns/domain/campaign.js";
 import type { RepositoryGrowthWorkspace } from "../../../src/repository-growth/domain/repository-growth.js";
 import type { VideoProductionWorkspace } from "../../../src/video-production/domain/video-production.js";
@@ -21,9 +26,9 @@ const escapeHtml = (value: unknown): string => String(value ?? "")
 const label = (value: string): string => value.replaceAll("_", " ");
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
 const tone = (value: string): string =>
-  ["stocked", "enabled"].includes(value) ? "implemented"
-    : ["draft", "in_review", "changes_requested", "approval_invalidated"].includes(value) ? "warning"
-      : ["rejected", "retired", "disabled"].includes(value) ? "error" : "neutral";
+  ["stocked", "enabled", "published", "ready"].includes(value) ? "implemented"
+    : ["draft", "in_review", "changes_requested", "approval_invalidated", "waiting", "retry_wait", "executing", "outcome_unknown", "paused"].includes(value) ? "warning"
+      : ["rejected", "retired", "disabled", "failed", "cancelled", "authority_invalidated"].includes(value) ? "error" : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
 const toIso = (value: FormDataEntryValue | null, name: string): string => {
   const date = new Date(String(value ?? ""));
@@ -60,7 +65,8 @@ export class PublicationInventoryViewController {
     this.videoStore,
   );
   private readonly service = new PublicationInventoryService(this.activationStore, this.sourceAuthority);
-  private activation?: ActivationLearningWorkspace;
+  private readonly scheduler = new PublicationSchedulerService(this.activationStore, this.sourceAuthority);
+  private activation?: PublicationExecutionWorkspace;
   private campaigns?: CampaignWorkspace;
   private repositories?: RepositoryGrowthWorkspace;
   private videos?: VideoProductionWorkspace;
@@ -75,7 +81,7 @@ export class PublicationInventoryViewController {
       this.repositoryStore.load(this.workspaceId),
       this.videoStore.load(this.workspaceId),
     ]);
-    this.activation = activation;
+    this.activation = activation as PublicationExecutionWorkspace;
     this.campaigns = campaigns;
     this.repositories = repositories;
     this.videos = videos;
@@ -87,19 +93,21 @@ export class PublicationInventoryViewController {
     }
     const policies = this.activation.publicationPolicies ?? [];
     const items = this.activation.publicationInventory ?? [];
+    const jobs = this.activation.publicationJobs ?? [];
     const stocked = items.filter((item) => item.status === "stocked");
     const activeDestinations = this.activation.destinations.filter((item) => item.status === "active");
     const sources = this.sourceOptions();
     return `<section class="activation-workspace publication-inventory-workspace" aria-labelledby="publication-inventory-heading">
-      <header class="hero compact"><div><p class="eyebrow">Publication inventory</p><h2 id="publication-inventory-heading">Approve content once. Hold exact publication intent as stock.</h2><p>Inventory is local activation authority for future deterministic publishing. Stocking never publishes by itself.</p></div>${pill("provider neutral")}</header>
+      <header class="hero compact"><div><p class="eyebrow">Publication inventory</p><h2 id="publication-inventory-heading">Approve content once. Hold exact publication intent as stock.</h2><p>Inventory is local activation authority for deterministic publishing. Stocking never publishes by itself.</p></div>${pill("provider neutral")}</header>
       ${this.failureState()}
-      <section class="state offline"><strong>Automated execution is not active in this slice.</strong><span>Stocked means reviewed and eligible for the deterministic scheduler planned next. Manual activation remains unchanged.</span></section>
+      <section class="state offline"><strong>Live provider execution is not connected yet.</strong><span>The deterministic scheduler, reservation rules, retry ledger, restart recovery, and fail-closed outcome handling exist locally. Real social-provider adapters remain evidence-gated.</span></section>
       <section class="metrics" aria-label="Publication inventory status">
         <article><span>Policies</span><strong>${policies.length}</strong><small>${policies.filter((item) => item.enabled).length} enabled</small></article>
         <article><span>Inventory items</span><strong>${items.length}</strong><small>${stocked.length} stocked</small></article>
         <article><span>In review</span><strong>${items.filter((item) => item.status === "in_review").length}</strong><small>Named human required</small></article>
-        <article><span>Invalidated</span><strong>${items.filter((item) => item.status === "approval_invalidated").length}</strong><small>Must be re-reviewed</small></article>
+        <article><span>Publication jobs</span><strong>${jobs.length}</strong><small>${jobs.filter((job) => job.status === "published").length} published</small></article>
       </section>
+      ${this.automationSection(jobs)}
       ${this.policySection(activeDestinations)}
       ${this.inventorySection(policies.filter((item) => item.enabled), sources)}
       ${this.stockSection(items)}
@@ -125,7 +133,7 @@ export class PublicationInventoryViewController {
           ...(maximumPerWeek !== undefined ? { maximumPerWeek } : {}),
           lateToleranceMinutes: Number(form.get("lateToleranceMinutes")),
           retryLimit: Number(form.get("retryLimit")),
-        });
+        }) as PublicationExecutionWorkspace;
         return "Publication policy created without granting publication authority";
       }
       if (kind === "publication-inventory-item") {
@@ -140,7 +148,7 @@ export class PublicationInventoryViewController {
           availableFrom: toIso(form.get("availableFrom"), "Inventory availability"),
           ...(expiresAt ? { expiresAt: toIso(expiresAt, "Inventory expiration") } : {}),
           maxUses: Number(form.get("maxUses")) || 1,
-        });
+        }) as PublicationExecutionWorkspace;
         return "Draft publication inventory item created; it is not publishable until named review";
       }
       return undefined;
@@ -157,24 +165,35 @@ export class PublicationInventoryViewController {
     try {
       if (action === "recover-inventory") { await this.load(); return "Saved publication inventory restored"; }
       if (action === "recheck-inventory-authority") {
-        this.activation = await this.service.detectAuthorityImpact(this.workspaceId);
+        this.activation = await this.service.detectAuthorityImpact(this.workspaceId) as PublicationExecutionWorkspace;
         return "Publication source, destination, and policy authority rechecked";
+      }
+      if (action === "toggle-publication-automation") {
+        const paused = this.activation?.publicationAutomation?.paused ?? false;
+        await this.scheduler.setPaused(this.workspaceId, !paused, paused ? "Operator resumed automation" : "Operator paused automation");
+        await this.load();
+        return paused ? "Publication automation resumed" : "Publication automation paused";
+      }
+      if (action === "cancel-publication-job" && id) {
+        await this.scheduler.cancelJob(this.workspaceId, id);
+        await this.load();
+        return "Publication job cancelled without claiming delivery";
       }
       if (action === "toggle-publication-policy" && id) {
         const current = (this.activation?.publicationPolicies ?? []).find((item) => item.id === id);
         if (!current) throw new Error("Publication policy not found");
-        this.activation = await this.service.setPolicyEnabled(this.workspaceId, id, !current.enabled);
+        this.activation = await this.service.setPolicyEnabled(this.workspaceId, id, !current.enabled) as PublicationExecutionWorkspace;
         return `Publication policy ${current.enabled ? "disabled" : "enabled"}`;
       }
       if (action === "submit-publication-item" && id) {
-        this.activation = await this.service.submitInventoryItem(this.workspaceId, id);
+        this.activation = await this.service.submitInventoryItem(this.workspaceId, id) as PublicationExecutionWorkspace;
         return "Publication inventory item submitted for named review";
       }
       if (action === "review-publication-item" && id) {
         return this.reviewItem(id, button.dataset.decision as PublicationInventoryReviewDecision | undefined);
       }
       if (action === "retire-publication-item" && id) {
-        this.activation = await this.service.retireInventoryItem(this.workspaceId, id);
+        this.activation = await this.service.retireInventoryItem(this.workspaceId, id) as PublicationExecutionWorkspace;
         return "Publication inventory item retired";
       }
       return undefined;
@@ -186,6 +205,33 @@ export class PublicationInventoryViewController {
 
   private failureState(): string {
     return this.failure ? `<section class="state error" role="alert"><div><strong>The inventory operation was not saved.</strong><p>${escapeHtml(this.failure)}</p></div><button type="button" data-publication-action="recover-inventory">Return to saved publication inventory</button></section>` : "";
+  }
+
+  private automationSection(jobs: readonly PublicationJob[]): string {
+    const paused = this.activation?.publicationAutomation?.paused ?? false;
+    const count = (status: PublicationJob["status"]): number => jobs.filter((job) => job.status === status).length;
+    return `<section class="panel" aria-labelledby="publication-automation-heading"><div class="section-heading"><div><p class="eyebrow">Automation control</p><h3 id="publication-automation-heading">Deterministic scheduler state</h3></div>${pill(paused ? "paused" : "ready")}</div>
+      <div class="metrics" aria-label="Publication automation status">
+        <article><span>Waiting</span><strong>${count("waiting")}</strong><small>Reserved for a scheduled slot</small></article>
+        <article><span>Retry wait</span><strong>${count("retry_wait")}</strong><small>Same idempotency key retained</small></article>
+        <article><span>Published</span><strong>${count("published")}</strong><small>Provider-confirmed only</small></article>
+        <article><span>Needs attention</span><strong>${count("failed") + count("outcome_unknown") + count("authority_invalidated")}</strong><small>Never silently retried</small></article>
+      </div>
+      <div class="actions"><button type="button" data-publication-action="toggle-publication-automation">${paused ? "Resume" : "Pause"} automation</button></div>
+      <div class="card-list">${jobs.length ? jobs.slice().reverse().map((job) => this.jobCard(job)).join("") : `<div class="state empty"><strong>No publication jobs yet.</strong><span>The scheduler creates jobs only from stocked inventory. No stock means no job.</span></div>`}</div>
+    </section>`;
+  }
+
+  private jobCard(job: PublicationJob): string {
+    const item = (this.activation?.publicationInventory ?? []).find((candidate) => candidate.id === job.inventoryItemId);
+    const destination = this.activation?.destinations.find((candidate) => candidate.id === job.destinationId);
+    const cancellable = ["waiting", "retry_wait", "failed"].includes(job.status);
+    return `<article><div class="card-heading"><div><h4>${escapeHtml(item?.source.title ?? job.sourceId)}</h4><p>${escapeHtml(destination?.label ?? job.destinationId)} · ${escapeHtml(humanDate(job.scheduledFor))}</p></div>${pill(job.status)}</div>
+      <div class="calendar-meta"><span><strong>Attempts</strong>${job.attemptCount}</span><span><strong>Source</strong>v${job.sourceVersion}</span><span><strong>Policy</strong>v${job.policyVersion}</span><span><strong>Updated</strong>${escapeHtml(humanDate(job.updatedAt))}</span></div>
+      ${job.nextAttemptAt ? `<small>Next safe retry window ${escapeHtml(humanDate(job.nextAttemptAt))}.</small>` : ""}
+      ${job.failureDetail ? `<p><strong>Execution note:</strong> ${escapeHtml(job.failureDetail)}</p>` : ""}
+      ${job.publicationId ? `<p><strong>Publication:</strong> ${escapeHtml(job.publicationId)}</p>` : ""}
+      ${cancellable ? `<div class="actions"><button type="button" data-publication-action="cancel-publication-job" data-id="${job.id}">Cancel job</button></div>` : ""}</article>`;
   }
 
   private policySection(destinations: ActivationLearningWorkspace["destinations"]): string {
@@ -200,7 +246,7 @@ export class PublicationInventoryViewController {
       </form>` : `<section class="state warning"><strong>Publication policy is blocked.</strong><span>Create an active destination first. Provider credentials are not required.</span></section>`}
       <div class="card-list">${policies.map((policy) => {
         const destination = this.activation?.destinations.find((item) => item.id === policy.destinationId);
-        return `<article><div class="card-heading"><div><h4>${escapeHtml(policy.label)}</h4><p>${escapeHtml(destination?.label ?? policy.destinationId)} · ${escapeHtml(policy.timezone)}</p></div>${pill(policy.enabled ? "enabled" : "disabled")}</div><p>${escapeHtml(policy.allowedWindows.map((window) => `${window.start}–${window.end}`).join(", "))} · ${policy.allowedWeekdays.length} weekdays</p><small>Cooldown ${policy.minimumCooldownMinutes}m${policy.maximumPerDay ? ` · max ${policy.maximumPerDay}/day` : ""}${policy.maximumPerWeek ? ` · max ${policy.maximumPerWeek}/week` : ""}. Scheduler enforcement begins in the next slice.</small><div class="actions"><button type="button" data-publication-action="toggle-publication-policy" data-id="${policy.id}">${policy.enabled ? "Disable" : "Enable"} policy</button></div></article>`;
+        return `<article><div class="card-heading"><div><h4>${escapeHtml(policy.label)}</h4><p>${escapeHtml(destination?.label ?? policy.destinationId)} · ${escapeHtml(policy.timezone)}</p></div>${pill(policy.enabled ? "enabled" : "disabled")}</div><p>${escapeHtml(policy.allowedWindows.map((window) => `${window.start}–${window.end}`).join(", "))} · ${policy.allowedWeekdays.length} weekdays</p><small>Cooldown ${policy.minimumCooldownMinutes}m${policy.maximumPerDay ? ` · max ${policy.maximumPerDay}/day` : ""}${policy.maximumPerWeek ? ` · max ${policy.maximumPerWeek}/week` : ""}. The deterministic scheduler enforces these limits before reservation and execution.</small><div class="actions"><button type="button" data-publication-action="toggle-publication-policy" data-id="${policy.id}">${policy.enabled ? "Disable" : "Enable"} policy</button></div></article>`;
       }).join("")}</div>
     </section>`;
   }
@@ -287,7 +333,7 @@ export class PublicationInventoryViewController {
     const reviewer = prompt("Named publication inventory reviewer", this.defaultOwner);
     const note = reviewer ? prompt("Review note covering exact content, destination, timing policy, rights, accessibility, and disclosures") : null;
     if (!reviewer || !note) return undefined;
-    this.activation = await this.service.reviewInventoryItem(this.workspaceId, id, reviewer, decision, note);
+    this.activation = await this.service.reviewInventoryItem(this.workspaceId, id, reviewer, decision, note) as PublicationExecutionWorkspace;
     return decision === "approved" ? "Exact publication intent approved and stocked; nothing has been published" : `Publication inventory marked ${label(decision)}`;
   }
 }
