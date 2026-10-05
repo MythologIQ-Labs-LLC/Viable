@@ -29,6 +29,10 @@ export class NativeLinkedInProviderClient implements LinkedInNativeProviderPort 
     });
   }
 
+  async openSetupPage(destination: "linkedin_developer_apps" | "linkedin_token_generator"): Promise<void> {
+    await this.requiredInvoke()<void>("open_external_destination", { destination });
+  }
+
   private requiredInvoke(): Invoke {
     const invoke = globalThis.window?.__TAURI__?.core?.invoke as Invoke | undefined;
     if (!invoke) throw new Error("LinkedIn connection requires the Viable desktop runtime");

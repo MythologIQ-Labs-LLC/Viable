@@ -4,6 +4,7 @@ use crate::credential_store::{
 };
 use reqwest::blocking::Client;
 use reqwest::header::HeaderMap;
+use reqwest::redirect::Policy;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -160,19 +161,18 @@ pub fn linkedin_publish_text(
         .send()
     {
         Ok(response) => response,
-        Err(_) => {
-            return publish_outcome_unknown(
-                "LinkedIn publishing ended without a definitive provider outcome after dispatch became possible.",
-            )
-        }
+        Err(error) => return classify_publish_transport_error(error.is_connect()),
     };
 
     classify_publish_response(response.status(), response.headers())
 }
 
 fn linkedin_client() -> Result<Client, ()> {
+    // Bearer-authorized requests never follow redirects: a redirect is not
+    // publication evidence and must not carry authorization anywhere else.
     Client::builder()
         .timeout(Duration::from_secs(HTTP_TIMEOUT_SECONDS))
+        .redirect(Policy::none())
         .build()
         .map_err(|_| ())
 }
@@ -246,6 +246,23 @@ fn classify_publish_response(status: StatusCode, headers: &HeaderMap) -> LinkedI
             "LinkedIn did not return a definitive publication outcome after the request was dispatched.",
         ),
     }
+}
+
+// A connection-establishment failure (DNS, TCP, TLS) happens before any HTTP
+// request bytes are written, so LinkedIn cannot have received the publication.
+// Every other transport failure may have happened after dispatch.
+fn classify_publish_transport_error(connect_failed: bool) -> LinkedInPublishResponse {
+    if connect_failed {
+        return LinkedInPublishResponse {
+            kind: "not_dispatched",
+            publication_id: None,
+            provider_response_id: None,
+            detail: Some("LinkedIn could not be reached; the publication request was not sent."),
+        };
+    }
+    publish_outcome_unknown(
+        "LinkedIn publishing ended without a definitive provider outcome after dispatch became possible.",
+    )
 }
 
 fn ugc_text_payload(member_urn: &str, text: &str) -> Value {
@@ -428,6 +445,26 @@ mod tests {
         );
         assert_eq!(
             classify_publish_response(StatusCode::INTERNAL_SERVER_ERROR, &HeaderMap::new()).kind,
+            "outcome_unknown"
+        );
+    }
+
+    #[test]
+    fn redirects_are_never_publication_evidence() {
+        assert_eq!(
+            classify_publish_response(StatusCode::FOUND, &HeaderMap::new()).kind,
+            "outcome_unknown"
+        );
+    }
+
+    #[test]
+    fn only_connection_failures_are_known_undispatched() {
+        assert_eq!(
+            classify_publish_transport_error(true).kind,
+            "not_dispatched"
+        );
+        assert_eq!(
+            classify_publish_transport_error(false).kind,
             "outcome_unknown"
         );
     }

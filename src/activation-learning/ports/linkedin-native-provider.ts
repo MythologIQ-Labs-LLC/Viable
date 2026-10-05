@@ -33,6 +33,11 @@ export type LinkedInPublishResult =
       detail: string;
     }>
   | Readonly<{
+      // Connection establishment failed before any request bytes were sent.
+      kind: "not_dispatched";
+      detail: string;
+    }>
+  | Readonly<{
       kind: "outcome_unknown";
       detail: string;
     }>;

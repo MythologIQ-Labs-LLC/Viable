@@ -3,6 +3,7 @@ import type { PublicationExecutionWorkspace, PublicationSchedulerResult } from "
 import type { LinkedInMemberConnectionRecord, ProviderConnectionWorkspace } from "../../../src/activation-learning/domain/provider-connection.js";
 import { LinkedInMemberPublicationProvider } from "../../../src/activation-learning/adapters/linkedin-member-publication-provider.js";
 import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
+import { linkedInOnlyAutomationBlocker } from "../../../src/activation-learning/services/linkedin-automation-frontier.js";
 import { LinkedInMemberConnectionService } from "../../../src/activation-learning/services/linkedin-member-connection-service.js";
 import { PublicationSchedulerService } from "../../../src/activation-learning/services/publication-scheduler-service.js";
 import { LocalStorageActivationLearningStore } from "./local-storage-activation-learning-store.js";
@@ -131,12 +132,12 @@ function render(): void {
     <div class="panel narrow">
       <div class="section-heading"><div><p class="eyebrow">Step 1</p><h4>Enable the two LinkedIn products</h4></div></div>
       <p>In your LinkedIn developer app, enable <strong>Sign in with LinkedIn using OpenID Connect</strong> and <strong>Share on LinkedIn</strong>. These are the self-service products used by this local connection.</p>
-      <p><a href="https://www.linkedin.com/developers/apps" target="_blank" rel="noreferrer">Open LinkedIn Developer Apps</a></p>
+      <p><button type="button" data-linkedin-open="linkedin_developer_apps">Open LinkedIn Developer Apps in your browser</button></p>
     </div>
     <div class="panel narrow">
       <div class="section-heading"><div><p class="eyebrow">Step 2</p><h4>Generate a member token</h4></div></div>
       <p>Open LinkedIn's official Token Generator, choose this developer app, and generate a member token with <code>openid</code>, <code>profile</code>, and <code>w_member_social</code>. Copy the token once.</p>
-      <p><a href="https://www.linkedin.com/developers/tools/oauth/token-generator" target="_blank" rel="noreferrer">Open LinkedIn Token Generator</a></p>
+      <p><button type="button" data-linkedin-open="linkedin_token_generator">Open LinkedIn Token Generator in your browser</button></p>
     </div>
     <div class="panel narrow">
       <div class="section-heading"><div><p class="eyebrow">Step 3</p><h4>Connect Viable</h4></div></div>
@@ -200,6 +201,9 @@ async function connect(form: HTMLFormElement): Promise<void> {
   const destinationId = String(data.get("destinationId") ?? "").trim();
   const tokenInput = form.querySelector<HTMLInputElement>('input[name="accessToken"]');
   const accessToken = String(data.get("accessToken") ?? "").trim();
+  // Drop every UI-held copy of the token before any await; only the native
+  // credential boundary keeps it.
+  data.delete("accessToken");
   if (tokenInput) tokenInput.value = "";
   const localExpiry = String(data.get("tokenExpiresAt") ?? "").trim();
   const tokenExpiresAt = localExpiry ? new Date(localExpiry).toISOString() : undefined;
@@ -244,21 +248,8 @@ async function runAutomationNow(): Promise<void> {
 }
 
 function assertLinkedInOnlyAutomatedFrontier(workspace: PublicationExecutionWorkspace): void {
-  const destinations = new Map(workspace.destinations.map((destination) => [destination.id, destination]));
-  const nonLinkedInPending = (workspace.publicationJobs ?? []).find((job) =>
-    ["waiting", "retry_wait", "executing"].includes(job.status)
-      && destinations.get(job.destinationId)?.channel !== "linkedin",
-  );
-  if (nonLinkedInPending) {
-    throw new Error("A non-LinkedIn publication job is pending. Slice D will not route it through the LinkedIn provider.");
-  }
-
-  const nonLinkedInStock = (workspace.publicationInventory ?? []).find((item) =>
-    item.status === "stocked" && destinations.get(item.destinationId)?.channel !== "linkedin",
-  );
-  if (nonLinkedInStock) {
-    throw new Error("Non-LinkedIn publication stock is present. Slice D stays fail-closed until multi-provider routing is implemented.");
-  }
+  const blocker = linkedInOnlyAutomationBlocker(workspace);
+  if (blocker) throw new Error(blocker);
 }
 
 function schedulerMessage(result: PublicationSchedulerResult): Readonly<{ tone: "implemented" | "warning" | "error"; text: string }> {
@@ -304,6 +295,19 @@ document.addEventListener("submit", (event) => {
     render();
   }).finally(() => {
     if (submit) submit.disabled = false;
+  });
+}, true);
+
+document.addEventListener("click", (event) => {
+  const opener = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-linkedin-open]");
+  if (!opener) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const destination = opener.dataset.linkedinOpen;
+  if (destination !== "linkedin_developer_apps" && destination !== "linkedin_token_generator") return;
+  void nativeProvider.openSetupPage(destination).catch(() => {
+    lastMessage = { tone: "warning", text: "Viable could not open your system browser. Open linkedin.com/developers manually." };
+    render();
   });
 }, true);
 

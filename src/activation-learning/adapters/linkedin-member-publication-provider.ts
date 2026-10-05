@@ -69,6 +69,12 @@ export class LinkedInMemberPublicationProvider implements PublicationProviderPor
           failureClass: "linkedin_rate_limited",
           detail: result.detail,
         };
+      case "not_dispatched":
+        return {
+          kind: "retryable_failure",
+          failureClass: "linkedin_unreachable",
+          detail: result.detail,
+        };
       case "reconnect_required":
         await this.markReconnectRequired(workspace!, connection);
         return terminal("reconnect_required", result.detail);

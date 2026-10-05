@@ -295,3 +295,17 @@ function workspace(): ActivationLearningWorkspace {
     updatedAt: NOW,
   };
 }
+
+test("connection failures before dispatch are bounded retryable, not outcome_unknown", async () => {
+  const connections = connectedStore();
+  const native = new NativeProvider();
+  native.publishResult = { kind: "not_dispatched", detail: "LinkedIn could not be reached; the publication request was not sent." };
+  const provider = new LinkedInMemberPublicationProvider(connections, native, () => new Date(NOW));
+
+  assert.deepEqual(await provider.publish(request()), {
+    kind: "retryable_failure",
+    failureClass: "linkedin_unreachable",
+    detail: "LinkedIn could not be reached; the publication request was not sent.",
+  });
+  assert.equal(connections.value?.connections[0]?.status, "connected");
+});
