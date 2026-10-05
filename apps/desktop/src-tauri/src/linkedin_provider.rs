@@ -54,7 +54,12 @@ pub fn linkedin_connect_member(
 ) -> LinkedInConnectResponse {
     let reference = match CredentialReference::parse(credential_reference) {
         Ok(reference) => reference,
-        Err(_) => return connect_rejected("local_unavailable", "Secure credential reference is invalid."),
+        Err(_) => {
+            return connect_rejected(
+                "local_unavailable",
+                "Secure credential reference is invalid.",
+            )
+        }
     };
     let token = access_token.trim();
     if token.is_empty() {
@@ -105,9 +110,7 @@ pub fn linkedin_publish_text(
 ) -> LinkedInPublishResponse {
     let reference = match CredentialReference::parse(credential_reference) {
         Ok(reference) => reference,
-        Err(_) => {
-            return publish_local_unavailable("Secure credential reference is invalid.")
-        }
+        Err(_) => return publish_local_unavailable("Secure credential reference is invalid."),
     };
     if !valid_member_urn(&member_urn) {
         return publish_provider_rejected("LinkedIn member authority is invalid.");
@@ -193,18 +196,16 @@ fn validate_member(client: &Client, access_token: &str) -> LinkedInConnectRespon
                 "LinkedIn member validation returned an unusable profile response.",
             ),
         },
-        StatusCode::UNAUTHORIZED => connect_rejected(
-            "invalid_token",
-            "LinkedIn rejected the access token.",
-        ),
+        StatusCode::UNAUTHORIZED => {
+            connect_rejected("invalid_token", "LinkedIn rejected the access token.")
+        }
         StatusCode::FORBIDDEN => connect_rejected(
             "insufficient_scope",
             "LinkedIn authorization does not include the required member profile authority.",
         ),
-        StatusCode::TOO_MANY_REQUESTS => connect_rejected(
-            "rate_limited",
-            "LinkedIn rate limited member validation.",
-        ),
+        StatusCode::TOO_MANY_REQUESTS => {
+            connect_rejected("rate_limited", "LinkedIn rate limited member validation.")
+        }
         _ => connect_rejected(
             "provider_failure",
             "LinkedIn member validation did not return a successful provider response.",
@@ -225,15 +226,15 @@ fn classify_publish_response(status: StatusCode, headers: &HeaderMap) -> LinkedI
                 "LinkedIn accepted the publication request but did not return definitive publication evidence.",
             ),
         },
-        StatusCode::UNAUTHORIZED => publish_reconnect_required(
-            "LinkedIn authorization is invalid or expired.",
-        ),
-        StatusCode::TOO_MANY_REQUESTS => publish_rate_limited(
-            "LinkedIn rate limited the publication request.",
-        ),
-        status if status.is_client_error() => publish_provider_rejected(
-            "LinkedIn rejected the publication request.",
-        ),
+        StatusCode::UNAUTHORIZED => {
+            publish_reconnect_required("LinkedIn authorization is invalid or expired.")
+        }
+        StatusCode::TOO_MANY_REQUESTS => {
+            publish_rate_limited("LinkedIn rate limited the publication request.")
+        }
+        status if status.is_client_error() => {
+            publish_provider_rejected("LinkedIn rejected the publication request.")
+        }
         _ => publish_outcome_unknown(
             "LinkedIn did not return a definitive publication outcome after the request was dispatched.",
         ),
@@ -259,7 +260,9 @@ fn ugc_text_payload(member_urn: &str, text: &str) -> Value {
 fn valid_member_urn(value: &str) -> bool {
     value
         .strip_prefix("urn:li:person:")
-        .is_some_and(|member_id| !member_id.trim().is_empty() && !member_id.chars().any(char::is_whitespace))
+        .is_some_and(|member_id| {
+            !member_id.trim().is_empty() && !member_id.chars().any(char::is_whitespace)
+        })
 }
 
 fn connect_success(member_id: &str) -> LinkedInConnectResponse {
