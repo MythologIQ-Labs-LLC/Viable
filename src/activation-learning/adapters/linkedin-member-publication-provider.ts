@@ -72,6 +72,8 @@ export class LinkedInMemberPublicationProvider implements PublicationProviderPor
       case "reconnect_required":
         await this.markReconnectRequired(workspace!, connection);
         return terminal("reconnect_required", result.detail);
+      case "local_unavailable":
+        return terminal("credential_store_unavailable", result.detail);
       case "provider_rejected":
         return terminal("linkedin_provider_rejected", result.detail);
       case "outcome_unknown":
