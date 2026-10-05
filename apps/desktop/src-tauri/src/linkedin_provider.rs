@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use tauri::State;
 
-const LINKEDIN_PROFILE_URL: &str = "https://api.linkedin.com/v2/me";
+const LINKEDIN_USERINFO_URL: &str = "https://api.linkedin.com/v2/userinfo";
 // LinkedIn's current open, self-service Share on LinkedIn product documents
 // /v2/ugcPosts for w_member_social. The versioned /rest/posts API is documented
 // under Community Management, which has a separate approval boundary. Keep the
@@ -47,8 +47,8 @@ pub struct LinkedInPublishResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct LinkedInProfileResponse {
-    id: String,
+struct LinkedInUserInfoResponse {
+    sub: String,
 }
 
 #[tauri::command]
@@ -179,9 +179,8 @@ fn linkedin_client() -> Result<Client, ()> {
 
 fn validate_member(client: &Client, access_token: &str) -> LinkedInConnectResponse {
     let response = match client
-        .get(LINKEDIN_PROFILE_URL)
+        .get(LINKEDIN_USERINFO_URL)
         .bearer_auth(access_token)
-        .header("X-Restli-Protocol-Version", RESTLI_PROTOCOL_VERSION)
         .send()
     {
         Ok(response) => response,
@@ -194,11 +193,11 @@ fn validate_member(client: &Client, access_token: &str) -> LinkedInConnectRespon
     };
 
     match response.status() {
-        StatusCode::OK => match response.json::<LinkedInProfileResponse>() {
-            Ok(profile) if !profile.id.trim().is_empty() => connect_success(profile.id.trim()),
+        StatusCode::OK => match response.json::<LinkedInUserInfoResponse>() {
+            Ok(profile) if !profile.sub.trim().is_empty() => connect_success(profile.sub.trim()),
             _ => connect_rejected(
                 "provider_failure",
-                "LinkedIn member validation returned an unusable profile response.",
+                "LinkedIn member validation returned an unusable OIDC profile response.",
             ),
         },
         StatusCode::UNAUTHORIZED => {
@@ -206,7 +205,7 @@ fn validate_member(client: &Client, access_token: &str) -> LinkedInConnectRespon
         }
         StatusCode::FORBIDDEN => connect_rejected(
             "insufficient_scope",
-            "LinkedIn authorization does not include the required member profile authority.",
+            "LinkedIn authorization does not include the required OIDC profile authority.",
         ),
         StatusCode::TOO_MANY_REQUESTS => {
             connect_rejected("rate_limited", "LinkedIn rate limited member validation.")
@@ -350,7 +349,7 @@ mod tests {
     use reqwest::header::HeaderValue;
 
     #[test]
-    fn successful_member_identity_is_non_secret_and_stable() {
+    fn successful_oidc_subject_is_non_secret_member_authority() {
         assert_eq!(
             connect_success("abc123"),
             LinkedInConnectResponse {
