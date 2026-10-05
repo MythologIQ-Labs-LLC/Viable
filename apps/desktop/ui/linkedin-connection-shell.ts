@@ -40,6 +40,7 @@ let connections: ProviderConnectionWorkspace | undefined;
 let vault: NativeCredentialCapability = { status: "runtime_unavailable", canStoreSecrets: false };
 let loading = false;
 let runningAutomation = false;
+let connecting = false;
 let lastWorkspaceId: string | undefined;
 let lastMessage: Readonly<{ tone: "implemented" | "warning" | "error"; text: string }> | undefined;
 
@@ -101,7 +102,7 @@ function render(): void {
 
   const destinations = linkedinDestinations();
   const connectedDestinations = destinations.filter((destination) => connectionFor(destination.id)?.status === "connected");
-  const enabled = vault.canStoreSecrets && destinations.length > 0;
+  const enabled = vault.canStoreSecrets && destinations.length > 0 && !connecting;
   const destinationOptions = destinations.map((destination) => {
     const connection = connectionFor(destination.id);
     const label = connection?.status === "connected" ? `${destination.label} · connected` : destination.label;
@@ -195,8 +196,6 @@ async function refresh(force = false): Promise<void> {
 }
 
 async function connect(form: HTMLFormElement): Promise<void> {
-  const workspaceId = productStore.activeWorkspaceId();
-  if (!workspaceId) throw new Error("Create a Product workspace before connecting LinkedIn");
   const data = new FormData(form);
   const destinationId = String(data.get("destinationId") ?? "").trim();
   const tokenInput = form.querySelector<HTMLInputElement>('input[name="accessToken"]');
@@ -205,6 +204,8 @@ async function connect(form: HTMLFormElement): Promise<void> {
   // credential boundary keeps it.
   data.delete("accessToken");
   if (tokenInput) tokenInput.value = "";
+  const workspaceId = productStore.activeWorkspaceId();
+  if (!workspaceId) throw new Error("Create a Product workspace before connecting LinkedIn");
   const localExpiry = String(data.get("tokenExpiresAt") ?? "").trim();
   const tokenExpiresAt = localExpiry ? new Date(localExpiry).toISOString() : undefined;
   lastMessage = undefined;
@@ -228,16 +229,16 @@ async function connect(form: HTMLFormElement): Promise<void> {
 }
 
 async function runAutomationNow(): Promise<void> {
-  const workspaceId = productStore.activeWorkspaceId();
-  if (!workspaceId) throw new Error("Create a Product workspace before running publication automation");
-  const current = await activationStore.load(workspaceId) as PublicationExecutionWorkspace | undefined;
-  if (!current) throw new Error("Calendar and Activation workspace not found");
-  assertLinkedInOnlyAutomatedFrontier(current);
-
+  if (runningAutomation) return;
   runningAutomation = true;
   lastMessage = undefined;
   render();
   try {
+    const workspaceId = productStore.activeWorkspaceId();
+    if (!workspaceId) throw new Error("Create a Product workspace before running publication automation");
+    const current = await activationStore.load(workspaceId) as PublicationExecutionWorkspace | undefined;
+    if (!current) throw new Error("Calendar and Activation workspace not found");
+    assertLinkedInOnlyAutomatedFrontier(current);
     const result = await scheduler.runOnce(workspaceId, new Date().toISOString());
     lastMessage = schedulerMessage(result);
     announce(lastMessage.text);
@@ -286,6 +287,8 @@ document.addEventListener("submit", (event) => {
   if (form.dataset.form !== "linkedin-member-connection") return;
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (connecting) return;
+  connecting = true;
   const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
   if (submit) submit.disabled = true;
   void connect(form).catch((error: unknown) => {
@@ -294,7 +297,9 @@ document.addEventListener("submit", (event) => {
     announce(`LinkedIn connection failed: ${message}`);
     render();
   }).finally(() => {
+    connecting = false;
     if (submit) submit.disabled = false;
+    render();
   });
 }, true);
 

@@ -9,7 +9,7 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Duration;
-use tauri::State;
+use tauri::{AppHandle, Manager};
 
 const LINKEDIN_USERINFO_URL: &str = "https://api.linkedin.com/v2/userinfo";
 // LinkedIn's current open, self-service Share on LinkedIn product documents
@@ -20,6 +20,7 @@ const LINKEDIN_USERINFO_URL: &str = "https://api.linkedin.com/v2/userinfo";
 const LINKEDIN_UGC_POSTS_URL: &str = "https://api.linkedin.com/v2/ugcPosts";
 const RESTLI_PROTOCOL_VERSION: &str = "2.0.0";
 const HTTP_TIMEOUT_SECONDS: u64 = 20;
+const LINKEDIN_REFERENCE_PREFIX: &str = "viable://credential/linkedin/";
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -52,15 +53,62 @@ struct LinkedInUserInfoResponse {
     sub: String,
 }
 
-#[tauri::command(async)]
-pub fn linkedin_connect_member(
+// The reqwest blocking client must never run on the UI main thread or on an
+// async-runtime worker (it panics there in debug builds and stalls a worker in
+// release builds). Network commands therefore hop onto the blocking pool.
+#[tauri::command]
+pub async fn linkedin_connect_member(
+    app: AppHandle,
     credential_reference: String,
     access_token: String,
-    state: State<'_, CredentialVaultState>,
 ) -> LinkedInConnectResponse {
-    let reference = match CredentialReference::parse(credential_reference) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<CredentialVaultState>();
+        connect_member(credential_reference, access_token, &state)
+    })
+    .await
+    .unwrap_or_else(|_| {
+        connect_rejected(
+            "local_unavailable",
+            "LinkedIn member validation stopped unexpectedly.",
+        )
+    })
+}
+
+#[tauri::command]
+pub async fn linkedin_publish_text(
+    app: AppHandle,
+    credential_reference: String,
+    member_urn: String,
+    text: String,
+) -> LinkedInPublishResponse {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<CredentialVaultState>();
+        publish_text(credential_reference, member_urn, text, &state)
+    })
+    .await
+    .unwrap_or_else(|_| {
+        publish_outcome_unknown(
+            "LinkedIn publishing stopped unexpectedly after dispatch may have become possible.",
+        )
+    })
+}
+
+fn linkedin_reference(value: String) -> Result<CredentialReference, ()> {
+    if !value.starts_with(LINKEDIN_REFERENCE_PREFIX) {
+        return Err(());
+    }
+    CredentialReference::parse(value).map_err(|_| ())
+}
+
+fn connect_member(
+    credential_reference: String,
+    access_token: String,
+    state: &CredentialVaultState,
+) -> LinkedInConnectResponse {
+    let reference = match linkedin_reference(credential_reference) {
         Ok(reference) => reference,
-        Err(_) => {
+        Err(()) => {
             return connect_rejected(
                 "local_unavailable",
                 "Secure credential reference is invalid.",
@@ -107,16 +155,15 @@ pub fn linkedin_connect_member(
     validation
 }
 
-#[tauri::command(async)]
-pub fn linkedin_publish_text(
+fn publish_text(
     credential_reference: String,
     member_urn: String,
     text: String,
-    state: State<'_, CredentialVaultState>,
+    state: &CredentialVaultState,
 ) -> LinkedInPublishResponse {
-    let reference = match CredentialReference::parse(credential_reference) {
+    let reference = match linkedin_reference(credential_reference) {
         Ok(reference) => reference,
-        Err(_) => return publish_local_unavailable("Secure credential reference is invalid."),
+        Err(()) => return publish_local_unavailable("Secure credential reference is invalid."),
     };
     if !valid_member_urn(&member_urn) {
         return publish_provider_rejected("LinkedIn member authority is invalid.");
@@ -446,6 +493,25 @@ mod tests {
         assert_eq!(
             classify_publish_response(StatusCode::INTERNAL_SERVER_ERROR, &HeaderMap::new()).kind,
             "outcome_unknown"
+        );
+    }
+
+    #[test]
+    fn blocking_client_is_built_on_the_blocking_pool_without_panicking() {
+        // Regression: building the reqwest blocking client directly on an
+        // async-runtime worker panics in debug builds.
+        let built = tauri::async_runtime::block_on(async {
+            tauri::async_runtime::spawn_blocking(|| linkedin_client().is_ok()).await
+        });
+        assert!(built.expect("blocking pool task completes"));
+    }
+
+    #[test]
+    fn native_commands_accept_only_linkedin_credential_references() {
+        assert!(linkedin_reference("viable://credential/linkedin/c1/access_token".into()).is_ok());
+        assert!(linkedin_reference("viable://credential/meta/c1/access_token".into()).is_err());
+        assert!(
+            linkedin_reference("viable://credential/linkedinx/c1/access_token".into()).is_err()
         );
     }
 

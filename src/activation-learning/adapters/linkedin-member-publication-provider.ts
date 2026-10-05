@@ -88,13 +88,18 @@ export class LinkedInMemberPublicationProvider implements PublicationProviderPor
   }
 
   private async markReconnectRequired(
-    workspace: ProviderConnectionWorkspace,
+    _staleWorkspace: ProviderConnectionWorkspace,
     connection: LinkedInMemberConnectionRecord,
   ): Promise<void> {
+    // Re-read before writing: the user may have reconnected while the request
+    // was in flight. Only the exact credential authority that failed is marked.
+    const current = await this.connectionStore.load(connection.workspaceId);
+    const target = current?.connections.find((candidate) => candidate.id === connection.id);
+    if (!current || !target || target.updatedAt !== connection.updatedAt || target.status === "reconnect_required") return;
     const now = this.clock().toISOString();
     await this.connectionStore.save({
-      ...workspace,
-      connections: workspace.connections.map((candidate) => candidate.id === connection.id
+      ...current,
+      connections: current.connections.map((candidate) => candidate.id === connection.id
         ? { ...candidate, status: "reconnect_required" as const, updatedAt: now }
         : candidate),
       updatedAt: now,

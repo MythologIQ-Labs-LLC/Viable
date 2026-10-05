@@ -309,3 +309,31 @@ test("connection failures before dispatch are bounded retryable, not outcome_unk
   });
   assert.equal(connections.value?.connections[0]?.status, "connected");
 });
+
+test("an in-flight 401 does not overwrite a connection the user reconnected meanwhile", async () => {
+  const connections = connectedStore();
+  const native = new NativeProvider();
+  native.publishResult = { kind: "reconnect_required", detail: "LinkedIn authorization is invalid or expired." };
+  const original = native.publishText.bind(native);
+  native.publishText = async (input) => {
+    const result = await original(input);
+    const current = connections.value!;
+    connections.value = {
+      ...current,
+      connections: current.connections.map((connection) => ({
+        ...connection,
+        memberUrn: "urn:li:person:fresh",
+        status: "connected" as const,
+        updatedAt: "2026-10-05T02:00:30.000Z",
+      })),
+    };
+    return result;
+  };
+  const provider = new LinkedInMemberPublicationProvider(connections, native, () => new Date(NOW));
+
+  const outcome = await provider.publish(request());
+
+  assert.equal(outcome.kind, "terminal_failure");
+  assert.equal(connections.value?.connections[0]?.status, "connected");
+  assert.equal(connections.value?.connections[0]?.memberUrn, "urn:li:person:fresh");
+});
