@@ -88,9 +88,23 @@ Viable owns product and operational records. External providers own their accoun
 
 ## 5. Deployment profiles
 
-### 5.1 Standalone desktop profile
+> **2026-10-05 — amended by [ADR-0010](../adr/0010-pwa-first-distribution-and-runtime-capabilities.md).** The primary mainstream profile is now the local-first PWA (§5.0). The desktop profile below is retained as the **native capability runtime** (OS credential vault, connected provider publishing, future background execution); it is no longer the assumed mainstream distribution, and code signing is not a release prerequisite.
 
-The first authoritative profile is a native desktop application with:
+### 5.0 Local-first PWA profile (primary)
+
+The primary profile is the existing web UI delivered as an installable Progressive Web App from an HTTPS origin:
+
+- the same runtime-neutral domain and application services;
+- origin-scoped browser persistence with the shared schema envelope;
+- the portable versioned workspace backup as the cross-runtime interchange;
+- a versioned service-worker shell cache that works offline;
+- full marketability-loop parity wherever browsers can safely provide the behavior, with explicit runtime-capability differences: no OS credential vault, no stored provider credentials, and no closed-app execution.
+
+No Viable-hosted account or database is introduced; web delivery does not make data server-authoritative.
+
+### 5.1 Standalone desktop profile (native capability runtime)
+
+The original authoritative profile is a native desktop application with:
 
 - Tauri desktop shell;
 - local application services;
