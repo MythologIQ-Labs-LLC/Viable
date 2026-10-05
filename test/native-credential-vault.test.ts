@@ -57,4 +57,9 @@ test("desktop exposes credential capability status without weakening workspace p
   assert.match(statusShell, /Viable will not fall back to plaintext credential storage/);
   assert.match(statusShell, /Live provider activation remains disabled/);
   assert.doesNotMatch(activationDomain, /clientSecret|accessToken|refreshToken|credentialSecret/);
+  // render() is driven by a subtree MutationObserver on #main; unconditional
+  // DOM writes re-trigger it forever and freeze Calendar (found in a browser run).
+  assert.match(statusShell, /new MutationObserver\(\(\) => render\(\)\)/);
+  assert.match(statusShell, /if \(section\.innerHTML !== html\) section\.innerHTML = html;/);
+  assert.doesNotMatch(statusShell, /^\s*section\.innerHTML = /m);
 });
