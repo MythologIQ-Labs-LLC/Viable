@@ -91,6 +91,22 @@ function withTimeout(promise, ms, label) {
 
 const SECTION_TIMEOUT_MS = 90_000;
 
+// The main page, described in the log whenever a section fails.
+let diagnosticPage;
+
+// What the page was doing when a section failed: still loading, controlled by
+// the service worker, app rendered or not.
+async function describePage(page) {
+  if (!page) return "no page";
+  return withTimeout(page.evaluate(() => JSON.stringify({
+    url: location.href,
+    readyState: document.readyState,
+    controlled: Boolean(navigator.serviceWorker?.controller),
+    navButtons: document.querySelectorAll("nav button[data-nav]").length,
+    body: (document.body?.innerText ?? "").replace(/\s+/g, " ").slice(0, 200),
+  })), 5_000, "page state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
+}
+
 // Runs one independent section; an exception or timeout is recorded as a
 // failure without hiding the results of later sections.
 async function section(name, body) {
@@ -98,6 +114,7 @@ async function section(name, body) {
     await withTimeout(body(), SECTION_TIMEOUT_MS, name);
   } catch (error) {
     check(false, `${name}: ${(error instanceof Error ? error.message : String(error)).split("\n")[0]}`);
+    console.log(`  page state: ${await describePage(diagnosticPage)}`);
   }
 }
 
@@ -150,7 +167,11 @@ async function run() {
   const errors = [];
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
   page.on("dialog", (dialog) => void dialog.accept());
-  page.on("console", (message) => { if (message.type() === "error") errors.push(`console: ${message.text()}`); });
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    else if (message.type() === "warning") console.log(`  page warning: ${message.text()}`);
+  });
+  diagnosticPage = page;
   await page.addInitScript(() => {
     document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
   });

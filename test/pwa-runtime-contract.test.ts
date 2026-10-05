@@ -56,5 +56,6 @@ test("every workspace store persists through the shared durable storage and awai
   assert.match(lifecycle, /new WorkspaceLifecycleService\(workspaceStorage\)/);
   const storage = await read("apps/desktop/ui/workspace-storage.ts");
   assert.match(storage, /durability: "strict"/);
-  assert.match(storage, /if \(markerSet\(\)\)/, "a migrated profile must fail closed rather than read stale localStorage");
+  assert.match(storage, /if \(markerSet\(\) \|\| error instanceof StorageLoadTimeout\)/, "a migrated profile, or a load that timed out mid-migration, must fail closed rather than read stale localStorage");
+  assert.match(storage, /await withinLoadTimeout\(DurableKeyValueStorage\.open\(/, "loading saved data is bounded so startup can never hang");
 });
