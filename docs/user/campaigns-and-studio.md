@@ -98,6 +98,26 @@ A LinkedIn-only campaign does not need website or GitHub release work merely to 
 
 Channel variants adapt the canonical asset. They do not replace or duplicate canonical authority.
 
+## Plan discoverability for a channel variant
+
+A channel variant can optionally carry a **discoverability strategy**: how people and search or answer engines should find it. Open **Discoverability strategy (optional)** when creating the variant and record:
+
+- discovery intents (branded, category, problem/solution, comparison, question answering, authority building, launch discovery);
+- the primary entity name and the category terms your audience actually uses;
+- the questions the content answers and its core message or direct answer;
+- first-party evidence or experience that makes it worth retrieving;
+- intended surfaces (owned web, LinkedIn post or article, YouTube, GitHub, Reddit participation);
+- required visibility, optional SEO title and description, and an optional freshness review date.
+
+The strategy is part of the exact intent a named reviewer approves. Changing it later creates a new variant version and invalidates the approval, the same as changing the body.
+
+Review shows deterministic findings:
+
+- **Conflicts** block approval. For example, restricted visibility cannot satisfy external discovery intents.
+- **Advisories** inform the reviewer and never block or change content. Examples: the opening lines don't name the subject; answer or authority intents have no evidence; SEO title or description is missing; terms repeat like keyword stuffing; the freshness review is due; Reddit is earned participation only.
+
+Each surface's guidance shows the date it was reviewed, a confidence level, and its sources, because platform behavior changes. Viable does not use Domain Authority or any other third-party authority score, and the publication scheduler never rewrites approved content for search.
+
 ## Recheck Product Core impact
 
 Use **Recheck Product Core claim impact** when Product Core claim authority may have changed.

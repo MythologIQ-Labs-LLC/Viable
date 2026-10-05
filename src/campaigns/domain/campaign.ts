@@ -1,3 +1,5 @@
+import type { DiscoverabilityBrief } from "./discoverability.js";
+
 export type CampaignStatus =
   | "draft"
   | "in_review"
@@ -128,6 +130,8 @@ export type ChannelVariant = Readonly<{
   channel: ChannelKind;
   body: string;
   constraints: readonly string[];
+  /** Optional discovery strategy; part of the exact intent a reviewer approves. */
+  discoverability?: DiscoverabilityBrief;
   version: number;
   status: AssetReviewStatus;
   createdAt: string;
