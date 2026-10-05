@@ -107,6 +107,18 @@ async function describePage(page) {
   })), 5_000, "page state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
 }
 
+// Reloads the page. Playwright's Firefox driver can leave page.reload()
+// pending forever when the URL has a #hash (microsoft/playwright#21145), and
+// Viable records the current view in the hash. In Firefox, navigate to the
+// same document without the hash instead; the app restores its default view.
+function reload(page) {
+  return BROWSER === "firefox" ? page.goto(page.url().split("#")[0]) : page.reload();
+}
+
+// WebKit refuses more than 100 history writes per 10 s; a person never comes
+// close, but 72 back-to-back transitions do. Pace each transition click.
+const TRANSITION_PACE_MS = 120;
+
 // Waits until the app has rendered and stopped re-rendering, as a person would
 // before typing. The page "load" event is not a readiness signal: engines
 // differ on whether it waits for modules still in a top-level await, and the
@@ -215,7 +227,7 @@ async function run() {
       await section("service worker", async () => {
           const swReady = await withTimeout(page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).active)), 20_000, "navigator.serviceWorker.ready");
           check(swReady, "service worker installs and activates");
-          await page.reload();
+          await reload(page);
           check(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), "page is controlled by the service worker after reload");
           storageAccessReport.serviceWorkerControlled = await storageAccess(page);
           console.log(`Storage access (service-worker controlled): ${JSON.stringify(storageAccessReport.serviceWorkerControlled)}`);
@@ -238,7 +250,7 @@ async function run() {
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Product workspace created"));
       check(true, "Product workspace created through the UI");
 
-      await page.reload();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"));
       check(true, "workspace persists across reload in browser storage");
     });
@@ -257,8 +269,10 @@ async function run() {
       for (const from of views) {
         for (const to of views) {
           if (from === to) continue;
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${from}"]`, { noWaitAfter: true });
           await page.waitForFunction((nav) => document.querySelector(`nav button[data-nav="${nav}"]`)?.getAttribute("aria-current") === "page", from, { timeout: 4000 }).catch(() => undefined);
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${to}"]`, { noWaitAfter: true });
           const reached = await page.waitForFunction((nav) => {
             const current = [...document.querySelectorAll('nav button[aria-current="page"]')].map((button) => button.dataset.nav);
@@ -341,7 +355,7 @@ async function run() {
       await page.click('[data-workspace-action="restore-empty"]');
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
       check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
-      await page.reload();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "restored workspace survives reload");
       await second.close();
@@ -352,7 +366,7 @@ async function run() {
     if (support.serviceWorker) await section("offline and update contract", async () => {
       await page.click('nav button[data-nav="home"]', { noWaitAfter: true });
       await context.setOffline(true);
-      const offlineLoaded = await page.reload().then(() => page.waitForFunction(
+      const offlineLoaded = await reload(page).then(() => page.waitForFunction(
         () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
         undefined,
         { timeout: 10000 },
