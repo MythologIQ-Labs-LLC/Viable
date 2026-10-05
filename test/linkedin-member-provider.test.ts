@@ -87,7 +87,7 @@ test("developer portal token bootstrap persists only opaque authority metadata",
   if (result.kind !== "connected") return;
   assert.equal(result.connection.credentialReference, "viable://credential/linkedin/connection-1/access_token");
   assert.equal(result.connection.memberUrn, "urn:li:person:abc123");
-  assert.deepEqual(result.connection.requiredScopes, ["r_liteprofile", "w_member_social"]);
+  assert.deepEqual(result.connection.requiredScopes, ["openid", "profile", "w_member_social"]);
   assert.equal(native.connectInputs[0]?.accessToken, "very-secret-linkedin-token");
   assert.doesNotMatch(JSON.stringify(connections.value), /very-secret-linkedin-token/);
   assert.doesNotMatch(JSON.stringify(result), /very-secret-linkedin-token/);
@@ -224,7 +224,7 @@ function connectedStore(tokenExpiresAt = "2026-12-01T00:00:00.000Z"): Connection
       credentialReference: "viable://credential/linkedin/connection-1/access_token",
       memberId: "abc123",
       memberUrn: "urn:li:person:abc123",
-      requiredScopes: ["r_liteprofile", "w_member_social"],
+      requiredScopes: ["openid", "profile", "w_member_social"],
       status: "connected",
       tokenExpiresAt,
       createdAt: NOW,
