@@ -107,6 +107,23 @@ async function describePage(page) {
   })), 5_000, "page state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
 }
 
+// Waits until the app has rendered and stopped re-rendering, as a person would
+// before typing. The page "load" event is not a readiness signal: engines
+// differ on whether it waits for modules still in a top-level await, and the
+// app re-renders once its stores finish loading.
+async function settled(page) {
+  await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0);
+  await withTimeout(page.evaluate(() => new Promise((resolveQuiet) => {
+    const main = document.querySelector("#main");
+    let quiet;
+    const cap = setTimeout(done, 5000);
+    const observer = new MutationObserver(() => { clearTimeout(quiet); quiet = setTimeout(done, 500); });
+    function done() { clearTimeout(quiet); clearTimeout(cap); observer.disconnect(); resolveQuiet(); }
+    quiet = setTimeout(done, 500);
+    observer.observe(main, { childList: true, subtree: true });
+  })), 10_000, "app settle");
+}
+
 // Runs one independent section; an exception or timeout is recorded as a
 // failure without hiding the results of later sections.
 async function section(name, body) {
@@ -210,6 +227,7 @@ async function run() {
 
     // Create a Product workspace through the real UI.
     await section("workspace creation", async () => {
+      await settled(page);
       const form = page.locator("#main form").first();
       for (const field of await form.locator("input[required], textarea[required]").all()) {
         const type = await field.getAttribute("type");

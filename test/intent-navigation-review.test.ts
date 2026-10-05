@@ -2,17 +2,20 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("desktop loads contextual review before controller capture handlers", async () => {
   const html = await read("apps/desktop/web/index.html");
-  const review = html.indexOf("contextual-review-shell.js");
-  const campaign = html.indexOf("campaign-shell.js");
-  const activation = html.indexOf("activation-learning-shell.js");
+  const review = entry.indexOf("contextual-review-shell.js");
+  const campaign = entry.indexOf("campaign-shell.js");
+  const activation = entry.indexOf("activation-learning-shell.js");
   assert.ok(review > 0);
   assert.ok(review < campaign);
   assert.ok(review < activation);
-  assert.match(html, /intent-workflow-shell\.js/);
+  assert.match(entry, /intent-workflow-shell\.js/);
 });
 
 test("contextual review panels keep authority in the original owning controller actions", async () => {

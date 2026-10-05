@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
 test("PWA security headers keep a strict CSP with only justified additions", async () => {
@@ -37,7 +40,7 @@ test("PWA build derives immutable build identity from shipped content and keeps 
   assert.doesNotMatch(build, /new Date\(|Date\.now\(/, "builds must be deterministic");
   const desktopIndex = await read("apps/desktop/web/index.html");
   assert.doesNotMatch(desktopIndex, /pwa-runtime\.js|manifest\.webmanifest/, "the desktop runtime never registers a service worker");
-  assert.match(desktopIndex, /runtime-capabilities-shell\.js/);
+  assert.match(entry, /runtime-capabilities-shell\.js/);
 });
 
 test("every workspace store persists through the shared durable storage and awaits the commit", async () => {

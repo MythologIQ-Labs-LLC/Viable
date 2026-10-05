@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { NativeCredentialVaultClient } from "../apps/desktop/ui/native-credential-vault.js";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("credential vault client fails closed outside the Tauri desktop runtime", async () => {
@@ -53,7 +56,7 @@ test("desktop exposes credential capability status without weakening workspace p
   ]);
 
   assert.match(config, /"withGlobalTauri"\s*:\s*true/);
-  assert.match(html, /credential-vault-status-shell\.js/);
+  assert.match(entry, /credential-vault-status-shell\.js/);
   assert.match(statusShell, /Viable will not fall back to plaintext credential storage/);
   assert.match(statusShell, /Live provider activation remains disabled/);
   assert.doesNotMatch(activationDomain, /clientSecret|accessToken|refreshToken|credentialSecret/);

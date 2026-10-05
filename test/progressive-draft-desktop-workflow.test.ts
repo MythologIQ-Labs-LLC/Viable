@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("desktop loads progressive draft UX after revision and authority shells", async () => {
   const html = await read("apps/desktop/web/index.html");
-  const authority = html.indexOf("authority-revalidation-shell.js");
-  const progressive = html.indexOf("progressive-draft-shell.js");
-  const stale = html.indexOf("stale-draft-evidence-shell.js");
-  const continuity = html.indexOf("draft-step-continuity-shell.js");
+  const authority = entry.indexOf("authority-revalidation-shell.js");
+  const progressive = entry.indexOf("progressive-draft-shell.js");
+  const stale = entry.indexOf("stale-draft-evidence-shell.js");
+  const continuity = entry.indexOf("draft-step-continuity-shell.js");
   assert.ok(authority >= 0);
   assert.ok(progressive > authority);
   assert.ok(stale > progressive);
