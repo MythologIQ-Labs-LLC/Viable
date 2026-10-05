@@ -87,10 +87,38 @@ test("developer portal token bootstrap persists only opaque authority metadata",
   if (result.kind !== "connected") return;
   assert.equal(result.connection.credentialReference, "viable://credential/linkedin/connection-1/access_token");
   assert.equal(result.connection.memberUrn, "urn:li:person:abc123");
-  assert.deepEqual(result.connection.scopes, ["r_liteprofile", "w_member_social"]);
+  assert.deepEqual(result.connection.requiredScopes, ["r_liteprofile", "w_member_social"]);
   assert.equal(native.connectInputs[0]?.accessToken, "very-secret-linkedin-token");
   assert.doesNotMatch(JSON.stringify(connections.value), /very-secret-linkedin-token/);
   assert.doesNotMatch(JSON.stringify(result), /very-secret-linkedin-token/);
+});
+
+test("failed replacement token preserves an existing working connection record", async () => {
+  const activation = new ActivationStore();
+  const connections = connectedStore();
+  const before = connections.value?.connections[0];
+  const native = new NativeProvider();
+  native.connectResult = {
+    kind: "rejected",
+    failureClass: "invalid_token",
+    detail: "LinkedIn rejected the access token.",
+  };
+  const service = new LinkedInMemberConnectionService(
+    activation,
+    connections,
+    native,
+    () => new Date(NOW),
+    () => "unused-new-id",
+  );
+
+  const result = await service.connectWithDeveloperPortalToken({
+    workspaceId: WORKSPACE_ID,
+    destinationId: destination.id,
+    accessToken: "bad-replacement-token",
+  });
+
+  assert.equal(result.kind, "rejected");
+  assert.deepEqual(connections.value?.connections[0], before);
 });
 
 test("connection bootstrap rejects non-LinkedIn destinations before native secret handling", async () => {
@@ -196,7 +224,7 @@ function connectedStore(tokenExpiresAt = "2026-12-01T00:00:00.000Z"): Connection
       credentialReference: "viable://credential/linkedin/connection-1/access_token",
       memberId: "abc123",
       memberUrn: "urn:li:person:abc123",
-      scopes: ["r_liteprofile", "w_member_social"],
+      requiredScopes: ["r_liteprofile", "w_member_social"],
       status: "connected",
       tokenExpiresAt,
       createdAt: NOW,
