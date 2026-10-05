@@ -161,7 +161,7 @@ fn valid_segment(value: &str) -> bool {
     !value.is_empty()
         && value
             .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 #[cfg(test)]
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn opaque_references_require_three_safe_segments() {
+    fn opaque_references_require_three_safe_non_ambiguous_segments() {
         assert!(CredentialReference::parse(
             "viable://credential/linkedin/connection-1/access_token"
         )
@@ -261,6 +261,14 @@ mod tests {
         assert!(CredentialReference::parse("viable://credential/linkedin/token").is_err());
         assert!(CredentialReference::parse(
             "viable://credential/linkedin/connection 1/access_token"
+        )
+        .is_err());
+        assert!(CredentialReference::parse(
+            "viable://credential/linkedin.member/connection-1/access_token"
+        )
+        .is_err());
+        assert!(CredentialReference::parse(
+            "viable://credential/linkedin/connection-1/access.token"
         )
         .is_err());
     }
