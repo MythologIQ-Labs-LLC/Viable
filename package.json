@@ -35,7 +35,7 @@
     "validate": "npm run viability:check && npm run security:scan && npm run security:audit && npm run check && npm run desktop:web:check && npm run test:coverage"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.4",
+    "@tauri-apps/cli": "^2.12.1",
     "@types/node": "^24.0.0",
     "typescript": "^5.8.0"
   }
