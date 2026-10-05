@@ -169,3 +169,34 @@ jobs:
       - name: Enforce build, test, and coverage result
         if: steps.build_test.outputs.status != '0'
         run: exit 1
+      - name: Build PWA and run real-browser smoke validation
+        id: pwa_smoke
+        shell: bash
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          set +e
+          { npm run pwa:build && npm run pwa:smoke; } > pwa-smoke.log 2>&1
+          status=$?
+          cat pwa-smoke.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload PWA smoke diagnostics
+        if: steps.pwa_smoke.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pwa-smoke-diagnostics
+          path: pwa-smoke.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce PWA smoke result
+        if: steps.pwa_smoke.outputs.status != '0'
+        run: exit 1
+      - name: Upload PWA build for provenance review
+        if: steps.pwa_smoke.outputs.status == '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: viable-pwa-${{ github.sha }}
+          path: dist-pwa/
+          if-no-files-found: error
+          retention-days: 14
