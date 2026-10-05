@@ -6,7 +6,7 @@ export type LinkedInConnectResult =
     }>
   | Readonly<{
       kind: "rejected";
-      failureClass: "invalid_token" | "insufficient_scope" | "rate_limited" | "provider_failure";
+      failureClass: "invalid_token" | "insufficient_scope" | "rate_limited" | "provider_failure" | "local_unavailable";
       detail: string;
     }>;
 
@@ -22,6 +22,10 @@ export type LinkedInPublishResult =
     }>
   | Readonly<{
       kind: "reconnect_required";
+      detail: string;
+    }>
+  | Readonly<{
+      kind: "local_unavailable";
       detail: string;
     }>
   | Readonly<{
