@@ -1,0 +1,25 @@
+export type ProviderConnectionStatus = "connected" | "reconnect_required" | "disabled";
+
+export type LinkedInMemberConnectionRecord = Readonly<{
+  id: string;
+  workspaceId: string;
+  destinationId: string;
+  provider: "linkedin_member";
+  authMode: "developer_portal_token";
+  credentialReference: string;
+  memberId: string;
+  memberUrn: string;
+  scopes: readonly ["r_liteprofile", "w_member_social"];
+  status: ProviderConnectionStatus;
+  tokenExpiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type ProviderConnectionRecord = LinkedInMemberConnectionRecord;
+
+export type ProviderConnectionWorkspace = Readonly<{
+  workspaceId: string;
+  connections: readonly ProviderConnectionRecord[];
+  updatedAt: string;
+}>;
