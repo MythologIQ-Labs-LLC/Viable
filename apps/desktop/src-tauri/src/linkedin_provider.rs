@@ -233,6 +233,9 @@ fn classify_publish_response(status: StatusCode, headers: &HeaderMap) -> LinkedI
         StatusCode::UNAUTHORIZED => {
             publish_reconnect_required("LinkedIn authorization is invalid or expired.")
         }
+        StatusCode::FORBIDDEN => publish_reconnect_required(
+            "LinkedIn authorization does not include member publishing authority. Regenerate the token with w_member_social.",
+        ),
         StatusCode::TOO_MANY_REQUESTS => {
             publish_rate_limited("LinkedIn rate limited the publication request.")
         }
@@ -409,6 +412,10 @@ mod tests {
     fn publication_statuses_preserve_retry_and_reconnect_semantics() {
         assert_eq!(
             classify_publish_response(StatusCode::UNAUTHORIZED, &HeaderMap::new()).kind,
+            "reconnect_required"
+        );
+        assert_eq!(
+            classify_publish_response(StatusCode::FORBIDDEN, &HeaderMap::new()).kind,
             "reconnect_required"
         );
         assert_eq!(
