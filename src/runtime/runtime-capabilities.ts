@@ -25,6 +25,8 @@ export type RuntimeObservation = Readonly<{
   /** Native LinkedIn member transport is compiled into this runtime. */
   linkedInTransport: boolean;
   storagePersistence: StoragePersistence;
+  /** Engine holding authoritative workspace data. */
+  storageEngine: "indexeddb" | "localStorage" | "unavailable";
   offlineShell: boolean;
 }>;
 
@@ -117,6 +119,12 @@ function offlineCapability(observation: RuntimeObservation): RuntimeCapability {
 }
 
 function storageCapability(observation: RuntimeObservation): RuntimeCapability {
+  if (observation.storageEngine === "unavailable") {
+    return { id: "durable_local_storage", label: "Durable local storage", state: "unavailable", detail: "Viable's saved data could not be opened in this session. Nothing was changed; close other Viable windows and reload." };
+  }
+  if (observation.storageEngine === "localStorage") {
+    return { id: "durable_local_storage", label: "Durable local storage", state: "limited", detail: "IndexedDB is unavailable here, so Viable is using the browser's small fallback storage (about 5 MB). Keep regular backups." };
+  }
   if (observation.runtime === "native") {
     return { id: "durable_local_storage", label: "Durable local storage", state: "available", detail: "Workspace data lives in the desktop app profile. Keep regular backups." };
   }

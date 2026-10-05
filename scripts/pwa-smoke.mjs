@@ -90,6 +90,7 @@ async function run() {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+  page.on("dialog", (dialog) => void dialog.accept());
   page.on("console", (message) => { if (message.type() === "error") errors.push(`console: ${message.text()}`); });
   await page.addInitScript(() => {
     document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
@@ -175,6 +176,55 @@ async function run() {
     const loopState = (await page.locator('[data-capability="marketability_loop"] .pill').textContent())?.trim();
     check(loopState === "available", "full marketability loop is available in the browser");
 
+    // Durable storage: workspace data is committed to IndexedDB.
+    const idbKeys = () => page.evaluate(() => new Promise((resolveKeys, rejectKeys) => {
+      const open = indexedDB.open("viable-workspace");
+      open.onsuccess = () => {
+        const request = open.result.transaction("kv", "readonly").objectStore("kv").getAllKeys();
+        request.onsuccess = () => { resolveKeys(request.result); open.result.close(); };
+        request.onerror = () => rejectKeys(request.error);
+      };
+      open.onerror = () => rejectKeys(open.error);
+    }));
+    const productKey = (keys) => keys.find((key) => typeof key === "string" && key.startsWith("viable.product-workspace.") && key !== "viable.product-workspace.active");
+    const storedKey = productKey(await idbKeys());
+    check(Boolean(storedKey), "workspace data is committed to IndexedDB");
+    const engine = await page.locator("[data-storage-engine]").getAttribute("data-storage-engine");
+    check(engine === "indexeddb", `runtime panel reports the IndexedDB storage engine (${engine})`);
+
+    // Browser backup -> delete -> restore round trip (#36), observed from a second tab.
+    const second = await context.newPage();
+    second.on("pageerror", (error) => errors.push(`second tab pageerror: ${error.message}`));
+    await second.goto(`${origin}/`);
+    await second.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"));
+    await page.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+    await page.waitForSelector('[data-workspace-action="backup"]');
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click('[data-workspace-action="backup"]')]);
+    const backupPath = join(served, "..", "dist-pwa-smoke-backup.json");
+    await download.saveAs(backupPath);
+    const backup = JSON.parse(await readFile(backupPath, "utf8"));
+    check(backup.format === "viable.workspace-backup" && backup.contexts?.product?.product?.identity?.name === "PWA smoke product", "workspace backup downloads with unwrapped domain data");
+
+    await page.check('[data-workspace-delete] input[name="scopeConfirmed"]');
+    await page.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
+    await page.click('[data-workspace-delete] button[type="submit"]');
+    await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
+    check(!productKey(await idbKeys()), "deletion is durable in IndexedDB");
+    await second.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+    const crossTab = await second.waitForFunction(() => /does not currently contain a Viable workspace/.test(document.querySelector("#main")?.textContent ?? ""), undefined, { timeout: 8000 }).then(() => true, () => false);
+    check(crossTab, "another open tab sees the deletion without reloading");
+
+    await page.setInputFiles("[data-workspace-import]", backupPath);
+    await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+    await page.click('[data-workspace-action="restore-empty"]');
+    await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+    check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
+    check(true, "restored workspace survives reload");
+    await second.close();
+    await rm(backupPath, { force: true });
+
     // Offline: the shell must load from the service worker cache.
     await page.click('nav button[data-nav="home"]', { noWaitAfter: true });
     await context.setOffline(true);
@@ -206,6 +256,51 @@ async function run() {
     check(true, "local workspace data survives the update");
     const caches = await page.evaluate(async () => (await globalThis.caches.keys()).filter((name) => name.startsWith("viable-shell-")));
     check(caches.length === 1, `old build cache removed after activation (${caches.length} shell cache)`);
+
+    // Upgrade path: a person with data in pre-IndexedDB storage keeps it.
+    const upgradeContext = await browser.newContext();
+    const upgrade = await upgradeContext.newPage();
+    upgrade.on("pageerror", (error) => errors.push(`upgrade pageerror: ${error.message}`));
+    const legacyWorkspace = { ...backup.contexts.product, id: "legacy-ws", product: { ...backup.contexts.product.product, identity: { ...backup.contexts.product.product.identity, name: "Legacy upgrade product" } } };
+    await upgrade.addInitScript((value) => {
+      if (!localStorage.getItem("viable.product-workspace.active")) {
+        localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+        localStorage.setItem("viable.product-workspace.active", "legacy-ws");
+      }
+    }, legacyWorkspace);
+    await upgrade.goto(`${origin}/`);
+    const migrated = await upgrade.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Legacy upgrade product"), undefined, { timeout: 10000 }).then(() => true, () => false);
+    check(migrated, "existing browser-storage workspace is migrated to IndexedDB and shown after upgrade");
+    await upgrade.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+    await upgrade.waitForSelector("[data-storage-engine]", { timeout: 10000 });
+    const migrationText = (await upgrade.locator("[data-storage-engine]").textContent()) ?? "";
+    check(/2 saved records were copied/.test(migrationText), "runtime panel reports the migration");
+    const legacyKept = await upgrade.evaluate(() => localStorage.getItem("viable.product-workspace.active"));
+    check(legacyKept === "legacy-ws", "legacy storage copy is left untouched as a recovery source");
+    await upgradeContext.close();
+
+    // IndexedDB failure handling. Previously migrated profile: fail closed
+    // (stale localStorage copy is never shown). Never-migrated profile: keep
+    // using localStorage, which still holds the only copy.
+    for (const migratedBefore of [true, false]) {
+      const failContext = await browser.newContext();
+      const failPage = await failContext.newPage();
+      await failPage.addInitScript(([value, marked]) => {
+        localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+        localStorage.setItem("viable.product-workspace.active", "legacy-ws");
+        if (marked) localStorage.setItem("viable-storage-engine", "indexeddb");
+        IDBFactory.prototype.open = function () { throw new DOMException("simulated failure", "UnknownError"); };
+      }, [legacyWorkspace, migratedBefore]);
+      await failPage.goto(`${origin}/`);
+      await failPage.waitForTimeout(1500);
+      const text = (await failPage.textContent("body")) ?? "";
+      if (migratedBefore) {
+        check(/saved Viable data could not be opened/.test(text) && !/Legacy upgrade product/.test(text), "IndexedDB failure after migration fails closed and never shows the stale legacy copy");
+      } else {
+        check(/Legacy upgrade product/.test(text), "IndexedDB failure before any migration keeps working from localStorage");
+      }
+      await failContext.close();
+    }
 
     check(errors.length === 0, `no page errors or CSP violations${errors.length ? `: ${errors.join(" | ")}` : ""}`);
   } finally {

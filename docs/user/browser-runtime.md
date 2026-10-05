@@ -10,7 +10,7 @@ A production HTTPS deployment has **not** been chosen yet. That decision is #114
 
 The browser runtime is the same Viable product, delivered as an installable Progressive Web App:
 
-- Your workspace stays **on this device**, in the browser's storage for the Viable origin. Nothing is uploaded, and there is no Viable account.
+- Your workspace stays **on this device**, in the browser's IndexedDB storage for the Viable origin. Every save is one atomic transaction, so a change is either fully saved or not saved at all. Nothing is uploaded, and there is no Viable account.
 - The full marketability loop works. That covers Product Truth, ICP, signals, campaigns, discoverability, content, approval, publication inventory and scheduling, manual activation, outcomes, measurement, and learning.
 - It works offline once loaded. The only exception is public GitHub repository reads.
 
@@ -31,6 +31,13 @@ Browsers can clear site data under storage pressure or after long inactivity, un
 - In **Workspace → Runtime**, select **Ask the browser to keep Viable data**. The panel shows whether persistent storage was granted and how much space is in use.
 - Installing Viable (browser menu → *Install* or *Add to Dock*) and using it regularly also helps.
 - **Back up regularly.** Use **Workspace → Backup** to download a `viable.workspace-backup` file. The same file restores into the browser or the desktop runtime. It is the only way data moves between them, because each runtime has its own separate storage.
+
+### Storage engine and upgrades
+
+- **Existing data:** if you used Viable before IndexedDB storage, your existing data is copied into IndexedDB the first time the new version opens. The Runtime panel reports how many records were copied. The original copy is left untouched.
+- **IndexedDB unavailable, never migrated:** if IndexedDB cannot be used in a browser that has never migrated, Viable keeps using the older, smaller browser storage. The Runtime panel shows this.
+- **IndexedDB unavailable after migration:** if IndexedDB cannot be opened after your data was migrated, Viable shows a warning. It never falls back to the outdated copy, so nothing is lost or silently diverges. Close other Viable windows and reload.
+- **Other open tabs:** changes made in one Viable tab appear in other open tabs without reloading.
 
 ## Updates
 
