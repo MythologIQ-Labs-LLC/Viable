@@ -1,0 +1,29 @@
+import type { ProviderConnectionWorkspace } from "../../../src/activation-learning/domain/provider-connection.js";
+import type { ProviderConnectionStore } from "../../../src/activation-learning/ports/provider-connection-store.js";
+import { readWorkspaceJson, writeWorkspaceJson } from "./local-storage-json.js";
+
+const PREFIX = "viable.provider-connections.";
+
+export class LocalStorageProviderConnectionStore implements ProviderConnectionStore {
+  async load(workspaceId: string): Promise<ProviderConnectionWorkspace | undefined> {
+    return readWorkspaceJson<ProviderConnectionWorkspace>(
+      localStorage,
+      `${PREFIX}${workspaceId}`,
+      "Provider connection workspace",
+      { field: "workspaceId", expected: workspaceId },
+      {
+        arrays: ["connections"],
+        strings: ["updatedAt"],
+      },
+    );
+  }
+
+  async save(workspace: ProviderConnectionWorkspace): Promise<void> {
+    writeWorkspaceJson(
+      localStorage,
+      `${PREFIX}${workspace.workspaceId}`,
+      "Provider connection workspace",
+      workspace,
+    );
+  }
+}
