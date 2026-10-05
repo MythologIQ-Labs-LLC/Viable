@@ -355,10 +355,13 @@ async function run() {
       await page.click('[data-workspace-action="restore-empty"]');
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
       check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
+      // The cross-tab check is done; close the second tab before reloading.
+      // Playwright's Linux WebKit build crashed its renderer when reloading
+      // here with the other same-origin tab still open (two CI runs).
+      await second.close();
       await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "restored workspace survives reload");
-      await second.close();
       await rm(backupPath, { force: true });
     });
 
