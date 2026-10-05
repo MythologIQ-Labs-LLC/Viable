@@ -41,7 +41,8 @@
     "../../src/website-watch/utilities/**/*.ts",
     "../../src/website-watch/adapters/webdog-manual-import-source.ts",
     "../../src/event-intelligence/domain/**/*.ts",
-    "../../src/event-intelligence/ports/**/*.ts"
+    "../../src/event-intelligence/ports/**/*.ts",
+    "../../src/runtime/**/*.ts"
   ],
   "exclude": [
     "web/generated"

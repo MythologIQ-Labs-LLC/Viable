@@ -1,6 +1,9 @@
 node_modules/
 dist/
+dist-pwa/
 .viable/
 *.log
 .DS_Store
 apps/desktop/web/generated/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/

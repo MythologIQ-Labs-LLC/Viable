@@ -27,6 +27,8 @@
     "desktop:bundle": "npm run desktop:web && tauri build --config apps/desktop/src-tauri/tauri.conf.json --bundles deb",
     "desktop:web": "npm run clean:desktop && tsc -p apps/desktop/tsconfig.json",
     "desktop:web:check": "tsc -p apps/desktop/tsconfig.json --noEmit",
+    "pwa:build": "npm run desktop:web && node scripts/build-pwa.mjs",
+    "pwa:smoke": "node scripts/pwa-smoke.mjs",
     "security:patterns": "node scripts/check-secret-patterns.mjs",
     "security:scan": "node scripts/scan-secrets.mjs",
     "security:scan-history": "node scripts/scan-git-history-secrets.mjs",
@@ -37,6 +39,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^24.0.0",
+    "playwright-core": "1.56.1",
     "typescript": "^5.8.0"
   }
 }

@@ -1,0 +1,142 @@
+import {
+  describeRuntimeCapabilities,
+  type RuntimeObservation,
+  type StoragePersistence,
+} from "../../../src/runtime/runtime-capabilities.js";
+import { NativeCredentialVaultClient } from "./native-credential-vault.js";
+
+// Truthful runtime capability panel for the Workspace page (ADR-0010).
+
+type BuildInfo = Readonly<{ buildId: string; version: string; commit: string }>;
+
+// The native LinkedIn transport ships with PR #109; flip this when it merges.
+const LINKEDIN_TRANSPORT_IN_THIS_BUILD = false;
+
+const vault = new NativeCredentialVaultClient();
+const main = document.querySelector<HTMLElement>("#main");
+let observation: RuntimeObservation | undefined;
+let buildInfo: BuildInfo | undefined;
+let storageUsage: string | undefined;
+let storageMessage: string | undefined;
+let refreshing = false;
+
+function isNativeRuntime(): boolean {
+  return Boolean((globalThis as { __TAURI__?: unknown }).__TAURI__);
+}
+
+async function storagePersistence(): Promise<StoragePersistence> {
+  try {
+    if (!navigator.storage?.persisted) return "unknown";
+    return (await navigator.storage.persisted()) ? "persisted" : "best_effort";
+  } catch {
+    return "unknown";
+  }
+}
+
+async function loadBuildInfo(): Promise<BuildInfo | undefined> {
+  try {
+    const response = await fetch("build-info.json", { cache: "no-store" });
+    if (!response.ok) return undefined;
+    const value = await response.json() as Partial<BuildInfo>;
+    return typeof value.buildId === "string" && typeof value.version === "string" && typeof value.commit === "string"
+      ? { buildId: value.buildId, version: value.version, commit: value.commit }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function loadStorageUsage(): Promise<string | undefined> {
+  try {
+    const estimate = await navigator.storage?.estimate?.();
+    if (!estimate?.usage || !estimate.quota) return undefined;
+    return `${(estimate.usage / 1024).toFixed(0)} KB used of about ${(estimate.quota / 1024 / 1024).toFixed(0)} MB available to this origin`;
+  } catch {
+    return undefined;
+  }
+}
+
+async function refresh(): Promise<void> {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const native = isNativeRuntime();
+    const [vaultState, persistence, info, usage] = await Promise.all([
+      vault.capability().then((value) => value.status).catch(() => "platform_failure" as const),
+      native ? Promise.resolve<StoragePersistence>("unknown") : storagePersistence(),
+      loadBuildInfo(),
+      native ? Promise.resolve(undefined) : loadStorageUsage(),
+    ]);
+    observation = {
+      runtime: native ? "native" : "browser",
+      credentialVault: vaultState,
+      linkedInTransport: native && LINKEDIN_TRANSPORT_IN_THIS_BUILD,
+      storagePersistence: persistence,
+      offlineShell: Boolean(navigator.serviceWorker?.controller),
+    };
+    buildInfo = info;
+    storageUsage = usage;
+  } finally {
+    refreshing = false;
+    render();
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+
+function markup(value: RuntimeObservation): string {
+  const runtimeLabel = value.runtime === "native" ? "Viable desktop runtime" : "Viable in the browser";
+  const build = buildInfo
+    ? `Build ${escapeHtml(buildInfo.version)} · ${escapeHtml(buildInfo.buildId.slice(0, 12))} · source ${escapeHtml(buildInfo.commit.slice(0, 12))}`
+    : value.runtime === "native" ? "Desktop build" : "Development build (no build identity)";
+  const rows = describeRuntimeCapabilities(value).map((capability) => {
+    const tone = capability.state === "available" ? "implemented" : capability.state === "limited" ? "warning" : "neutral";
+    return `<tr data-capability="${capability.id}"><th scope="row">${escapeHtml(capability.label)}</th><td><span class="pill ${tone}">${capability.state}</span></td><td>${escapeHtml(capability.detail)}</td></tr>`;
+  }).join("");
+  const canRequestPersistence = value.runtime === "browser" && value.storagePersistence === "best_effort";
+  return `<div class="section-heading"><div><p class="eyebrow">Runtime</p><h3 id="runtime-heading">${runtimeLabel}</h3></div><span class="pill neutral">${build}</span></div>
+    <p class="guidance">Viable keeps the same product in every runtime. A capability is limited only where this runtime genuinely cannot provide it, and the reason is shown here.</p>
+    ${storageUsage ? `<p class="guidance">${escapeHtml(storageUsage)}.</p>` : ""}
+    ${storageMessage ? `<section class="state warning" role="status"><span>${escapeHtml(storageMessage)}</span></section>` : ""}
+    ${canRequestPersistence ? `<div class="actions"><button type="button" data-runtime-action="persist-storage">Ask the browser to keep Viable data</button></div>` : ""}
+    <div class="table-wrap"><table><thead><tr><th scope="col">Capability</th><th scope="col">State</th><th scope="col">Why</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function render(): void {
+  const host = main?.querySelector<HTMLElement>("[data-runtime-capabilities]");
+  if (!host) return;
+  const html = observation ? markup(observation) : `<div class="state loading" role="status"><strong>Checking this runtime</strong></div>`;
+  // Rendered from a MutationObserver on #main: only write when content changes,
+  // otherwise the write re-triggers the observer indefinitely.
+  if (host.dataset.renderedHtml === html) return;
+  host.dataset.renderedHtml = html;
+  host.innerHTML = html;
+}
+
+document.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-runtime-action="persist-storage"]');
+  if (!button) return;
+  button.disabled = true;
+  void (async () => {
+    let granted = false;
+    try { granted = Boolean(await navigator.storage?.persist?.()); } catch { granted = false; }
+    storageMessage = granted
+      ? undefined
+      : "The browser did not grant persistent storage. Installing Viable or using it regularly can help; keep regular backups either way.";
+    await refresh();
+  })();
+});
+
+if (main) {
+  new MutationObserver(() => {
+    const host = main.querySelector<HTMLElement>("[data-runtime-capabilities]");
+    if (!host) return;
+    if (!host.dataset.renderedHtml) {
+      if (observation) render(); else void refresh();
+    }
+  }).observe(main, { childList: true, subtree: true });
+}
+
+navigator.serviceWorker?.addEventListener?.("controllerchange", () => void refresh());
