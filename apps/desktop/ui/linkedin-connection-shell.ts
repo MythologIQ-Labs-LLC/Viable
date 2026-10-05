@@ -197,11 +197,11 @@ async function connect(form: HTMLFormElement): Promise<void> {
 }
 
 new MutationObserver(() => {
+  const workspace = document.querySelector(".publication-inventory-workspace");
+  if (!workspace) return;
   const workspaceId = productStore.activeWorkspaceId();
-  if (document.querySelector(".publication-inventory-workspace")) {
-    render();
-    if (workspaceId && workspaceId !== lastWorkspaceId && !loading) void refresh();
-  }
+  if (!workspace.querySelector("#linkedin-member-connection")) render();
+  if (workspaceId && workspaceId !== lastWorkspaceId && !loading) void refresh();
 }).observe(document.querySelector("#main") ?? document.body, { childList: true, subtree: true });
 
 document.addEventListener("submit", (event) => {
