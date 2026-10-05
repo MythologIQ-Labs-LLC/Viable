@@ -79,14 +79,45 @@ function limitation(message) {
   limitations.push(message);
   console.log(`LIMIT ${message}`);
 }
-// Runs one independent section; an exception is recorded as a failure without
-// hiding the results of later sections.
+// Bounds any step that has no built-in timeout (page.evaluate never times out),
+// so an engine that never settles a promise is a recorded failure, not a hang.
+function withTimeout(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} did not finish within ${ms / 1000}s`)), ms); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+const SECTION_TIMEOUT_MS = 90_000;
+
+// Runs one independent section; an exception or timeout is recorded as a
+// failure without hiding the results of later sections.
 async function section(name, body) {
   try {
-    await body();
+    await withTimeout(body(), SECTION_TIMEOUT_MS, name);
   } catch (error) {
     check(false, `${name}: ${(error instanceof Error ? error.message : String(error)).split("\n")[0]}`);
   }
+}
+
+// API presence is not access: an engine can expose localStorage and IndexedDB
+// yet refuse them for this document (SecurityError). Probe real access.
+function storageAccess(page) {
+  return withTimeout(page.evaluate(async () => {
+    const outcome = (error) => `${error?.name ?? "Error"}: ${error?.message ?? String(error)}`;
+    let local = "ok";
+    try { localStorage.getItem("viable-smoke-probe"); } catch (error) { local = outcome(error); }
+    let idb = "ok";
+    try {
+      await new Promise((resolveOpen, rejectOpen) => {
+        const open = indexedDB.open("viable-smoke-probe");
+        open.onsuccess = () => { open.result.close(); indexedDB.deleteDatabase("viable-smoke-probe"); resolveOpen(); };
+        open.onerror = () => rejectOpen(open.error);
+      });
+    } catch (error) { idb = outcome(error); }
+    return { origin: location.origin, isSecureContext: window.isSecureContext, localStorage: local, indexedDB: idb };
+  }), 15_000, "storage access probe").catch((error) => ({ probeError: error.message.split("\n")[0] }));
 }
 
 async function responsive(page, label) {
@@ -114,6 +145,7 @@ async function run() {
     : await ENGINES[BROWSER].launch();
   console.log(`Engine: ${BROWSER} ${browser.version()}`);
   const context = await browser.newContext();
+  context.setDefaultTimeout(15_000);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
@@ -124,26 +156,31 @@ async function run() {
   });
 
   let support = {};
+  const storageAccessReport = {};
   let backup;
   try {
     await page.goto(`${origin}/`);
-    support = await page.evaluate(() => ({
+    support = await withTimeout(page.evaluate(() => ({
       serviceWorker: "serviceWorker" in navigator && window.isSecureContext,
       indexedDB: typeof indexedDB !== "undefined",
       broadcastChannel: typeof BroadcastChannel !== "undefined",
       storagePersist: typeof navigator.storage?.persist === "function",
       storageEstimate: typeof navigator.storage?.estimate === "function",
-    }));
+    })), 15_000, "capability probe");
     console.log(`Support: ${JSON.stringify(support)}`);
+    storageAccessReport.beforeServiceWorker = await storageAccess(page);
+    console.log(`Storage access (first load): ${JSON.stringify(storageAccessReport.beforeServiceWorker)}`);
     check(await page.locator('link[rel="manifest"]').count() === 1, "web app manifest is linked");
     const manifest = await (await page.request.get(`${origin}/manifest.webmanifest`)).json();
     check(manifest.display === "standalone" && manifest.icons.some((icon) => icon.sizes === "512x512"), "manifest is installable (standalone, 512px icon)");
     if (support.serviceWorker) {
       await section("service worker", async () => {
-          const swReady = await page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).active));
+          const swReady = await withTimeout(page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).active)), 20_000, "navigator.serviceWorker.ready");
           check(swReady, "service worker installs and activates");
           await page.reload();
           check(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), "page is controlled by the service worker after reload");
+          storageAccessReport.serviceWorkerControlled = await storageAccess(page);
+          console.log(`Storage access (service-worker controlled): ${JSON.stringify(storageAccessReport.serviceWorkerControlled)}`);
       });
     } else {
       limitation("service workers unavailable: no offline shell or update prompt; Viable runs online");
@@ -360,7 +397,10 @@ async function run() {
   } catch (error) {
     check(false, `smoke aborted: ${(error instanceof Error ? error.message : String(error)).split("\n")[0]}`);
   } finally {
-    await writeFile(`pwa-smoke-report-${BROWSER}.json`, `${JSON.stringify({ browser: BROWSER, version: browser.version(), support, results, limitations, errors: [...new Set(errors)] }, null, 2)}\n`);
+    const uniqueErrors = [...new Set(errors)];
+    // Printed (not only written to the report) so a CI log alone explains a failure.
+    if (uniqueErrors.length) console.log(`Page errors (${uniqueErrors.length}):\n  ${uniqueErrors.join("\n  ")}`);
+    await writeFile(`pwa-smoke-report-${BROWSER}.json`, `${JSON.stringify({ browser: BROWSER, version: browser.version(), support, storageAccess: storageAccessReport, results, limitations, errors: uniqueErrors }, null, 2)}\n`);
     await browser.close();
     server.close();
     await rm(served, { recursive: true, force: true });
