@@ -1,24 +1,44 @@
 import type { ActivationLearningWorkspace, DestinationRecord } from "../../../src/activation-learning/domain/activation-learning.js";
+import type { PublicationExecutionWorkspace, PublicationSchedulerResult } from "../../../src/activation-learning/domain/publication-execution.js";
 import type { LinkedInMemberConnectionRecord, ProviderConnectionWorkspace } from "../../../src/activation-learning/domain/provider-connection.js";
+import { LinkedInMemberPublicationProvider } from "../../../src/activation-learning/adapters/linkedin-member-publication-provider.js";
+import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
 import { LinkedInMemberConnectionService } from "../../../src/activation-learning/services/linkedin-member-connection-service.js";
+import { PublicationSchedulerService } from "../../../src/activation-learning/services/publication-scheduler-service.js";
 import { LocalStorageActivationLearningStore } from "./local-storage-activation-learning-store.js";
+import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageProviderConnectionStore } from "./local-storage-provider-connection-store.js";
+import { LocalStorageRepositoryGrowthStore } from "./local-storage-repository-growth-store.js";
+import { LocalStorageVideoProductionStore } from "./local-storage-video-production-store.js";
 import { NativeCredentialVaultClient, type NativeCredentialCapability } from "./native-credential-vault.js";
 import { NativeLinkedInProviderClient } from "./native-linkedin-provider.js";
 
 const productStore = new LocalStorageProductWorkspaceStore();
 const activationStore = new LocalStorageActivationLearningStore();
+const campaignStore = new LocalStorageCampaignWorkspaceStore();
+const repositoryStore = new LocalStorageRepositoryGrowthStore();
+const videoStore = new LocalStorageVideoProductionStore();
 const connectionStore = new LocalStorageProviderConnectionStore();
 const nativeProvider = new NativeLinkedInProviderClient();
 const vaultClient = new NativeCredentialVaultClient();
+const sourceAuthority = new ActivationLearningService(
+  activationStore,
+  productStore,
+  campaignStore,
+  repositoryStore,
+  videoStore,
+);
+const publicationProvider = new LinkedInMemberPublicationProvider(connectionStore, nativeProvider);
+const scheduler = new PublicationSchedulerService(activationStore, sourceAuthority, publicationProvider);
 const connectionService = new LinkedInMemberConnectionService(activationStore, connectionStore, nativeProvider);
 const live = document.querySelector<HTMLElement>("#live-region");
 
-let activation: ActivationLearningWorkspace | undefined;
+let activation: PublicationExecutionWorkspace | undefined;
 let connections: ProviderConnectionWorkspace | undefined;
 let vault: NativeCredentialCapability = { status: "runtime_unavailable", canStoreSecrets: false };
 let loading = false;
+let runningAutomation = false;
 let lastWorkspaceId: string | undefined;
 let lastMessage: Readonly<{ tone: "implemented" | "warning" | "error"; text: string }> | undefined;
 
@@ -79,6 +99,7 @@ function render(): void {
   }
 
   const destinations = linkedinDestinations();
+  const connectedDestinations = destinations.filter((destination) => connectionFor(destination.id)?.status === "connected");
   const enabled = vault.canStoreSecrets && destinations.length > 0;
   const destinationOptions = destinations.map((destination) => {
     const connection = connectionFor(destination.id);
@@ -95,11 +116,12 @@ function render(): void {
   const vaultWarning = vault.canStoreSecrets ? "" : `<div class="state warning" role="alert"><strong>Secure storage is not ready.</strong><span>Viable will not accept a LinkedIn token until the operating-system credential vault is available.</span></div>`;
   const destinationWarning = destinations.length > 0 ? "" : `<div class="state empty"><strong>Create a LinkedIn destination first.</strong><span>In Calendar, add an active LinkedIn destination and confirm that you control the account. Then return here to connect publishing.</span></div>`;
   const message = lastMessage ? `<div class="state ${lastMessage.tone}" role="status"><strong>${escapeHtml(lastMessage.text)}</strong></div>` : "";
+  const runDisabled = runningAutomation || connectedDestinations.length === 0 || !vault.canStoreSecrets;
 
   section.innerHTML = `
     <div class="section-heading">
       <div><p class="eyebrow">Connected publishing</p><h3>LinkedIn member</h3></div>
-      <span class="pill ${destinations.some((destination) => connectionFor(destination.id)?.status === "connected") ? "implemented" : "warning"}">${destinations.some((destination) => connectionFor(destination.id)?.status === "connected") ? "Connected" : "Setup required"}</span>
+      <span class="pill ${connectedDestinations.length ? "implemented" : "warning"}">${connectedDestinations.length ? "Connected" : "Setup required"}</span>
     </div>
     <p>Viable uses LinkedIn's self-service Consumer products for this first proof. The token is accepted once, validated natively, and stored only in your operating-system credential vault.</p>
     ${connectionSummaries}
@@ -132,6 +154,11 @@ function render(): void {
         </label>
         <button type="submit" ${enabled ? "" : "disabled"}>Validate and connect LinkedIn</button>
       </form>
+    </div>
+    <div class="panel narrow">
+      <div class="section-heading"><div><p class="eyebrow">Live proof</p><h4>Run one deterministic scheduler evaluation</h4></div></div>
+      <p>This runs the existing publication scheduler against approved stock now. It does not enable background publishing while Viable is closed. Until multi-provider routing is implemented, Viable fails closed if non-LinkedIn automated stock or pending jobs are present.</p>
+      <button type="button" data-linkedin-action="run-automation-now" ${runDisabled ? "disabled" : ""}>${runningAutomation ? "Running…" : "Run automation now"}</button>
     </div>`;
 }
 
@@ -153,7 +180,7 @@ async function refresh(force = false): Promise<void> {
       connectionStore.load(workspaceId),
       vaultClient.capability(),
     ]);
-    activation = nextActivation;
+    activation = nextActivation as PublicationExecutionWorkspace | undefined;
     connections = nextConnections;
     vault = nextVault;
     lastWorkspaceId = workspaceId;
@@ -196,6 +223,65 @@ async function connect(form: HTMLFormElement): Promise<void> {
   await refresh(true);
 }
 
+async function runAutomationNow(): Promise<void> {
+  const workspaceId = productStore.activeWorkspaceId();
+  if (!workspaceId) throw new Error("Create a Product workspace before running publication automation");
+  const current = await activationStore.load(workspaceId) as PublicationExecutionWorkspace | undefined;
+  if (!current) throw new Error("Calendar and Activation workspace not found");
+  assertLinkedInOnlyAutomatedFrontier(current);
+
+  runningAutomation = true;
+  lastMessage = undefined;
+  render();
+  try {
+    const result = await scheduler.runOnce(workspaceId, new Date().toISOString());
+    lastMessage = schedulerMessage(result);
+    announce(lastMessage.text);
+  } finally {
+    runningAutomation = false;
+    await refresh(true);
+  }
+}
+
+function assertLinkedInOnlyAutomatedFrontier(workspace: PublicationExecutionWorkspace): void {
+  const destinations = new Map(workspace.destinations.map((destination) => [destination.id, destination]));
+  const nonLinkedInPending = (workspace.publicationJobs ?? []).find((job) =>
+    ["waiting", "retry_wait", "executing"].includes(job.status)
+      && destinations.get(job.destinationId)?.channel !== "linkedin",
+  );
+  if (nonLinkedInPending) {
+    throw new Error("A non-LinkedIn publication job is pending. Slice D will not route it through the LinkedIn provider.");
+  }
+
+  const nonLinkedInStock = (workspace.publicationInventory ?? []).find((item) =>
+    item.status === "stocked" && destinations.get(item.destinationId)?.channel !== "linkedin",
+  );
+  if (nonLinkedInStock) {
+    throw new Error("Non-LinkedIn publication stock is present. Slice D stays fail-closed until multi-provider routing is implemented.");
+  }
+}
+
+function schedulerMessage(result: PublicationSchedulerResult): Readonly<{ tone: "implemented" | "warning" | "error"; text: string }> {
+  switch (result.action) {
+    case "published":
+      return { tone: "implemented", text: `LinkedIn publication confirmed${result.jobId ? ` for job ${result.jobId}` : ""}.` };
+    case "scheduled":
+      return { tone: "implemented", text: `Approved LinkedIn stock was scheduled${result.jobId ? ` as job ${result.jobId}` : ""}; its publication window is later than this evaluation.` };
+    case "none":
+      return { tone: "warning", text: result.detail ?? "No eligible approved LinkedIn stock is due or schedulable now." };
+    case "paused":
+      return { tone: "warning", text: "Publication automation is paused. Resume it before running the live proof." };
+    case "retry_wait":
+      return { tone: "warning", text: result.detail ?? "LinkedIn asked Viable to retry later within the bounded publication policy." };
+    case "cancelled":
+    case "authority_invalidated":
+    case "failed":
+      return { tone: "error", text: result.detail ?? `Publication ended as ${result.action.replaceAll("_", " ")}.` };
+    case "outcome_unknown":
+      return { tone: "error", text: result.detail ?? "LinkedIn publication outcome is unknown. Viable will not retry blindly." };
+  }
+}
+
 new MutationObserver(() => {
   const workspace = document.querySelector(".publication-inventory-workspace");
   if (!workspace) return;
@@ -218,6 +304,20 @@ document.addEventListener("submit", (event) => {
     render();
   }).finally(() => {
     if (submit) submit.disabled = false;
+  });
+}, true);
+
+document.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-linkedin-action="run-automation-now"]');
+  if (!button) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  button.disabled = true;
+  void runAutomationNow().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "Unknown LinkedIn automation error";
+    lastMessage = { tone: "error", text: message };
+    announce(`LinkedIn automation did not run: ${message}`);
+    render();
   });
 }, true);
 
