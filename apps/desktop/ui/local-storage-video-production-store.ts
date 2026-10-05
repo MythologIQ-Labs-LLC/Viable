@@ -1,5 +1,6 @@
 import type { VideoProductionWorkspace } from "../../../src/video-production/domain/video-production.js";
 import type { VideoProductionStore } from "../../../src/video-production/ports/video-production-store.js";
+import { workspaceStorage } from "./workspace-storage.js";
 import { readWorkspaceJson, writeWorkspaceJson } from "./local-storage-json.js";
 
 const PREFIX = "viable.video-production.";
@@ -7,7 +8,7 @@ const PREFIX = "viable.video-production.";
 export class LocalStorageVideoProductionStore implements VideoProductionStore {
   async load(workspaceId: string): Promise<VideoProductionWorkspace> {
     return readWorkspaceJson<VideoProductionWorkspace>(
-      localStorage,
+      workspaceStorage,
       `${PREFIX}${workspaceId}`,
       "Video Production workspace",
       { field: "workspaceId", expected: workspaceId },
@@ -24,6 +25,7 @@ export class LocalStorageVideoProductionStore implements VideoProductionStore {
   }
 
   async save(workspace: VideoProductionWorkspace): Promise<void> {
-    writeWorkspaceJson(localStorage, `${PREFIX}${workspace.workspaceId}`, "Video Production workspace", workspace);
+    writeWorkspaceJson(workspaceStorage, `${PREFIX}${workspace.workspaceId}`, "Video Production workspace", workspace);
+    await workspaceStorage.commit();
   }
 }

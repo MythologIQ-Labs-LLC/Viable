@@ -7,6 +7,7 @@ const browser: RuntimeObservation = {
   credentialVault: "runtime_unavailable",
   linkedInTransport: false,
   storagePersistence: "best_effort",
+  storageEngine: "indexeddb",
   offlineShell: true,
 };
 
@@ -15,6 +16,7 @@ const native: RuntimeObservation = {
   credentialVault: "available",
   linkedInTransport: true,
   storagePersistence: "unknown",
+  storageEngine: "indexeddb",
   offlineShell: false,
 };
 
@@ -58,4 +60,13 @@ test("browser storage durability reflects the persistence grant", () => {
   assert.equal(state({ ...browser, storagePersistence: "persisted" }).durable_local_storage, "available");
   assert.equal(state({ ...browser, storagePersistence: "unknown" }).durable_local_storage, "limited");
   assert.equal(state({ ...browser, offlineShell: false }).offline_use, "limited");
+});
+
+test("fallback storage engine is reported as limited in every runtime", () => {
+  assert.equal(state({ ...browser, storagePersistence: "persisted", storageEngine: "localStorage" }).durable_local_storage, "limited");
+  assert.equal(state({ ...native, storageEngine: "localStorage" }).durable_local_storage, "limited");
+});
+
+test("unavailable storage after migration is reported as unavailable, never as working", () => {
+  assert.equal(state({ ...browser, storageEngine: "unavailable" }).durable_local_storage, "unavailable");
 });

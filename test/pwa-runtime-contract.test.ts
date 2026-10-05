@@ -39,3 +39,22 @@ test("PWA build derives immutable build identity from shipped content and keeps 
   assert.doesNotMatch(desktopIndex, /pwa-runtime\.js|manifest\.webmanifest/, "the desktop runtime never registers a service worker");
   assert.match(desktopIndex, /runtime-capabilities-shell\.js/);
 });
+
+test("every workspace store persists through the shared durable storage and awaits the commit", async () => {
+  const stores = [
+    "activation-learning", "campaign-workspace", "product-workspace", "repository-growth",
+    "signals-inbox", "video-production", "website-watch",
+  ];
+  for (const name of stores) {
+    const source = await read(`apps/desktop/ui/local-storage-${name}-store.ts`);
+    assert.doesNotMatch(source, /\blocalStorage\b/, `${name} store must not bypass workspace storage`);
+    assert.match(source, /workspaceStorage/, name);
+    assert.match(source, /await workspaceStorage\.commit\(\);/, `${name} save must resolve only after a durable commit`);
+  }
+  const lifecycle = await read("apps/desktop/ui/workspace-lifecycle-shell.ts");
+  assert.doesNotMatch(lifecycle, /\blocalStorage\b/);
+  assert.match(lifecycle, /new WorkspaceLifecycleService\(workspaceStorage\)/);
+  const storage = await read("apps/desktop/ui/workspace-storage.ts");
+  assert.match(storage, /durability: "strict"/);
+  assert.match(storage, /if \(markerSet\(\)\)/, "a migrated profile must fail closed rather than read stale localStorage");
+});

@@ -4,6 +4,7 @@ import {
   type StoragePersistence,
 } from "../../../src/runtime/runtime-capabilities.js";
 import { NativeCredentialVaultClient } from "./native-credential-vault.js";
+import { workspaceStorageStatus } from "./workspace-storage.js";
 
 // Truthful runtime capability panel for the Workspace page (ADR-0010).
 
@@ -72,6 +73,7 @@ async function refresh(): Promise<void> {
       credentialVault: vaultState,
       linkedInTransport: native && LINKEDIN_TRANSPORT_IN_THIS_BUILD,
       storagePersistence: persistence,
+      storageEngine: workspaceStorageStatus.engine,
       offlineShell: Boolean(navigator.serviceWorker?.controller),
     };
     buildInfo = info;
@@ -86,6 +88,14 @@ function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
+function storageEngineText(): string {
+  const status = workspaceStorageStatus;
+  if (status.engine === "unavailable") return `Saved workspace data could not be opened: ${status.fallbackReason ?? "storage unavailable"}. Nothing was changed.`;
+  if (status.engine === "localStorage") return `Workspace data is in fallback browser storage: ${status.fallbackReason ?? "IndexedDB is unavailable"}`;
+  const migrated = status.migration.status === "migrated" ? ` ${status.migration.keys} saved records were copied from older browser storage; the original copy was left untouched.` : "";
+  return `Workspace data is stored in IndexedDB on this device and saved in atomic transactions.${migrated}`;
+}
+
 function markup(value: RuntimeObservation): string {
   const runtimeLabel = value.runtime === "native" ? "Viable desktop runtime" : "Viable in the browser";
   const build = buildInfo
@@ -98,6 +108,7 @@ function markup(value: RuntimeObservation): string {
   const canRequestPersistence = value.runtime === "browser" && value.storagePersistence === "best_effort";
   return `<div class="section-heading"><div><p class="eyebrow">Runtime</p><h3 id="runtime-heading">${runtimeLabel}</h3></div><span class="pill neutral">${build}</span></div>
     <p class="guidance">Viable keeps the same product in every runtime. A capability is limited only where this runtime genuinely cannot provide it, and the reason is shown here.</p>
+    <p class="guidance" data-storage-engine="${workspaceStorageStatus.engine}">${escapeHtml(storageEngineText())}</p>
     ${storageUsage ? `<p class="guidance">${escapeHtml(storageUsage)}.</p>` : ""}
     ${storageMessage ? `<section class="state warning" role="status"><span>${escapeHtml(storageMessage)}</span></section>` : ""}
     ${canRequestPersistence ? `<div class="actions"><button type="button" data-runtime-action="persist-storage">Ask the browser to keep Viable data</button></div>` : ""}

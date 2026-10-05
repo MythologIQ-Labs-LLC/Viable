@@ -5,8 +5,9 @@ import {
   type WorkspaceImportPreview,
   type WorkspaceScopePreview,
 } from "../../../src/workspace-lifecycle/workspace-lifecycle-service.js";
+import { workspaceStorage } from "./workspace-storage.js";
 
-const lifecycle = new WorkspaceLifecycleService(localStorage);
+const lifecycle = new WorkspaceLifecycleService(workspaceStorage);
 const sidebar = document.querySelector<HTMLElement>("#sidebar");
 const main = document.querySelector<HTMLElement>("#main");
 const live = document.querySelector<HTMLElement>("#live-region");
@@ -37,7 +38,7 @@ function knownWorkspaceIds(): string[] {
 }
 
 function currentWorkspaceId(): string | undefined {
-  const active = localStorage.getItem(PRODUCT_ACTIVE_KEY) ?? undefined;
+  const active = workspaceStorage.getItem(PRODUCT_ACTIVE_KEY) ?? undefined;
   const known = knownWorkspaceIds();
   if (selectedWorkspaceId && known.includes(selectedWorkspaceId)) return selectedWorkspaceId;
   if (active && known.includes(active)) return active;
@@ -47,11 +48,13 @@ function currentWorkspaceId(): string | undefined {
 function productName(workspaceId: string): string {
   const product = WORKSPACE_CONTEXTS.find((context) => context.name === "product");
   if (!product) return workspaceId;
-  const raw = localStorage.getItem(`${product.prefix}${workspaceId}`);
+  const raw = workspaceStorage.getItem(`${product.prefix}${workspaceId}`);
   if (!raw) return workspaceId;
   try {
-    const parsed = JSON.parse(raw) as { product?: { identity?: { name?: unknown } } };
-    const name = parsed.product?.identity?.name;
+    // Stored values carry the { schemaVersion, workspace } envelope; legacy values do not.
+    const stored = JSON.parse(raw) as { schemaVersion?: unknown; workspace?: unknown };
+    const parsed = (stored && typeof stored === "object" && "schemaVersion" in stored ? stored.workspace : stored) as { product?: { identity?: { name?: unknown } } } | undefined;
+    const name = parsed?.product?.identity?.name;
     return typeof name === "string" && name.trim() ? name : workspaceId;
   } catch {
     return workspaceId;
@@ -226,7 +229,7 @@ async function readImport(input: HTMLInputElement): Promise<void> {
   main?.querySelector<HTMLElement>(importFailure ? "[data-workspace-import-error]" : "[data-workspace-import-preview]")?.focus();
 }
 
-function performRestore(mode: "empty_profile" | "replace_current"): void {
+async function performRestore(mode: "empty_profile" | "replace_current"): Promise<void> {
   if (!pendingImportText || !pendingImport) return;
   const wording = mode === "replace_current"
     ? "Replace the current local workspace with this validated backup? Existing workspace-scoped data for this workspace ID will be overwritten."
@@ -235,6 +238,8 @@ function performRestore(mode: "empty_profile" | "replace_current"): void {
   actionFailure = undefined;
   try {
     const restored = lifecycle.restoreBackup(pendingImportText, mode);
+    // Restore is only reported once every restored context is durable.
+    await workspaceStorage.commit();
     selectedWorkspaceId = restored.workspaceId;
     pendingImport = undefined;
     pendingImportText = undefined;
@@ -288,8 +293,8 @@ document.addEventListener("click", (event) => {
       announce("Corrupt raw workspace data exported to a quarantine file");
       renderWorkspace();
     }
-    if (action === "restore-empty") performRestore("empty_profile");
-    if (action === "restore-replace") performRestore("replace_current");
+    if (action === "restore-empty") void performRestore("empty_profile");
+    if (action === "restore-replace") void performRestore("replace_current");
   } catch (error) {
     actionFailure = error instanceof Error ? error.message : "Unknown workspace lifecycle error";
     announce(`Workspace action failed: ${actionFailure}`);
@@ -330,8 +335,13 @@ document.addEventListener("submit", (event) => {
     return;
   }
   if (!window.confirm(`Permanently delete all workspace-scoped local data for ${productName(workspaceId)} from this desktop profile?`)) return;
+  void deleteDurably(workspaceId);
+}, true);
+
+async function deleteDurably(workspaceId: string): Promise<void> {
   try {
     lifecycle.deleteWorkspace(workspaceId);
+    await workspaceStorage.commit();
     selectedWorkspaceId = undefined;
     quarantineExportedFor = undefined;
     pendingImport = undefined;
@@ -344,4 +354,4 @@ document.addEventListener("submit", (event) => {
     announce(`Workspace deletion failed: ${actionFailure}`);
   }
   renderWorkspace();
-}, true);
+}
