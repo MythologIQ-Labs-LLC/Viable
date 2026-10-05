@@ -211,7 +211,10 @@ jobs:
 
   pwa-cross-browser:
     # Real-browser PWA validation in Firefox and WebKit (Safari's engine) with
-    # Playwright's matched engine builds. Chromium runs in the validate job.
+    # Playwright's matched engine builds. Chromium runs in the validate job on
+    # every pull request; this heavier matrix runs only on pushes to main to
+    # conserve Actions minutes.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
