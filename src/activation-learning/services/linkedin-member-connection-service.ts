@@ -9,18 +9,11 @@ import type { ProviderConnectionStore } from "../ports/provider-connection-store
 
 type Clock = () => Date;
 type IdFactory = () => string;
+type LinkedInRejectedConnection = Extract<LinkedInConnectResult, { kind: "rejected" }>;
 
 export type LinkedInConnectionAttempt =
   | Readonly<{ kind: "connected"; connection: LinkedInMemberConnectionRecord }>
-  | Readonly<{
-      kind: "rejected";
-      failureClass: LinkedInConnectResult extends infer Result
-        ? Result extends { kind: "rejected"; failureClass: infer Failure }
-          ? Failure
-          : never
-        : never;
-      detail: string;
-    }>;
+  | LinkedInRejectedConnection;
 
 export class LinkedInMemberConnectionService {
   constructor(
@@ -48,18 +41,7 @@ export class LinkedInMemberConnectionService {
     const tokenExpiresAt = optionalFutureDate(input.tokenExpiresAt, this.clock());
 
     const result = await this.nativeProvider.connect({ credentialReference, accessToken: token });
-    if (result.kind === "rejected") {
-      if (existing) {
-        await this.connectionStore.save({
-          ...current,
-          connections: current.connections.map((candidate) => candidate.id === existing.id
-            ? { ...candidate, status: "reconnect_required" as const, updatedAt: this.clock().toISOString() }
-            : candidate),
-          updatedAt: this.clock().toISOString(),
-        });
-      }
-      return result;
-    }
+    if (result.kind === "rejected") return result;
 
     const now = this.clock().toISOString();
     const connection: LinkedInMemberConnectionRecord = {
@@ -71,7 +53,7 @@ export class LinkedInMemberConnectionService {
       credentialReference,
       memberId: result.memberId,
       memberUrn: result.memberUrn,
-      scopes: ["r_liteprofile", "w_member_social"],
+      requiredScopes: ["r_liteprofile", "w_member_social"],
       status: "connected",
       ...(tokenExpiresAt ? { tokenExpiresAt } : {}),
       createdAt: existing?.createdAt ?? now,
