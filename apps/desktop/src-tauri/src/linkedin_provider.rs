@@ -11,7 +11,8 @@ use std::time::Duration;
 use tauri::State;
 
 const LINKEDIN_PROFILE_URL: &str = "https://api.linkedin.com/v2/me";
-const LINKEDIN_UGC_POSTS_URL: &str = "https://api.linkedin.com/v2/ugcPosts";
+const LINKEDIN_POSTS_URL: &str = "https://api.linkedin.com/rest/posts";
+const LINKEDIN_API_VERSION: &str = "202609";
 const RESTLI_PROTOCOL_VERSION: &str = "2.0.0";
 const HTTP_TIMEOUT_SECONDS: u64 = 20;
 
@@ -146,10 +147,11 @@ pub fn linkedin_publish_text(
             return publish_local_unavailable("LinkedIn HTTPS client could not be initialized.")
         }
     };
-    let payload = ugc_text_payload(&member_urn, text);
+    let payload = linkedin_text_post_payload(&member_urn, text);
     let response = match client
-        .post(LINKEDIN_UGC_POSTS_URL)
+        .post(LINKEDIN_POSTS_URL)
         .bearer_auth(token)
+        .header("Linkedin-Version", LINKEDIN_API_VERSION)
         .header("X-Restli-Protocol-Version", RESTLI_PROTOCOL_VERSION)
         .json(&payload)
         .send()
@@ -241,19 +243,18 @@ fn classify_publish_response(status: StatusCode, headers: &HeaderMap) -> LinkedI
     }
 }
 
-fn ugc_text_payload(member_urn: &str, text: &str) -> Value {
+fn linkedin_text_post_payload(member_urn: &str, text: &str) -> Value {
     json!({
         "author": member_urn,
-        "lifecycleState": "PUBLISHED",
-        "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": { "text": text },
-                "shareMediaCategory": "NONE"
-            }
+        "commentary": text,
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": []
         },
-        "visibility": {
-            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-        }
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": false
     })
 }
 
@@ -367,31 +368,28 @@ mod tests {
     }
 
     #[test]
-    fn ugc_payload_is_text_only_public_member_content() {
-        let payload = ugc_text_payload("urn:li:person:abc123", "Approved post");
+    fn posts_api_payload_is_text_only_public_member_content() {
+        let payload = linkedin_text_post_payload("urn:li:person:abc123", "Approved post");
         assert_eq!(payload["author"], "urn:li:person:abc123");
+        assert_eq!(payload["commentary"], "Approved post");
+        assert_eq!(payload["visibility"], "PUBLIC");
+        assert_eq!(payload["distribution"]["feedDistribution"], "MAIN_FEED");
+        assert_eq!(payload["distribution"]["targetEntities"], json!([]));
+        assert_eq!(
+            payload["distribution"]["thirdPartyDistributionChannels"],
+            json!([])
+        );
         assert_eq!(payload["lifecycleState"], "PUBLISHED");
-        assert_eq!(
-            payload["specificContent"]["com.linkedin.ugc.ShareContent"]["shareCommentary"]["text"],
-            "Approved post"
-        );
-        assert_eq!(
-            payload["specificContent"]["com.linkedin.ugc.ShareContent"]["shareMediaCategory"],
-            "NONE"
-        );
-        assert_eq!(
-            payload["visibility"]["com.linkedin.ugc.MemberNetworkVisibility"],
-            "PUBLIC"
-        );
+        assert_eq!(payload["isReshareDisabledByAuthor"], false);
     }
 
     #[test]
     fn created_with_restli_id_is_definitive_provider_evidence() {
         let mut headers = HeaderMap::new();
-        headers.insert("X-RestLi-Id", HeaderValue::from_static("urn:li:ugcPost:42"));
+        headers.insert("X-RestLi-Id", HeaderValue::from_static("urn:li:share:42"));
         assert_eq!(
             classify_publish_response(StatusCode::CREATED, &headers),
-            publish_success("urn:li:ugcPost:42")
+            publish_success("urn:li:share:42")
         );
     }
 
