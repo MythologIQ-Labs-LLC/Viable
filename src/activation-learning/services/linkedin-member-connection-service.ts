@@ -53,7 +53,7 @@ export class LinkedInMemberConnectionService {
       credentialReference,
       memberId: result.memberId,
       memberUrn: result.memberUrn,
-      requiredScopes: ["r_liteprofile", "w_member_social"],
+      requiredScopes: ["openid", "profile", "w_member_social"],
       status: "connected",
       ...(tokenExpiresAt ? { tokenExpiresAt } : {}),
       createdAt: existing?.createdAt ?? now,
