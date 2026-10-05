@@ -54,7 +54,11 @@ test("desktop navigation is synchronized with browser history and can recover fr
   assert.match(shell, /window\.addEventListener\("popstate"/);
   assert.match(shell, /window\.addEventListener\("hashchange"/);
   assert.match(shell, /button\.click\(\)/);
-  assert.match(shell, /currentNav\(\) !== nav/);
+  assert.match(shell, /if \(currentNav\(\) === nav\) return true;/);
+  // aria-current changes are recorded into history, never "corrected" from a
+  // stale hash (that trapped people on the Workspace page).
+  assert.match(shell, /function recordCurrent\(\)/);
+  assert.match(shell, /if \(!initialApplied\)/);
   assert.doesNotMatch(shell, /localStorage/);
   assert.doesNotMatch(shell, /\.save\(/);
 });
