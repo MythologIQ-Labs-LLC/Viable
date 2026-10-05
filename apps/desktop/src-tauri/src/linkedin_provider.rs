@@ -51,7 +51,7 @@ struct LinkedInUserInfoResponse {
     sub: String,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn linkedin_connect_member(
     credential_reference: String,
     access_token: String,
@@ -106,7 +106,7 @@ pub fn linkedin_connect_member(
     validation
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn linkedin_publish_text(
     credential_reference: String,
     member_urn: String,
