@@ -24,7 +24,7 @@ Repository evidence (see [the planning review](../reviews/pwa-runtime-roadmap-re
 - The UI is plain ES modules with no inline scripts or styles and no `eval`. It runs unmodified in Chromium without Tauri.
 - Every authoritative workspace already persists to origin-scoped browser storage through a versioned envelope, in **both** runtimes.
 - A runtime-neutral portable backup (`viable.workspace-backup` v1) already exists.
-- The UI makes no network calls; every import is file-based.
+- The UI's only network calls are unauthenticated public GitHub REST reads, which browsers support through CORS. Every other import is file-based.
 - The only native capabilities are:
   - the OS credential vault (`main`);
   - LinkedIn HTTPS publishing and an allowlisted system-browser opener (PR #109).
