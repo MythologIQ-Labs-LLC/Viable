@@ -9,7 +9,7 @@ export type LinkedInMemberConnectionRecord = Readonly<{
   credentialReference: string;
   memberId: string;
   memberUrn: string;
-  scopes: readonly ["r_liteprofile", "w_member_social"];
+  requiredScopes: readonly ["r_liteprofile", "w_member_social"];
   status: ProviderConnectionStatus;
   tokenExpiresAt?: string;
   createdAt: string;
