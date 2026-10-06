@@ -24,7 +24,7 @@ test("Signals GitHub source reaches the network with the runtime's default fetch
     const outcome = await new GitHubPublicRepositorySource("github", "MythologIQ-Labs-LLC/Viable", "2026-10-06T00:00:00.000Z").collect();
     assert.doesNotMatch(outcome.detail ?? "", /Illegal invocation/);
     assert.equal(outcome.status, "unavailable", "the HTTP 503 is classified, not a transport failure");
-    assert.ok(requested.includes("https://api.github.com/repos/MythologIQ-Labs-LLC/Viable"));
+    assert.equal(requested.filter((url) => url === "https://api.github.com/repos/MythologIQ-Labs-LLC/Viable").length, 1, "repository metadata requested once");
   });
 });
 
@@ -32,7 +32,7 @@ test("Repository Growth GitHub source reaches the network with the runtime's def
   await withBrowserReceiverFetch(async (requested) => {
     const outcome = await new GitHubPublicRepositoryGrowthSource("MythologIQ-Labs-LLC/Viable").collect();
     assert.doesNotMatch(JSON.stringify(outcome), /Illegal invocation/);
-    assert.ok(requested.includes("https://api.github.com/repos/MythologIQ-Labs-LLC/Viable"));
+    assert.equal(requested.filter((url) => url === "https://api.github.com/repos/MythologIQ-Labs-LLC/Viable").length, 1, "repository metadata requested once");
   });
 });
 
