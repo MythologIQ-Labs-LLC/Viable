@@ -41,8 +41,17 @@ class ActivationStore implements ActivationLearningStore {
 
 class ConnectionStore implements ProviderConnectionStore {
   value?: ProviderConnectionWorkspace;
+  throwOnSave = false;
+  throwOnDelete = false;
   async load(id: string): Promise<ProviderConnectionWorkspace | undefined> { return id === WORKSPACE_ID ? this.value : undefined; }
-  async save(value: ProviderConnectionWorkspace): Promise<void> { this.value = value; }
+  async save(value: ProviderConnectionWorkspace): Promise<void> {
+    if (this.throwOnSave) throw new Error("simulated connection save failure");
+    this.value = value;
+  }
+  async delete(id: string): Promise<void> {
+    if (this.throwOnDelete) throw new Error("simulated connection delete failure");
+    if (id === WORKSPACE_ID) this.value = undefined;
+  }
 }
 
 class NativeProvider implements LinkedInNativeProviderPort {
@@ -50,7 +59,9 @@ class NativeProvider implements LinkedInNativeProviderPort {
   publishResult: LinkedInPublishResult = { kind: "published", publicationId: "urn:li:ugcPost:42", providerResponseId: "urn:li:ugcPost:42" };
   connectInputs: Array<{ credentialReference: string; accessToken: string }> = [];
   publishInputs: Array<{ credentialReference: string; memberUrn: string; text: string }> = [];
+  disconnectInputs: Array<{ credentialReference: string }> = [];
   throwOnPublish = false;
+  throwOnDisconnect = false;
 
   async connect(input: { credentialReference: string; accessToken: string }): Promise<LinkedInConnectResult> {
     this.connectInputs.push(input);
@@ -61,6 +72,11 @@ class NativeProvider implements LinkedInNativeProviderPort {
     this.publishInputs.push(input);
     if (this.throwOnPublish) throw new Error("socket vanished");
     return this.publishResult;
+  }
+
+  async disconnect(input: { credentialReference: string }): Promise<void> {
+    this.disconnectInputs.push(input);
+    if (this.throwOnDisconnect) throw new Error("simulated vault delete failure");
   }
 }
 
@@ -119,6 +135,56 @@ test("failed replacement token preserves an existing working connection record",
 
   assert.equal(result.kind, "rejected");
   assert.deepEqual(connections.value?.connections[0], before);
+});
+
+test("disconnect removes the vault credential before clearing local connection metadata", async () => {
+  const activation = new ActivationStore();
+  const connections = connectedStore();
+  const native = new NativeProvider();
+  const service = new LinkedInMemberConnectionService(activation, connections, native, () => new Date(NOW));
+
+  await service.disconnect(WORKSPACE_ID, destination.id);
+
+  assert.deepEqual(native.disconnectInputs, [{ credentialReference: "viable://credential/linkedin/connection-1/access_token" }]);
+  assert.equal(connections.value, undefined);
+});
+
+test("failed vault deletion leaves local connection metadata intact", async () => {
+  const activation = new ActivationStore();
+  const connections = connectedStore();
+  const before = connections.value;
+  const native = new NativeProvider();
+  native.throwOnDisconnect = true;
+  const service = new LinkedInMemberConnectionService(activation, connections, native, () => new Date(NOW));
+
+  await assert.rejects(() => service.disconnect(WORKSPACE_ID, destination.id), /vault delete failure/);
+
+  assert.deepEqual(connections.value, before);
+});
+
+test("failed local connection persistence cleans up the newly stored vault credential", async () => {
+  const activation = new ActivationStore();
+  const connections = new ConnectionStore();
+  connections.throwOnSave = true;
+  const native = new NativeProvider();
+  const service = new LinkedInMemberConnectionService(
+    activation,
+    connections,
+    native,
+    () => new Date(NOW),
+    () => "connection-cleanup",
+  );
+
+  await assert.rejects(() => service.connectWithDeveloperPortalToken({
+    workspaceId: WORKSPACE_ID,
+    destinationId: destination.id,
+    accessToken: "temporary-token",
+  }), /connection save failure/);
+
+  assert.deepEqual(native.disconnectInputs, [{
+    credentialReference: "viable://credential/linkedin/connection-cleanup/access_token",
+  }]);
+  assert.equal(connections.value, undefined);
 });
 
 test("connection bootstrap rejects non-LinkedIn destinations before native secret handling", async () => {
