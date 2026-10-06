@@ -277,6 +277,9 @@ jobs:
             pwa-restore-reload-probe-${{ matrix.browser }}.log
           if-no-files-found: warn
           retention-days: 14
-      - name: Enforce ${{ matrix.browser }} smoke result
-        if: steps.smoke.outputs.status != '0'
+      - name: Enforce supported/candidate browser smoke result
+        if: steps.smoke.outputs.status != '0' && matrix.browser == 'firefox'
         run: exit 1
+      - name: Record experimental WebKit smoke limitation
+        if: steps.smoke.outputs.status != '0' && matrix.browser == 'webkit'
+        run: echo "::warning::Experimental WebKit smoke failed; capability evidence was uploaded. Safari/WebKit remains unsupported pending real-Safari validation."
