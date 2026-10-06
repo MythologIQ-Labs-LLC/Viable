@@ -341,7 +341,7 @@ async function run() {
       if (!waiting) return false;
 
       await control.evaluate(() => {
-        navigator.serviceWorker.addEventListener("controllerchange", () => window.location.replace(window.location.href), { once: true });
+        navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
       });
       const load = control.waitForEvent("load", { timeout: 15000 }).then(() => true, () => false);
       await control.evaluate(async () => {
