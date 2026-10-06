@@ -88,7 +88,32 @@ export type WorkspaceImportPreview = Readonly<{
 
 export type RestoreMode = "empty_profile" | "replace_current";
 
-export type RestoreOptions = Readonly<{
+/**
+ * A recovery point is an ordinary `viable.workspace-backup` file of the
+ * workspace exactly as it is immediately before a destructive action. It is
+ * handed to the person as a file they control; Viable never keeps a hidden
+ * internal copy, so deletion still retains nothing inside the app.
+ */
+export type RecoveryPoint = Readonly<{
+  backup: string;
+  /** Fingerprint of the workspace's stored state the backup was taken from. */
+  fingerprint: string;
+}>;
+
+/**
+ * Every destructive action needs an explicit decision: either a recovery point
+ * of the current state was downloaded, or the person chose to continue without
+ * one (for example, to avoid creating another copy of data they want gone).
+ */
+export type RecoveryPointDecision =
+  | Readonly<{ kind: "downloaded"; fingerprint: string }>
+  | Readonly<{ kind: "declined" }>;
+
+export type DestructiveOptions = Readonly<{
+  recoveryPoint?: RecoveryPointDecision;
+}>;
+
+export type RestoreOptions = DestructiveOptions & Readonly<{
   /** The caller exported the target workspace's corrupt raw data to quarantine. */
   quarantineExported?: boolean;
 }>;
@@ -179,6 +204,26 @@ export class WorkspaceLifecycleService {
       contexts: values,
     };
     return JSON.stringify({ ...payload, checksum: checksum(payload) } satisfies WorkspaceBackupEnvelope, null, 2);
+  }
+
+  /** Fingerprint of everything a destructive action on this workspace would change. */
+  stateFingerprint(workspaceId: string): string {
+    requireWorkspaceId(workspaceId);
+    const keys = workspaceScopedKeys(workspaceId);
+    return checksum({
+      workspaceId,
+      records: keys.map((key) => [key, this.storage.getItem(key)]),
+      active: this.storage.getItem(PRODUCT_ACTIVE_KEY),
+    });
+  }
+
+  /**
+   * Creates a recovery point to download before a destructive action. Blocked
+   * whenever a normal backup is blocked (corrupt context, missing Product Core,
+   * credential-like fields); the person can then only continue by declining.
+   */
+  createRecoveryPoint(workspaceId: string): RecoveryPoint {
+    return { backup: this.createBackup(workspaceId), fingerprint: this.stateFingerprint(workspaceId) };
   }
 
   exportQuarantine(workspaceId: string): string {
@@ -279,6 +324,7 @@ export class WorkspaceLifecycleService {
     if (mode === "replace_current" && preview.requiresQuarantineExport && !options.quarantineExported) {
       throw new Error("The current workspace contains corrupt or newer-version data that this restore would overwrite. Export quarantine data before replacing it.");
     }
+    if (mode === "replace_current") this.requireRecoveryPointDecision(backup.workspaceId, options.recoveryPoint, "replacing it from a backup");
 
     const keys = WORKSPACE_CONTEXTS.map((descriptor) => `${descriptor.prefix}${backup.workspaceId}`);
     const snapshot = new Map<string, string | null>(keys.map((key) => [key, this.storage.getItem(key)]));
@@ -302,8 +348,9 @@ export class WorkspaceLifecycleService {
     }
   }
 
-  deleteWorkspace(workspaceId: string): WorkspaceScopePreview {
+  deleteWorkspace(workspaceId: string, options: DestructiveOptions = {}): WorkspaceScopePreview {
     requireWorkspaceId(workspaceId);
+    this.requireRecoveryPointDecision(workspaceId, options.recoveryPoint, "deleting it");
     const preview = this.inspect(workspaceId);
     const keys = workspaceScopedKeys(workspaceId);
     const snapshot = new Map<string, string | null>(keys.map((key) => [key, this.storage.getItem(key)]));
@@ -316,6 +363,13 @@ export class WorkspaceLifecycleService {
     } catch (error) {
       rollback(this.storage, snapshot);
       throw new Error(`Workspace deletion failed and prior local state was restored: ${error instanceof Error ? error.message : "Unknown deletion error"}`);
+    }
+  }
+
+  private requireRecoveryPointDecision(workspaceId: string, decision: RecoveryPointDecision | undefined, action: string): void {
+    if (!decision) throw new Error(`Download a recovery point of this workspace, or explicitly continue without one, before ${action}. Nothing was changed.`);
+    if (decision.kind === "downloaded" && decision.fingerprint !== this.stateFingerprint(workspaceId)) {
+      throw new Error(`This workspace changed after its recovery point was downloaded, so that file would not restore what is about to be lost. Download a new recovery point before ${action}. Nothing was changed.`);
     }
   }
 

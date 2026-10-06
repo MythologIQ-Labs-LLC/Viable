@@ -172,7 +172,7 @@ test("replace-current restore cannot overwrite newer-version data until it is ex
   assert.deepEqual(storage.snapshot(), before, "the refused restore did not touch storage");
 
   service.exportQuarantine(WORKSPACE_ID);
-  service.restoreBackup(backup, "replace_current", { quarantineExported: true });
+  service.restoreBackup(backup, "replace_current", { quarantineExported: true, recoveryPoint: { kind: "declined" } });
   assert.equal(storage.getItem(keyFor("signals")), (await versionFixtures(1)).get("signals"));
 });
 
@@ -186,7 +186,7 @@ test("a restore that fails midway leaves the original legacy representation byte
   const before = storage.snapshot();
   storage.failSetOn = keyFor("repositoryGrowth");
   const service = new WorkspaceLifecycleService(storage, now);
-  assert.throws(() => service.restoreBackup(backup, "replace_current"), /prior local state was restored/);
+  assert.throws(() => service.restoreBackup(backup, "replace_current", { recoveryPoint: { kind: "declined" } }), /prior local state was restored/);
   assert.deepEqual(storage.snapshot(), before);
   assert.ok(service.inspect(WORKSPACE_ID).contexts.every((context) => context.schemaVersion === 0));
 });
@@ -331,6 +331,7 @@ test("the Workspace screen gates replace-restore on quarantine export and reads 
   const shell = await readFile("apps/desktop/ui/workspace-lifecycle-shell.ts", "utf8");
   assert.match(shell, /requiresQuarantineExport && quarantineExportedFor !== preview\.backup\.workspaceId/);
   assert.match(shell, /!quarantineBlocked \? "" : "disabled"/);
-  assert.match(shell, /restoreBackup\(pendingImportText, mode, \{ quarantineExported: quarantineExportedFor === pendingImport\.backup\.workspaceId \}\)/);
+  assert.match(shell, /const target = pendingImport\.backup\.workspaceId;/);
+  assert.match(shell, /restoreBackup\(pendingImportText, mode, \{\s*quarantineExported: quarantineExportedFor === target,/);
   assert.match(shell, /decodeStoredWorkspace\(JSON\.parse\(raw\)\)/);
 });

@@ -36,7 +36,13 @@ test("workspace surface previews all local contexts before destructive deletion"
     "Type DELETE to confirm",
     "Delete all workspace-scoped local data",
   ]) assert.match(shell, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(shell, /lifecycle\.deleteWorkspace\(workspaceId\)/);
+  assert.match(shell, /lifecycle\.deleteWorkspace\(workspaceId, \{ recoveryPoint \}\)/);
+  // Recovery point (#36): every destructive action needs a downloaded, still-current recovery point or an explicit decline.
+  assert.match(shell, /const recoveryPoint = recoveryDecision\(workspaceId, data\.get\("declineRecoveryPoint"\) === "on"\);\s*if \(!recoveryPoint\) \{/);
+  assert.match(shell, /mode === "replace_current" && !recoveryPoint\) \{/);
+  assert.match(shell, /recoveryPointControls\(preview\.workspaceId, preview\.hasCorruptData, 'name="declineRecoveryPoint"'\)/);
+  assert.match(shell, /const point = lifecycle\.createRecoveryPoint\(target\);\s*downloadText\(filename\("recovery-point", target\), point\.backup\);\s*recoveryPointFor = \{ workspaceId: target, fingerprint: point\.fingerprint \};/);
+  assert.match(shell, /Viable keeps no hidden internal copy/);
   assert.match(shell, /preview\.hasCorruptData && quarantineExportedFor !== preview\.workspaceId/);
 });
 

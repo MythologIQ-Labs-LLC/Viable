@@ -89,9 +89,10 @@ Persistence rules for dogfood profiles:
 - restore into an empty profile or replace the current workspace, both through a validated preview and an explicit confirmation;
 - quarantine export of unreadable raw records; destructive deletion is blocked until quarantine has been exported;
 - durable deletion across the seven contexts;
-- browser round trip validated in the smoke: backup → delete (seen by a second open tab) → restore into an empty profile → reload.
+- recovery points (#36): deletion and replace-current restore require either a downloaded recovery point of exactly the current state (an ordinary backup, refused as stale if the workspace changed afterwards) or an explicit choice to continue without one; Viable keeps no internal copy;
+- browser round trip validated in the smoke: backup → deletion refused without a recovery-point decision → recovery point downloaded → delete (seen by a second open tab) → restore the recovery point into an empty profile → reload.
 
-Generalized forward migration between future schema versions, rollback, recovery points, and product-wide retention defaults are **not** implemented (#36).
+Product-wide retention defaults and browser evidence for replace-current restore are **not** done yet (#36).
 
 ### Native runtime and credential vault (PRs #108, #113)
 
@@ -297,7 +298,7 @@ This is a dogfood statement, not a public-release statement. #36 still contains 
 - localhost → public-origin migration through the portable backup;
 - supported browser and OS list with minimum versions, from actual tests, including real Safari before any Safari claim;
 - real storage-eviction and quota evidence per supported browser (#114 O3);
-- generalized forward migration and rollback; recovery points; product-wide retention defaults;
+- product-wide retention defaults; browser evidence for replace-current restore;
 - privacy/security review, diagnostic export, vulnerability intake, support and known-limitations documentation;
 - honest labeling and provenance of any direct native artifacts.
 

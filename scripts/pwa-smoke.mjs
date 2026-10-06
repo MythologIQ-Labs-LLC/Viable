@@ -505,6 +505,23 @@ async function run() {
       backup = JSON.parse(await readFile(backupPath, "utf8"));
       check(backup.format === "viable.workspace-backup" && backup.contexts?.product?.product?.identity?.name === "PWA smoke product", "workspace backup downloads with unwrapped domain data");
 
+      // Recovery points (#36): deletion needs an explicit decision, and the
+      // downloaded recovery point must restore what deletion removed.
+      await page.check('[data-workspace-delete] input[name="scopeConfirmed"]');
+      await page.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
+      await page.click('[data-workspace-delete] button[type="submit"]');
+      const refused = await page.waitForFunction(() => /Download a recovery point/.test(document.querySelector("[data-workspace-action-error]")?.textContent ?? ""), undefined, { timeout: 5000 }).then(() => true, () => false);
+      check(refused && productKey(await idbKeys()) === storedKey, "deletion without a recovery-point decision is refused and changes nothing");
+      const [pointDownload] = await Promise.all([page.waitForEvent("download"), page.click('[data-workspace-delete] [data-workspace-action="recovery-point"]')]);
+      const recoveryPath = join(served, "..", "dist-pwa-smoke-recovery-point.json");
+      await pointDownload.saveAs(recoveryPath);
+      const recoveryPoint = JSON.parse(await readFile(recoveryPath, "utf8"));
+      check(
+        /^viable-recovery-point-/.test(pointDownload.suggestedFilename()) && recoveryPoint.format === "viable.workspace-backup" && JSON.stringify(recoveryPoint.contexts) === JSON.stringify(backup.contexts),
+        "recovery point downloads as an ordinary backup of exactly the current state",
+      );
+      const pointCurrent = await page.locator("[data-workspace-delete] [data-recovery-point]").getAttribute("data-recovery-point");
+      check(pointCurrent === "current", `deletion form shows the recovery point as current (${pointCurrent})`);
       await page.check('[data-workspace-delete] input[name="scopeConfirmed"]');
       await page.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
       await page.click('[data-workspace-delete] button[type="submit"]');
@@ -514,11 +531,12 @@ async function run() {
       const crossTab = await second.waitForFunction(() => /does not currently contain a Viable workspace/.test(document.querySelector("#main")?.textContent ?? ""), undefined, { timeout: 8000 }).then(() => true, () => false);
       check(crossTab, "another open tab sees the deletion without reloading");
 
-      await page.setInputFiles("[data-workspace-import]", backupPath);
+      await page.setInputFiles("[data-workspace-import]", recoveryPath);
       await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
       await page.click('[data-workspace-action="restore-empty"]');
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
-      check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
+      check(productKey(await idbKeys()) === storedKey, "the recovery point restores the deleted workspace into the empty profile, durably in IndexedDB");
+      await rm(recoveryPath, { force: true });
       // The cross-tab check is done.
       await second.close();
       await reload(page);
@@ -657,6 +675,7 @@ async function run() {
 
       // Deleting the workspace must not leave it behind in the legacy copy (#36).
       upgrade.on("dialog", (dialog) => void dialog.accept());
+      await upgrade.check('[data-workspace-delete] input[name="declineRecoveryPoint"]');
       await upgrade.check('[data-workspace-delete] input[name="scopeConfirmed"]');
       await upgrade.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
       await upgrade.click('[data-workspace-delete] button[type="submit"]');

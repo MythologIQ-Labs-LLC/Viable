@@ -3,6 +3,7 @@ import {
   WORKSPACE_CONTEXTS,
   WorkspaceLifecycleService,
   workspaceScopedKeys,
+  type RecoveryPointDecision,
   type WorkspaceImportPreview,
   type WorkspaceScopePreview,
 } from "../../../src/workspace-lifecycle/workspace-lifecycle-service.js";
@@ -21,6 +22,9 @@ let pendingImport: WorkspaceImportPreview | undefined;
 let importFailure: string | undefined;
 let actionFailure: string | undefined;
 let quarantineExportedFor: string | undefined;
+// The recovery point downloaded in this session; valid only while the
+// workspace's stored state still matches its fingerprint.
+let recoveryPointFor: Readonly<{ workspaceId: string; fingerprint: string }> | undefined;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -103,6 +107,35 @@ function workspacePicker(ids: readonly string[], current: string): string {
   return `<section class="state warning"><div><strong>Multiple workspace IDs exist in this desktop profile.</strong><p>Choose which workspace to inspect. Viable will not silently combine them.</p></div><label>Workspace to manage<select data-workspace-select>${ids.map((id) => `<option value="${escapeHtml(id)}" ${id === current ? "selected" : ""}>${escapeHtml(productName(id))} · ${escapeHtml(id)}</option>`).join("")}</select></label></section>`;
 }
 
+function recoveryPointStatus(workspaceId: string): "current" | "stale" | "none" {
+  if (recoveryPointFor?.workspaceId !== workspaceId) return "none";
+  return recoveryPointFor.fingerprint === lifecycle.stateFingerprint(workspaceId) ? "current" : "stale";
+}
+
+/** Explicit decision for a destructive action, or undefined when none was made. */
+function recoveryDecision(workspaceId: string, declined: boolean): RecoveryPointDecision | undefined {
+  if (declined) return { kind: "declined" };
+  if (recoveryPointFor?.workspaceId === workspaceId) return { kind: "downloaded", fingerprint: recoveryPointFor.fingerprint };
+  return undefined;
+}
+
+function recoveryPointControls(workspaceId: string, backupBlocked: boolean, declineField: string): string {
+  const status = recoveryPointStatus(workspaceId);
+  const message = status === "current"
+    ? "A recovery point of the current state was downloaded. Restoring that file brings this workspace back."
+    : status === "stale"
+      ? "This workspace changed after the last recovery point was downloaded. Download a new one, or continue without one."
+      : backupBlocked
+        ? "A recovery point cannot be created while a normal backup is blocked. Continuing means no restorable copy of this state will exist."
+        : "Before this cannot be undone, download a recovery point: a normal workspace backup of exactly the current state.";
+  return `<fieldset class="recovery-point" data-recovery-point="${status}">
+      <legend>Recovery point</legend>
+      <p>${message} Viable keeps no hidden internal copy; the file is yours to keep or delete.</p>
+      <div class="actions"><button type="button" data-workspace-action="recovery-point" data-workspace-id="${escapeHtml(workspaceId)}" ${backupBlocked ? "disabled" : ""}>Download recovery point</button></div>
+      <label class="choice"><input type="checkbox" ${declineField}> Continue without a recovery point</label>
+    </fieldset>`;
+}
+
 function backupSection(preview: WorkspaceScopePreview): string {
   const blocked = preview.hasCorruptData;
   return `<section class="panel" aria-labelledby="backup-heading">
@@ -125,6 +158,7 @@ function restoreSection(): string {
     <label>Workspace backup file<input type="file" accept="application/json,.json" data-workspace-import></label>
     ${importFailure ? `<section class="state error" role="alert" tabindex="-1" data-workspace-import-error><strong>Backup was not accepted.</strong><span>${escapeHtml(importFailure)} No local workspace data was changed.</span></section>` : ""}
     ${preview ? `<section class="state ${preview.conflict ? "warning" : "offline"}" data-workspace-import-preview><div><strong>Backup validated for ${escapeHtml(productNameFromBackup(preview))}.</strong><p>Workspace ID: ${escapeHtml(preview.backup.workspaceId)} · created ${escapeHtml(new Date(preview.backup.createdAt).toLocaleString())}</p>${preview.conflict ? `<p>${escapeHtml(preview.conflict)}</p>` : ""}${quarantineBlocked ? `<p data-workspace-restore-quarantine>The current workspace contains corrupt or newer-version data that this restore would overwrite. Export quarantine data above before replacing it.</p>` : ""}</div></section>
+      ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile && !quarantineBlocked ? recoveryPointControls(preview.backup.workspaceId, lifecycle.inspect(preview.backup.workspaceId).hasCorruptData, "data-workspace-restore-decline") : ""}
       <div class="actions">
         <button type="button" data-workspace-action="restore-empty" ${preview.canRestoreIntoEmptyProfile ? "" : "disabled"}>Restore into empty profile</button>
         <button type="button" data-workspace-action="restore-replace" ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile && !quarantineBlocked ? "" : "disabled"}>Replace current workspace from backup</button>
@@ -142,10 +176,11 @@ function deleteSection(preview: WorkspaceScopePreview): string {
   const corruptBlocked = preview.hasCorruptData && quarantineExportedFor !== preview.workspaceId;
   return `<section class="panel danger-zone" aria-labelledby="delete-heading">
     <div class="section-heading"><div><p class="eyebrow">Destructive action</p><h3 id="delete-heading">Delete or reset this workspace</h3></div><span class="pill warning">Local and product-wide</span></div>
-    <p>This removes all seven workspace-scoped contexts and the active workspace pointer from this desktop profile. It does not delete exported backup/quarantine files outside Viable, application files, or unrelated desktop/browser preferences. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
+    <p>This removes all seven workspace-scoped contexts and the active workspace pointer from this desktop profile. It does not delete exported backup, recovery-point, or quarantine files outside Viable, application files, or unrelated desktop/browser preferences. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
     <details><summary><strong>Review exact deletion scope</strong><span>${preview.totalRecords} counted local records across the contexts below.</span></summary>${scopeTable(preview)}<h4>Retained outside workspace deletion</h4><ul>${preview.retainedOutsideWorkspace.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><h4>Anonymized</h4><p>None. Workspace-scoped records are deleted rather than converted into anonymous copies.</p></details>
     ${corruptBlocked ? `<section class="state warning"><strong>Deletion is blocked until corrupt raw data is exported.</strong><span>Use “Export quarantine data” above. This avoids destroying the only recoverable copy of unreadable local context.</span></section>` : ""}
     <form data-workspace-delete>
+      ${recoveryPointControls(preview.workspaceId, preview.hasCorruptData, 'name="declineRecoveryPoint"')}
       <label class="choice"><input type="checkbox" name="scopeConfirmed" required> I reviewed the product-wide deletion scope above.</label>
       <label>Type DELETE to confirm<input name="confirmation" autocomplete="off" required></label>
       <button class="danger" type="submit" ${corruptBlocked ? "disabled" : ""}>Delete all workspace-scoped local data</button>
@@ -237,10 +272,23 @@ async function performRestore(mode: "empty_profile" | "replace_current"): Promis
   const wording = mode === "replace_current"
     ? "Replace the current local workspace with this validated backup? Existing workspace-scoped data for this workspace ID will be overwritten."
     : "Restore this validated backup into the empty desktop profile?";
+  const target = pendingImport.backup.workspaceId;
+  const recoveryPoint = mode === "replace_current"
+    ? recoveryDecision(target, main?.querySelector<HTMLInputElement>("[data-workspace-restore-decline]")?.checked === true)
+    : undefined;
+  if (mode === "replace_current" && !recoveryPoint) {
+    actionFailure = "Download a recovery point of the current workspace, or choose to continue without one, before replacing it.";
+    renderWorkspace();
+    main?.querySelector<HTMLElement>("[data-workspace-action-error]")?.focus();
+    return;
+  }
   if (!window.confirm(wording)) return;
   actionFailure = undefined;
   try {
-    const restored = lifecycle.restoreBackup(pendingImportText, mode, { quarantineExported: quarantineExportedFor === pendingImport.backup.workspaceId });
+    const restored = lifecycle.restoreBackup(pendingImportText, mode, {
+      quarantineExported: quarantineExportedFor === target,
+      ...(recoveryPoint ? { recoveryPoint } : {}),
+    });
     // Restore is only reported once every restored context is durable.
     await workspaceStorage.commit();
     selectedWorkspaceId = restored.workspaceId;
@@ -248,6 +296,7 @@ async function performRestore(mode: "empty_profile" | "replace_current"): Promis
     pendingImportText = undefined;
     importFailure = undefined;
     quarantineExportedFor = undefined;
+    recoveryPointFor = undefined;
     announce(`Workspace ${restored.workspaceId} restored successfully`);
   } catch (error) {
     actionFailure = error instanceof Error ? error.message : "Unknown restore error";
@@ -290,6 +339,16 @@ document.addEventListener("click", (event) => {
       downloadText(filename("backup", workspaceId), lifecycle.createBackup(workspaceId));
       announce("Complete workspace backup downloaded");
     }
+    if (action === "recovery-point") {
+      const target = button.dataset.workspaceId ?? workspaceId;
+      if (target) {
+        const point = lifecycle.createRecoveryPoint(target);
+        downloadText(filename("recovery-point", target), point.backup);
+        recoveryPointFor = { workspaceId: target, fingerprint: point.fingerprint };
+        announce("Recovery point downloaded. It restores this workspace exactly as it is now.");
+        renderWorkspace();
+      }
+    }
     if (action === "quarantine" && workspaceId) {
       downloadText(filename("quarantine", workspaceId), lifecycle.exportQuarantine(workspaceId));
       quarantineExportedFor = workspaceId;
@@ -311,6 +370,7 @@ document.addEventListener("change", (event) => {
   if (target instanceof HTMLSelectElement && target.matches("[data-workspace-select]")) {
     selectedWorkspaceId = target.value;
     quarantineExportedFor = undefined;
+    recoveryPointFor = undefined;
     actionFailure = undefined;
     renderWorkspace();
     return;
@@ -337,19 +397,26 @@ document.addEventListener("submit", (event) => {
     renderWorkspace();
     return;
   }
+  const recoveryPoint = recoveryDecision(workspaceId, data.get("declineRecoveryPoint") === "on");
+  if (!recoveryPoint) {
+    actionFailure = "Download a recovery point, or choose to continue without one, before deleting this workspace.";
+    renderWorkspace();
+    return;
+  }
   if (!window.confirm(`Permanently delete all workspace-scoped local data for ${productName(workspaceId)} from this desktop profile?`)) return;
-  void deleteDurably(workspaceId);
+  void deleteDurably(workspaceId, recoveryPoint);
 }, true);
 
-async function deleteDurably(workspaceId: string): Promise<void> {
+async function deleteDurably(workspaceId: string, recoveryPoint: RecoveryPointDecision): Promise<void> {
   try {
-    lifecycle.deleteWorkspace(workspaceId);
+    lifecycle.deleteWorkspace(workspaceId, { recoveryPoint });
     await workspaceStorage.commit();
     // Only after the authoritative deletion is durable: the pre-migration
     // legacy copy must not silently retain the deleted workspace.
     purgeLegacyWorkspaceRecords(workspaceScopedKeys(workspaceId), { key: PRODUCT_ACTIVE_KEY, value: workspaceId });
     selectedWorkspaceId = undefined;
     quarantineExportedFor = undefined;
+    recoveryPointFor = undefined;
     pendingImport = undefined;
     pendingImportText = undefined;
     importFailure = undefined;

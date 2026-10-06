@@ -48,6 +48,21 @@ Because quarantine preserves raw local bytes as text, it may contain whatever th
 
 Viable blocks destructive workspace deletion while corrupt context exists until quarantine has been exported during the current Workspace recovery session. This avoids turning a deletion button into the final destroyer of the only recoverable copy.
 
+## Recovery points
+
+Deletion and replace-current restore cannot be undone inside Viable. Before either one runs, the Workspace screen asks for an explicit recovery-point decision:
+
+- **Download recovery point** saves an ordinary workspace backup of exactly the current state, named `viable-recovery-point-<workspace>-<time>.json`. Restoring that file through **Restore** brings the workspace back.
+- **Continue without a recovery point** proceeds with no restorable copy. This exists for people who are deleting data precisely because they do not want another copy of it.
+
+Neither choice is made for you, and the action is refused until one is made. Nothing is changed by a refusal.
+
+A recovery point is tied to the state it captured. If the workspace changes after the download (for example, another open Viable tab saves new work), the recovery point no longer restores what is about to be lost, so Viable refuses it and asks for a new one.
+
+Recovery points are files you control. Viable never keeps a hidden internal copy, so the deletion promise below still holds: nothing is retained inside the app. Like any backup, a recovery point contains the workspace's data; store it accordingly and delete it when you no longer need it.
+
+A recovery point is unavailable whenever a normal backup is blocked (corrupt context, missing Product Core, or credential-like fields). Export quarantine data for corrupt context first; for the remaining contexts, the only way forward is to continue explicitly without a recovery point.
+
 ## Restore
 
 Restore uses a file picker. Viable validates a chosen file before enabling a restore mutation.
@@ -74,7 +89,7 @@ Successful restore writes the contexts from the backup, restores the active work
 
 Replacement is allowed only when the profile contains the same workspace ID and no competing workspace ID. Viable will not silently combine or overwrite a different local workspace.
 
-The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
+A recovery-point decision is required first (see **Recovery points**). The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
 
 The replacement operation does not imply review, approval, publication, delivery, or measurement. It restores previously stored local state.
 
@@ -90,7 +105,7 @@ Before confirmation, Viable shows:
 - what remains outside workspace deletion;
 - what is anonymized.
 
-The user must explicitly review the scope and type `DELETE`. A final desktop confirmation follows.
+The user must make a recovery-point decision, explicitly review the scope, and type `DELETE`. A final desktop confirmation follows.
 
 Deletion removes:
 
@@ -106,13 +121,13 @@ Deletion removes:
 Deletion retains:
 
 - Viable application files and code;
-- backup or quarantine files the user already exported outside the app;
+- backup, recovery-point, or quarantine files the user already exported outside the app;
 - unrelated operating-system, browser, or desktop-profile preferences that are not Viable workspace contexts;
 - other explicitly distinct workspace IDs, if abnormal local state contains more than one. The Workspace screen shows those IDs separately rather than combining them.
 
 Deletion anonymizes **nothing**. Workspace-scoped records are removed rather than copied into a hidden anonymous dataset or tombstone.
 
-This policy intentionally means there is no retained in-app deletion record containing the deleted workspace ID. For a local-first workspace, retaining a hidden deletion tombstone after telling a user the workspace was removed would be a contradiction. Users who need a recoverable/auditable copy should export a backup before deletion, or a quarantine package when normal backup is blocked.
+This policy intentionally means there is no retained in-app deletion record containing the deleted workspace ID. For a local-first workspace, retaining a hidden deletion tombstone after telling a user the workspace was removed would be a contradiction. Users who need a recoverable/auditable copy download a recovery point before deletion, or a quarantine package when normal backup is blocked.
 
 ## Rollback behavior
 

@@ -95,6 +95,9 @@ summary { font-weight: 750; color: var(--teal); }
 .dimension-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
 .dimension { min-width: 0; border: 1px solid var(--line); border-radius: .65rem; padding: .85rem; }
 .dimension legend { color: var(--violet); font-weight: 750; padding: 0 .35rem; }
+.recovery-point { border: 1px solid var(--line); border-radius: .75rem; padding: .85rem 1rem; margin: 1rem 0; background: var(--surface); display: grid; gap: .6rem; }
+.recovery-point legend { font-weight: 700; padding: 0 .35rem; }
+.recovery-point p { margin: 0; }
 .dimension-grid { grid-template-columns: 1fr 1fr; }
 .comparison { margin-top: 1.4rem; border-top: 1px solid var(--line); padding-top: 1.2rem; }
 .table-wrap { overflow-x: auto; }
