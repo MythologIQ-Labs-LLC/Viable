@@ -3,7 +3,8 @@ import type { ProviderConnectionStore } from "../../../src/activation-learning/p
 import { workspaceStorage } from "./workspace-storage.js";
 import { readWorkspaceJson, writeWorkspaceJson } from "./local-storage-json.js";
 
-const PREFIX = "viable.provider-connections.";
+export const PROVIDER_CONNECTION_STORAGE_PREFIX = "viable.provider-connections.";
+const PREFIX = PROVIDER_CONNECTION_STORAGE_PREFIX;
 
 export class LocalStorageProviderConnectionStore implements ProviderConnectionStore {
   async load(workspaceId: string): Promise<ProviderConnectionWorkspace | undefined> {
@@ -26,6 +27,11 @@ export class LocalStorageProviderConnectionStore implements ProviderConnectionSt
       "Provider connection workspace",
       workspace,
     );
+    await workspaceStorage.commit();
+  }
+
+  async delete(workspaceId: string): Promise<void> {
+    workspaceStorage.removeItem(`${PREFIX}${workspaceId}`);
     await workspaceStorage.commit();
   }
 }
