@@ -222,20 +222,23 @@ async function run() {
     diagnosticPage = created;
     return created;
   }
-  // Replaced only when an engine defect kills the renderer (see reloadOrEngineDefect).
+  // Replaced only to avoid a WebKit engine defect (see webkitHistoryReloadDefectPresent).
   let page = await instrumentedPage();
 
   // Playwright's Linux WebKit build crashes or hangs its renderer when a page
   // is reloaded after going Back across several pushState entries. It
-  // reproduces on an app-free page (scripts/pwa-restore-reload-probe.mjs,
-  // CI run 37426515169). When a WebKit reload fails, rerun that app-free
-  // control in a fresh context. Only if the control fails too is the failure
-  // recorded as an engine limitation; the run then continues on a fresh page
-  // of the same profile. Otherwise the original failure stands.
-  async function engineControlFails() {
-    const controlContext = await browser.newContext();
+  // reproduces on an app-free page with no Viable code
+  // (scripts/pwa-restore-reload-probe.mjs; CI runs 37426515169, 37428688989),
+  // and a hung renderer also takes down later pages of the same browser.
+  // In WebKit, the app-free control runs in a separately launched browser.
+  // While it still fails, the page that went Back is replaced by a fresh page
+  // of the same profile before any further reload, so every later check
+  // still runs. Chromium and Firefox keep covering reload after Back. Once
+  // the engine is fixed, the control passes and the same page is kept.
+  async function webkitHistoryReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
     try {
-      const control = await controlContext.newPage();
+      const control = await (await isolated.newContext()).newPage();
       await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
       await control.evaluate(async () => {
         for (let index = 0; index < 10; index += 1) {
@@ -247,17 +250,8 @@ async function run() {
       await control.waitForTimeout(300);
       return await withTimeout(control.reload(), 20_000, "control reload").then(() => false, () => true);
     } finally {
-      await controlContext.close().catch(() => undefined);
+      await isolated.close().catch(() => undefined);
     }
-  }
-  async function reloadOrEngineDefect(label) {
-    const failure = await withTimeout(reload(page), 20_000, `${label} reload`).then(() => undefined, (error) => error);
-    if (!failure) return;
-    if (BROWSER !== "webkit" || !(await engineControlFails())) throw failure;
-    limitation(`${label}: the reload did not complete (${String(failure.message ?? failure).split("\n")[0]}), and the app-free control (pushState x10, Back, reload) failed the same way in a fresh context. Recorded as a Playwright WebKit engine defect, not a Viable failure; continuing on a fresh page`);
-    await page.close().catch(() => undefined);
-    page = await instrumentedPage();
-    await page.goto(`${origin}/`);
   }
 
   let support = {};
@@ -346,6 +340,14 @@ async function run() {
       check(back, "browser Back returns to the previous view");
     });
 
+    if (BROWSER === "webkit" && await webkitHistoryReloadDefectPresent()) {
+      limitation("WebKit engine defect: reloading after Back across pushState entries crashes or hangs the renderer, reproduced on an app-free page in a separate browser. The remaining checks continue on a fresh page of the same profile; Chromium and Firefox cover reload after Back");
+      await page.close();
+      page = await instrumentedPage();
+      await page.goto(`${origin}/`);
+      await settled(page);
+    }
+
     await section("Calendar and runtime panel", async () => {
       await page.click('nav button[data-nav="calendar"]', { noWaitAfter: true });
       if (await responsive(page, "Calendar re-entry")) {
@@ -415,8 +417,7 @@ async function run() {
       check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
       // The cross-tab check is done.
       await second.close();
-      // First reload after the navigation section's Back (see reloadOrEngineDefect).
-      await reloadOrEngineDefect("restored workspace reload");
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "restored workspace survives reload");
       await rm(backupPath, { force: true });
