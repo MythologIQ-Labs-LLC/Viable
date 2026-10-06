@@ -76,7 +76,10 @@ function connectionStatus(connection: LinkedInMemberConnectionRecord | undefined
     const expiry = connection.tokenExpiresAt
       ? ` Token expiry recorded as ${new Date(connection.tokenExpiresAt).toLocaleString()}.`
       : " Token expiry was not recorded.";
-    return `Connected as ${connection.memberUrn}.${expiry}`;
+    const cleanup = connection.supersededCredentialReferences?.length
+      ? ` ${connection.supersededCredentialReferences.length} previous credential reference${connection.supersededCredentialReferences.length === 1 ? "" : "s"} still need local vault cleanup; reconnecting or disconnecting retries it.`
+      : "";
+    return `Connected as ${connection.memberUrn}.${expiry}${cleanup}`;
   }
   if (connection.status === "reconnect_required") return "Reconnect required before automated publishing can continue.";
   return "Connection disabled.";
