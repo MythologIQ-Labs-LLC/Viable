@@ -37,13 +37,20 @@ export class LinkedInMemberConnectionService {
     const current = await this.loadConnections(input.workspaceId);
     const existing = current.connections.find((candidate) => candidate.destinationId === destination.id);
     const id = existing?.id ?? this.createId();
-    const credentialReference = `viable://credential/linkedin/${id}/access_token`;
+    // Replacement tokens use a fresh vault slot. The old credential stays
+    // valid until the new local connection record is durably saved.
+    const credentialSlotId = existing ? this.createId() : id;
+    const credentialReference = `viable://credential/linkedin/${credentialSlotId}/access_token`;
     const tokenExpiresAt = optionalFutureDate(input.tokenExpiresAt, this.clock());
 
     const result = await this.nativeProvider.connect({ credentialReference, accessToken: token });
     if (result.kind === "rejected") return result;
 
     const now = this.clock().toISOString();
+    const pendingCleanup = existing
+      ? [...new Set([...(existing.supersededCredentialReferences ?? []), existing.credentialReference])]
+          .filter((reference) => reference !== credentialReference)
+      : [];
     const connection: LinkedInMemberConnectionRecord = {
       id,
       workspaceId: input.workspaceId,
@@ -51,6 +58,7 @@ export class LinkedInMemberConnectionService {
       provider: "linkedin_member",
       authMode: "developer_portal_token",
       credentialReference,
+      ...(pendingCleanup.length ? { supersededCredentialReferences: pendingCleanup } : {}),
       memberId: result.memberId,
       memberUrn: result.memberUrn,
       requiredScopes: ["openid", "profile", "w_member_social"],
@@ -77,7 +85,36 @@ export class LinkedInMemberConnectionService {
       throw error;
     }
 
-    return { kind: "connected", connection };
+    let persistedConnection = connection;
+    if (pendingCleanup.length) {
+      const remaining: string[] = [];
+      for (const reference of pendingCleanup) {
+        try {
+          await this.nativeProvider.disconnect({ credentialReference: reference });
+        } catch {
+          remaining.push(reference);
+        }
+      }
+      if (remaining.length !== pendingCleanup.length) {
+        persistedConnection = {
+          ...connection,
+          ...(remaining.length ? { supersededCredentialReferences: remaining } : {}),
+        };
+        if (!remaining.length) delete (persistedConnection as { supersededCredentialReferences?: readonly string[] }).supersededCredentialReferences;
+        // If this bookkeeping save fails, the prior record still lists every
+        // reference. Retrying cleanup is idempotent, so no credential is lost
+        // from the cleanup set.
+        await this.connectionStore.save({
+          workspaceId: input.workspaceId,
+          connections: current.connections.length
+            ? current.connections.map((candidate) => candidate.id === id ? persistedConnection : candidate)
+            : [persistedConnection],
+          updatedAt: now,
+        }).catch(() => undefined);
+      }
+    }
+
+    return { kind: "connected", connection: persistedConnection };
   }
 
   async disconnect(workspaceId: string, destinationId: string): Promise<void> {
@@ -87,10 +124,16 @@ export class LinkedInMemberConnectionService {
     ) as LinkedInMemberConnectionRecord | undefined;
     if (!connection) return;
 
-    // Remove the secret first. If local persistence then fails, the remaining
-    // record references a missing credential and publishing fails closed as
-    // reconnect-required. The reverse order could silently orphan a secret.
-    await this.nativeProvider.disconnect({ credentialReference: connection.credentialReference });
+    // Remove every vault reference first. If local persistence then fails,
+    // the remaining record references missing credentials and publishing fails
+    // closed. The reverse order could silently orphan a secret.
+    const references = [...new Set([
+      connection.credentialReference,
+      ...(connection.supersededCredentialReferences ?? []),
+    ])];
+    for (const credentialReference of references) {
+      await this.nativeProvider.disconnect({ credentialReference });
+    }
     const remaining = current.connections.filter((candidate) => candidate.id !== connection.id);
     if (remaining.length === 0) {
       await this.connectionStore.delete(workspaceId);
