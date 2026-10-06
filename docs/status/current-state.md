@@ -6,7 +6,7 @@
 |---|---|
 | Status | Authoritative implementation-status record |
 | Last reviewed | 2026-10-06 |
-| Reviewed against | `main` at `aebe800ccba927baebdf4383425b7eacb0916abc` (PR #128), plus the open PRs listed under [Open work at review time](#open-work-at-review-time) |
+| Reviewed against | `main` through `a33537f5a40605c90f21be4fedc2606467e7853d` (#124, #129, and #93 merged), plus the open work listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -30,7 +30,7 @@ This record keeps these states distinct. A later state never follows automatical
 | **Human-accepted** | A named person completed the governed hands-on acceptance (keyboard-only, 200% zoom, non-color comprehension, unfamiliar-user journeys) and recorded the environment, findings, and remediation. |
 | **Deferred** | Deliberately not pursued now; the trigger for resuming is named. |
 
-As of this review, **nothing is human-accepted** and **nothing on `main` is live-proven** against an external system. Live public GitHub reads were measured working only on the head of PR #129 (see [Signals and Market](#signals-and-market)).
+As of this review, **nothing is human-accepted** and **no consequential external action is live-proven**. Read-only public GitHub collection is live-proven: #129 measured the production-default adapters succeeding in Chromium and the native webview, and that exact implementation is now merged to `main`. LinkedIn publication remains implemented but not live-proven.
 
 ## Summary
 
@@ -52,8 +52,8 @@ Viable is suitable for **persistent local dogfooding in a Chromium desktop brows
 | Runtime | Status | Evidence |
 |---|---|---|
 | Chromium (desktop) PWA at `http://localhost:4175` | **Supported for dogfood.** Install, service-worker control, IndexedDB authority, backup/delete/restore, offline reload, user-confirmed update, per-tab reload consent, migration, and fail-closed storage are validated by the real-browser smoke on every pull request. | CI `validate` job; PR #126 |
-| Firefox PWA | **Experimental.** Before PR #124 the app did not finish starting in Firefox. With #124 the full smoke passes in Playwright Firefox (two consecutive dispatch runs on the reconciled head, 37422357359 and 37423883081). It is not a supported dogfood browser until #124 merges and a person has used it. | PR #124 |
-| WebKit / Safari PWA | **Experimental; Safari support is not claimed.** Before #124 the app never rendered in WebKit. With #124 it starts and every smoke check passes except one reload. That failure is reduced to an **engine defect** in Playwright's Linux WebKit 26 build: reloading after going Back across several `pushState` entries crashes or hangs the renderer **on an app-free blank page with no Viable code** (3/3 runs, with and without service workers). Hash entries, a single entry, or no Back do not trigger it. Backup download, `setInputFiles`, restore, dialogs, second tabs, extra IndexedDB connections, and service-worker control were each ruled out (reproducer `scripts/pwa-restore-reload-probe.mjs`, CI runs 37422357359, 37423883081, 37426515169). The smoke now runs that app-free control whenever a WebKit reload fails, and records the result as an engine limitation only if the control also fails. **No real Safari has been tested.** Whether shipping Safari shares the defect is unknown, so Safari stays unsupported until it is tested by hand. | PR #124 |
+| Firefox PWA | **Experimental candidate.** Before PR #124 the app did not finish starting in Firefox. Merged #124 now passes the full Playwright Firefox smoke on exact-head validation. No person has dogfooded Firefox yet, so Chromium remains the supported dogfood browser. | PR #124 |
+| WebKit / Safari PWA | **Experimental; Safari support is not claimed.** Merged #124 now starts and completes the Playwright Linux WebKit smoke with four documented limitations. Three reload-related findings are reproduced by app-free controls with no Viable application code: reload after Back across multiple `pushState` entries; offline reload under Playwright's offline emulation; and the user-confirmed service-worker `controllerchange` update reload using production-equivalent cache churn. `navigator.storage.persist()` is also unavailable in that engine. Chromium and Firefox cover the affected contracts. **No real Safari has been tested**, so Safari stays unsupported until a hand test exists. | PR #124 exact head `65fd274`; CI run 37506023154 |
 | Native Tauri (Linux `.deb` build) | **Capability runtime, not the dogfood path.** Builds and packages in CI. Required for the OS credential vault and (when proven) LinkedIn publishing. | Desktop workflow |
 
 Persistence rules for dogfood profiles:
@@ -133,7 +133,7 @@ PR #109 (LinkedIn member publishing, native-only) is complete enough for its liv
 - provider-neutral sources and source health;
 - provenance, freshness, confidence, and limitations;
 - bounded Event Intelligence import;
-- public GitHub repository metadata and activity evidence. **On `main` every live collection fails before any request**: the adapters invoke an unbound `fetch` ("Illegal invocation"), and the native CSP also blocks `api.github.com`. PR #129 fixes both. With #129, live collection was measured succeeding in Chromium and in the native webview;
+- public GitHub repository metadata and activity evidence. Merged #129 fixes the production-default unbound-`fetch` receiver defect in every runtime and adds the narrow native CSP authority required for `https://api.github.com`. Live collection was measured succeeding in Chromium and in the native webview;
 - strict manual JSON import;
 - named review, save, tag, assign, connect, and proposed-work conversion;
 - governed reviewed-signal materialization into Product Core actions, Campaign drafts, Campaign-owned content briefs, Website Watch response planning through Calendar, and existing finding-backed Repository Growth actions;
@@ -250,11 +250,11 @@ The viability gate checks:
 
 ### Coverage
 
-| Metric | Observed on `main` `aebe800` (2026-10-06) | Enforced floor |
+| Metric | Observed on merged-equivalent acceptance head `3793380` (2026-10-06) | Enforced floor |
 |---|---:|---:|
-| Lines | 86.62% | 85% |
-| Branches | 67.07% | 55% |
-| Functions | 89.00% | 85% |
+| Lines | 88.57% | 85% |
+| Branches | 68.54% | 55% |
+| Functions | 89.79% | 85% |
 
 Coverage floors apply to reusable core source. They do not prove user comprehension or evidence quality.
 
@@ -265,28 +265,28 @@ Coverage floors apply to reusable core source. They do not prove user comprehens
 - the Firefox and WebKit matrix runs on pushes to `main` and on manual dispatch, and writes a per-engine capability report;
 - the Desktop workflow runs exact Rust 1.88 formatting and tests, a RustSec advisory gate, clean desktop web compilation, Tauri bundle construction, and Debian package inspection whenever `apps/desktop/**`, `src/**`, or build inputs change.
 
-## Open work at review time
+## Open work after convergence
 
-| PR | Purpose | State |
+| PR / issue | Purpose | State |
 |---|---|---|
-| #124 | Single module graph so the PWA starts in Firefox and WebKit; bounded storage load; throttled-history tolerance; startup no longer leaves `<main>` `aria-busy` | Reconciled with `main`; Chromium and Firefox smoke pass; the WebKit reload crash is reduced to an app-free engine reproducer |
-| #129 | Restore public GitHub reads in every runtime (unbound `fetch` defect) and add the native `connect-src`/`media-src` the UI needs (#114 O5) | Draft; validated locally and measured in the native webview |
-| #109 | LinkedIn member publishing proof | Draft; on current `main` with IndexedDB-backed provider connections; waits on the human live-proof gate |
-| #112 | Discoverability strategy on channel variants (#110) | Draft; on current `main`; hands-on UX review and real-content dogfood remain; sequenced behind a stable LinkedIn path |
-| #93 | Human acceptance runbooks, the deterministic `ux-acceptance-seed-v2`, and the 2026-10-06 candidate record | Reconciled with the PWA runtime; pins candidate `fee77c8` (`main` + #129 + #124, PWA build `1bd83169cbba`); supersedes the 2026-09-25 candidate |
+| #109 / #107 | LinkedIn member publishing proof | Implementation is green and mergeable but remains draft until one human-owned live publication with a human-generated token and consent proves the provider path. |
+| #112 / #110 | Discoverability strategy on channel variants | Implementation is green and bounded; hands-on UX review and real-content dogfood remain, sequenced behind the LinkedIn live proof. |
+| #36 | Release foundations | Durable migration/recovery, browser storage durability evidence, operational readiness, and public-release trust remain. Public-hosting work is deferred until external distribution is justified. |
+| #95, #96, #111, #121 | Dependency updates | Triage separately. Do not raise the pinned Rust 1.88 baseline implicitly; #111 requires a deliberate baseline decision. |
+
+Merged convergence work: #124 (cross-browser/runtime correctness), #129 (public GitHub reads and native CSP/O5), and #93 (acceptance runbooks/seed/candidate).
 
 ## Remaining gates
 
 ### Machine-verifiable blockers for routine local dogfood
 
-- merge #129 so Signals and Repository Growth can actually collect public GitHub evidence. Before it, every live collection fails as `transport_failed` in every runtime;
-- merge #124: it carries the Firefox/WebKit startup fixes, and also the fix for startup leaving `<main aria-busy="true">` on Home, Product, Signals, and Market until the first action, which assistive technology may treat as still loading.
+No known machine-verifiable blocker remains for routine Chromium localhost dogfood. #124 and #129 are merged: the PWA runtime is stable on the supported Chromium path, public GitHub reads work, and startup no longer leaves the main region indefinitely busy.
 
-No other machine-verifiable blocker to Chromium localhost dogfood is known.
+This is a dogfood statement, not a public-release statement. #36 still contains release-foundation work.
 
 ### Human gates (cannot be satisfied by automation)
 
-- **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. The current candidate is commit `fee77c8` (branch `acceptance/candidate-2026-10-06`, PWA build `1bd83169cbba`). Its record, runbooks, and seed are in `docs/acceptance/` on PR #93; start with `ux-candidate-2026-10-06.md`.
+- **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. The governed runbooks, deterministic seed, and candidate record are now merged under `docs/acceptance/`; start with `ux-candidate-2026-10-06.md`. The frozen candidate is `fee77c8` (PWA build `1bd83169cbba`), and the record explains when current `main` is application-equivalent.
 - **#107 / #109:** one developer-owned LinkedIn publication with a human-generated token and consent.
 - **#112 / #110:** hands-on review of the discoverability fieldset and dogfood against real content, after a stable LinkedIn path exists.
 - Slice-level acceptance for #2, #3, #4, #5, #6, #7, and #29 is carried by the #81 demo acceptance journeys.
@@ -328,6 +328,6 @@ No other machine-verifiable blocker to Chromium localhost dogfood is known.
 
 ## Release posture
 
-Viable is ready for **local Chromium dogfooding** at `http://localhost:4175`, once #129 lands for live GitHub evidence. It is not ready for an end-user release.
+Viable is ready for **local Chromium dogfooding** at `http://localhost:4175`, including live public GitHub evidence collection. It is not ready for an end-user release.
 
 A public release requires the human gates above, the external/public-release requirements above, and an explicit supported-platform statement grounded in tests. A public code-signing certificate is not a prerequisite (ADR-0010).
