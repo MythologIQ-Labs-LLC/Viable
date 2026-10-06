@@ -10,18 +10,17 @@ import {
 // Authoritative workspace data lives in IndexedDB (transactional, large
 // quota) in both the PWA and the desktop webview. Existing localStorage data
 // is migrated once and verified; the legacy copy is kept untouched as a
-// recovery source. If IndexedDB is unavailable, Viable falls back to
-// localStorage and reports that honestly in the Workspace runtime panel.
+// recovery source. Once a browser exposes IndexedDB, failure to open it is
+// treated as an authority failure and Viable fails closed rather than risking
+// stale localStorage becoming authoritative again.
 
 const DATABASE = "viable-workspace";
 const STORE = "kv";
 const CHANNEL = "viable-workspace-storage";
 // Every module awaits storage before rendering, so opening must never hang the
-// app: if IndexedDB does not answer, fall back (data stays in localStorage).
+// app. A timeout is a fail-closed authority error, not permission to resurrect
+// a potentially stale legacy localStorage copy.
 const OPEN_TIMEOUT_MS = 8000;
-// Written to localStorage once IndexedDB holds this profile's data. Not under
-// the "viable." prefix, so it is neither migrated nor treated as workspace data.
-const ENGINE_MARKER = "viable-storage-engine";
 
 export type WorkspaceStorage = Pick<DurableKeyValueStorage, "length" | "key" | "getItem" | "setItem" | "removeItem" | "commit">;
 
@@ -114,10 +113,6 @@ function showUnavailableBanner(reason: string): void {
   if (document.body) show(); else document.addEventListener("DOMContentLoaded", show, { once: true });
 }
 
-function markerSet(): boolean {
-  try { return typeof localStorage !== "undefined" && localStorage.getItem(ENGINE_MARKER) === "indexeddb"; } catch { return false; }
-}
-
 async function openWorkspaceStorage(): Promise<{ storage: WorkspaceStorage; status: WorkspaceStorageStatus }> {
   if (typeof indexedDB === "undefined") {
     return { storage: liveLocalStorage, status: { engine: "localStorage", migration: { status: "unavailable" }, fallbackReason: "IndexedDB is not available in this environment." } };
@@ -133,16 +128,11 @@ async function openWorkspaceStorage(): Promise<{ storage: WorkspaceStorage; stat
       };
       storage.onCommitted((changes) => channel.postMessage({ changes }));
     }
-    try { localStorage.setItem(ENGINE_MARKER, "indexeddb"); } catch { /* marker is best effort */ }
     return { storage, status: { engine: "indexeddb", migration } };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "IndexedDB could not be opened.";
-    if (markerSet()) {
-      showUnavailableBanner(reason);
-      return { storage: unavailableStorage(reason), status: { engine: "unavailable", migration: { status: "unavailable" }, fallbackReason: reason } };
-    }
-    // Never migrated: localStorage still holds the only copy, so it is safe to keep using it.
-    return { storage: liveLocalStorage, status: { engine: "localStorage", migration: { status: "unavailable" }, fallbackReason: reason } };
+    showUnavailableBanner(reason);
+    return { storage: unavailableStorage(reason), status: { engine: "unavailable", migration: { status: "unavailable" }, fallbackReason: reason } };
   }
 }
 
