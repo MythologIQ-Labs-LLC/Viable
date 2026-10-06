@@ -26,6 +26,8 @@ let quarantineExportedFor: string | undefined;
 // The recovery point downloaded in this session; valid only while the
 // workspace's stored state still matches its fingerprint.
 let recoveryPointFor: Readonly<{ workspaceId: string; fingerprint: string }> | undefined;
+// Set when startup failed and only this screen is running (recovery mode).
+let startupFailure: string | undefined;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -206,13 +208,21 @@ function deleteSection(preview: WorkspaceScopePreview): string {
   </section>`;
 }
 
+function recoveryBanner(): string {
+  if (!startupFailure) return "";
+  return `<section class="state warning" role="alert" data-workspace-recovery-mode><div><strong>Recovery mode: only the Workspace screen is running.</strong>
+    <p>Viable could not start: ${escapeHtml(startupFailure)}</p>
+    <p>Nothing has been changed. Export quarantine data to keep a copy of anything unreadable, then restore a backup or delete the workspace. Reload Viable when you are done.</p></div>
+    <button type="button" data-workspace-action="reload-app">Reload Viable</button></section>`;
+}
+
 function renderWorkspace(): void {
   if (!main || !pageOpen) return;
   const ids = knownWorkspaceIds();
   const workspaceId = currentWorkspaceId();
   main.setAttribute("aria-busy", "false");
   if (!workspaceId) {
-    main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>Backup, restore, and local data lifecycle.</h2><p>This desktop profile does not currently contain a Viable workspace.</p></div></header>
+    main.innerHTML = `${recoveryBanner()}<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>Backup, restore, and local data lifecycle.</h2><p>This desktop profile does not currently contain a Viable workspace.</p></div></header>
       ${actionFailure ? `<section class="state error" role="alert"><strong>Workspace action failed.</strong><span>${escapeHtml(actionFailure)}</span></section>` : ""}
       ${restoreSection()}
       ${retentionSection()}
@@ -224,7 +234,7 @@ function renderWorkspace(): void {
 
   const preview = lifecycle.inspect(workspaceId);
   selectedWorkspaceId = workspaceId;
-  main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>${escapeHtml(productName(workspaceId))}</h2><p>Manage the complete local workspace without pretending Product Core is the whole application.</p></div><span class="pill ${preview.hasCorruptData ? "warning" : "implemented"}">${preview.hasCorruptData ? "Needs recovery" : "Local workspace"}</span></header>
+  main.innerHTML = `${recoveryBanner()}<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>${escapeHtml(productName(workspaceId))}</h2><p>Manage the complete local workspace without pretending Product Core is the whole application.</p></div><span class="pill ${preview.hasCorruptData ? "warning" : "implemented"}">${preview.hasCorruptData ? "Needs recovery" : "Local workspace"}</span></header>
     ${workspacePicker(ids, workspaceId)}
     ${actionFailure ? `<section class="state error" role="alert" tabindex="-1" data-workspace-action-error><strong>Workspace action failed.</strong><span>${escapeHtml(actionFailure)}</span></section>` : ""}
     <section class="metrics" aria-label="Workspace lifecycle summary"><article><span>Workspace contexts</span><strong>${preview.contexts.filter((item) => item.status === "present").length}/7</strong><small>${preview.contexts.filter((item) => item.status === "absent").length} absent</small></article><article><span>Counted records</span><strong>${preview.totalRecords}</strong><small>Across workspace-scoped stores</small></article><article><span>Corrupt contexts</span><strong>${preview.contexts.filter((item) => item.status === "corrupt").length}</strong><small>${preview.hasCorruptData ? "Quarantine before deletion" : "No detected corruption"}</small></article><article><span>Active</span><strong>${preview.active ? "Yes" : "No"}</strong><small>${escapeHtml(workspaceId)}</small></article></section>
@@ -243,6 +253,17 @@ function openWorkspace(): void {
   actionFailure = undefined;
   activateNavigation();
   renderWorkspace();
+}
+
+/**
+ * Recovery mode: called by the startup guard when Viable could not start,
+ * typically because stored workspace data is unreadable. Only this screen
+ * runs, so the person can export quarantine data, restore, or delete without
+ * developer tools. It changes nothing by itself.
+ */
+export function openWorkspaceRecovery(reason: string): void {
+  startupFailure = reason;
+  openWorkspace();
 }
 
 function closeWorkspace(): void {
@@ -375,6 +396,7 @@ document.addEventListener("click", (event) => {
       announce("Corrupt raw workspace data exported to a quarantine file");
       renderWorkspace();
     }
+    if (action === "reload-app") window.location.reload();
     if (action === "restore-empty") void performRestore("empty_profile");
     if (action === "restore-replace") void performRestore("replace_current");
   } catch (error) {
