@@ -34,9 +34,10 @@ class ActivationStore implements ActivationLearningStore {
 }
 
 class ConnectionStore implements ProviderConnectionStore {
-  constructor(public value?: ProviderConnectionWorkspace) {}
+  constructor(public value: ProviderConnectionWorkspace | undefined = undefined) {}
   async load(id: string): Promise<ProviderConnectionWorkspace | undefined> { return id === WORKSPACE_ID ? this.value : undefined; }
   async save(value: ProviderConnectionWorkspace): Promise<void> { this.value = value; }
+  async delete(id: string): Promise<void> { if (id === WORKSPACE_ID) this.value = undefined; }
 }
 
 class SourceAuthority implements PublicationSourceAuthorityPort {
@@ -47,6 +48,7 @@ class NativeProvider implements LinkedInNativeProviderPort {
   results: LinkedInPublishResult[] = [];
   calls: Array<{ credentialReference: string; memberUrn: string; text: string }> = [];
   async connect(): Promise<LinkedInConnectResult> { throw new Error("not used"); }
+  async disconnect(): Promise<void> { /* not used by scheduler proof */ }
   async publishText(input: { credentialReference: string; memberUrn: string; text: string }): Promise<LinkedInPublishResult> {
     this.calls.push(input);
     const next = this.results.shift();
