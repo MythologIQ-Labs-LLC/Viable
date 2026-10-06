@@ -302,11 +302,12 @@ async function run() {
     }
   }
 
-  // A second app-free control mirrors Viable's update handoff: install a
-  // service worker, publish a changed worker, activate it only after an
-  // explicit message, then reload from controllerchange. If Playwright WebKit
-  // cannot observe that reload on the blank page, its update-navigation
-  // harness cannot establish Viable behavior either.
+  // An app-free single-tab control mirrors the exact WebKit diagnostic path
+  // used below: install a service worker, publish a changed worker, activate it
+  // only after an explicit message, then reload from controllerchange. The
+  // second Viable tab is deliberately closed in the WebKit diagnostic, so the
+  // control must also be single-tab. A multi-tab control can pass while this
+  // single-tab reload still crashes, which would incorrectly blame Viable.
   async function webkitUpdateReloadDefectPresent() {
     engineControlSwVersion = 1;
     const isolated = await ENGINES.webkit.launch();
@@ -320,16 +321,6 @@ async function run() {
       }, ENGINE_CONTROL_SW_PATH), 20_000, "update control service worker registration");
       await control.reload();
       if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
-
-      const observer = await isolatedContext.newPage();
-      await observer.goto(`${origin}${ENGINE_CONTROL_PATH}`);
-      if (!await observer.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
-      await observer.evaluate(() => {
-        globalThis.__controlUpdateSentinel = "preserve-me";
-        navigator.serviceWorker.addEventListener("controllerchange", () => {
-          globalThis.__controlSawControllerChange = true;
-        });
-      });
 
       engineControlSwVersion = 2;
       await control.evaluate(async () => {
@@ -348,12 +339,7 @@ async function run() {
         const registration = await navigator.serviceWorker.getRegistration();
         registration?.waiting?.postMessage({ type: "ACTIVATE" });
       });
-      const mainReloaded = await load;
-      const observerState = await observer.evaluate(() => ({
-        sentinel: globalThis.__controlUpdateSentinel,
-        controllerChanged: globalThis.__controlSawControllerChange === true,
-      })).catch(() => ({ sentinel: undefined, controllerChanged: false }));
-      return !mainReloaded || observerState.sentinel !== "preserve-me" || !observerState.controllerChanged;
+      return !(await load);
     } finally {
       engineControlSwVersion = 1;
       await isolated.close().catch(() => undefined);
