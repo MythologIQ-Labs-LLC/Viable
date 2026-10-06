@@ -31,7 +31,9 @@ What happens next:
 - only after successful validation is the token written to the operating-system credential vault;
 - Viable workspace storage keeps only non-secret metadata: the opaque credential reference, member URN, required scopes, status, and optional expiry.
 
-If validation fails, an existing working connection and its stored token are left unchanged. If native validation succeeds but the local connection record cannot be saved, Viable makes a best-effort attempt to remove the newly stored vault credential instead of leaving an unreferenced token behind.
+If validation fails, an existing working connection and its stored token are left unchanged.
+
+When replacing an existing token, Viable validates and stores the replacement under a fresh temporary credential reference first. It switches the local connection record only after that record is saved successfully, then removes the previous vault entry. If the local save fails, only the staged replacement is removed and the previous working connection remains intact. If cleanup of an older vault entry cannot complete immediately, its non-secret reference remains recorded so reconnecting or disconnecting can retry the cleanup instead of forgetting it.
 
 ## Disconnect LinkedIn
 
