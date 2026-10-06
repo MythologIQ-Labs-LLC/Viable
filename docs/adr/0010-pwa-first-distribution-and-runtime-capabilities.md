@@ -57,7 +57,7 @@ An installable, local-first Progressive Web App is Viable's primary cross-platfo
 
 PWA-first does **not** mean cloud-hosted-first.
 
-Before external demand justifies a public distribution surface, the default Viable rollout is a production-build PWA served by each developer or trusted tester on their own stable loopback localhost origin. Public HTTPS hosting is a later distribution decision, not a prerequisite for development, dogfooding, trusted testing, or demand validation.
+Before external demand justifies a public distribution surface, the default Viable rollout is a production-build PWA served by each developer or trusted tester on their own stable loopback localhost origin. The canonical self-host origin is **`http://localhost:4175`**, started with **`npm run pwa:selfhost`**. Public HTTPS hosting is a later distribution decision, not a prerequisite for development, dogfooding, trusted testing, or demand validation.
 
 For public network distribution, the PWA must be served from a controlled HTTPS origin and satisfy decision 10.
 
@@ -197,7 +197,7 @@ Rejected. It silently weakens the credential promise made by the native vault bo
 - Request durable storage. Surface persistence and quota state, and guide users to back up.
 - Move authoritative browser persistence to IndexedDB in a dedicated slice. This first makes `WorkspaceLifecycleService` asynchronous; the domain store ports are already asynchronous.
 - Add real-browser smoke validation to CI.
-- Provide a stable local self-host path for dogfood/trusted testing. The canonical localhost origin must not silently drift across ports or hostnames for a persisted profile.
+- Provide a stable local self-host path for dogfood/trusted testing. Implemented contract: `npm run pwa:selfhost` builds the production shell and serves it at `http://localhost:4175`; if that origin is occupied, startup fails clearly instead of selecting another port.
 - Choose a public production origin and host only when external distribution is justified, then add deployment provenance and rollback.
 - Validate localhost → public-origin migration through the portable backup/restore contract before asking existing testers to move.
 - Run a Microsoft Store MSIX proof of concept for the Tauri runtime as an independent track.
