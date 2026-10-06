@@ -10,14 +10,6 @@ const live = document.querySelector<HTMLElement>("#live-region");
 let reloading = false;
 let activationRequestedHere = false;
 
-function replaceWithCurrentDocument(): void {
-  // A same-URL replace performs a fresh navigation without adding a history
-  // entry. WebKit's reload primitive is demonstrably unstable in several
-  // stateful navigation/service-worker cases, while this preserves the update
-  // contract: reload only after explicit confirmation.
-  window.location.replace(window.location.href);
-}
-
 function removeUpdateBanner(): void {
   document.querySelector("[data-pwa-update]")?.remove();
 }
@@ -53,7 +45,7 @@ function showActivatedElsewhereBanner(): void {
     const action = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-pwa-action]")?.dataset.pwaAction;
     if (action === "reload") {
       reloading = true;
-      replaceWithCurrentDocument();
+      window.location.reload();
     }
     if (action === "later") banner.remove();
   });
@@ -78,7 +70,7 @@ if ("serviceWorker" in navigator && window.isSecureContext) {
     if (hadController && !reloading) {
       if (activationRequestedHere) {
         reloading = true;
-        replaceWithCurrentDocument();
+        window.location.reload();
       } else {
         // Service-worker activation is origin-wide. Another tab may have
         // confirmed it, but that is not permission to discard this tab's
