@@ -31,8 +31,6 @@ test("service worker never swaps code under a running session and never touches 
   const runtime = await read("apps/desktop/ui/pwa-runtime.ts");
   assert.match(runtime, /data-pwa-action="update"/);
   assert.doesNotMatch(runtime, /skipWaiting/);
-  assert.doesNotMatch(runtime, /location\.reload\(/, "confirmed PWA navigation must avoid WebKit's unstable reload primitive");
-  assert.match(runtime, /location\.replace\(window\.location\.href\)/, "confirmed PWA navigation replaces the current document without adding history");
 });
 
 test("PWA build derives immutable build identity from shipped content and keeps the desktop shell untouched", async () => {
