@@ -61,7 +61,11 @@ function startServer() {
       response.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/" }).end(`
 const CACHE = "viable-engine-control-v${engineControlSwVersion}";
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.add("${ENGINE_CONTROL_PATH}"))));
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener("activate", (event) => event.waitUntil((async () => {
+  const names = await caches.keys();
+  await Promise.all(names.filter((name) => name.startsWith("viable-engine-control-v") && name !== CACHE).map((name) => caches.delete(name)));
+  await self.clients.claim();
+})()));
 self.addEventListener("message", (event) => {
   if (event.data?.type === "ACTIVATE") void self.skipWaiting();
 });
@@ -317,6 +321,16 @@ async function run() {
       await control.reload();
       if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
 
+      const observer = await isolatedContext.newPage();
+      await observer.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      if (!await observer.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
+      await observer.evaluate(() => {
+        globalThis.__controlUpdateSentinel = "preserve-me";
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          globalThis.__controlSawControllerChange = true;
+        });
+      });
+
       engineControlSwVersion = 2;
       await control.evaluate(async () => {
         const registration = await navigator.serviceWorker.getRegistration();
@@ -334,7 +348,12 @@ async function run() {
         const registration = await navigator.serviceWorker.getRegistration();
         registration?.waiting?.postMessage({ type: "ACTIVATE" });
       });
-      return !(await load);
+      const mainReloaded = await load;
+      const observerState = await observer.evaluate(() => ({
+        sentinel: globalThis.__controlUpdateSentinel,
+        controllerChanged: globalThis.__controlSawControllerChange === true,
+      })).catch(() => ({ sentinel: undefined, controllerChanged: false }));
+      return !mainReloaded || observerState.sentinel !== "preserve-me" || !observerState.controllerChanged;
     } finally {
       engineControlSwVersion = 1;
       await isolated.close().catch(() => undefined);
