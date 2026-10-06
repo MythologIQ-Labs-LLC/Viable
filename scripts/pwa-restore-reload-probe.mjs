@@ -35,6 +35,11 @@ const TYPES = {
 function startServer() {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
+    // An app-free page, to tell engine behavior from Viable's own code.
+    if (url.pathname === "/__probe-blank.html") {
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }).end("<!doctype html><title>blank</title><p id=blank>blank page</p>");
+      return;
+    }
     const file = join(served, normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)));
     if (!file.startsWith(served + sep)) { response.writeHead(403).end(); return; }
     try {
@@ -109,7 +114,7 @@ const idbKeys = (page) => page.evaluate(() => new Promise((resolveKeys, rejectKe
 
 // The smoke's navigation phase: every view-to-view transition, paced to stay
 // under WebKit's history-write limit, then Back.
-async function navigateAllTransitions(page, limit = Infinity) {
+async function navigateAllTransitions(page, limit = Infinity, { back = true } = {}) {
   const views = await page.$$eval("nav button[data-nav]", (buttons) => buttons.map((button) => button.dataset.nav));
   let transitions = 0;
   for (const from of views) {
@@ -123,8 +128,21 @@ async function navigateAllTransitions(page, limit = Infinity) {
       await page.waitForFunction((nav) => location.hash === `#${nav}`, to, { timeout: 4000 }).catch(() => undefined);
     }
   }
-  await page.goBack();
-  await page.waitForTimeout(300);
+  if (back) {
+    await page.goBack();
+    await page.waitForTimeout(300);
+  }
+}
+
+// App-free history writes on the blank page.
+async function blankHistory(page, { back, viaHash, count = 10 }) {
+  await page.evaluate(async ({ viaHash: hashOnly, count: total }) => {
+    for (let index = 0; index < total; index += 1) {
+      if (hashOnly) location.hash = `entry-${index}`; else history.pushState({ entry: index }, "", `#entry-${index}`);
+      await new Promise((resolveWait) => setTimeout(resolveWait, 150));
+    }
+  }, { viaHash, count });
+  if (back) { await page.goBack(); await page.waitForTimeout(300); }
 }
 
 // Every variant starts from a service-worker-controlled page with a saved
@@ -189,6 +207,20 @@ const VARIANTS = {
       }
     });
   },
+  "10 view transitions, no Back, reload": async ({ page }) => {
+    await navigateAllTransitions(page, 10, { back: false });
+    return { anyView: true };
+  },
+  "1 view transition + Back, reload": async ({ page }) => { await navigateAllTransitions(page, 1); },
+  "pushState x10 + Back (app page), reload": async ({ page }) => {
+    await page.evaluate(() => { for (let index = 0; index < 10; index += 1) history.pushState({ probe: index }, "", `#probe-${index}`); });
+    await page.goBack();
+    await page.waitForTimeout(300);
+  },
+  "blank page (no app): pushState x10 + Back, reload": async ({ page }) => blankHistory(page, { back: true, viaHash: false }),
+  "blank page (no app): location.hash x10 + Back, reload": async ({ page }) => blankHistory(page, { back: true, viaHash: true }),
+  "blank page (no app): pushState x10, no Back, reload": async ({ page }) => blankHistory(page, { back: false, viaHash: false }),
+  "blank page (no app): pushState x1 + Back, reload": async ({ page }) => blankHistory(page, { back: true, viaHash: false, count: 1 }),
   "full, reload via goto instead of reload": async ({ page, path }) => {
     await downloadBackup(page, path);
     await deleteWorkspace(page);
@@ -211,6 +243,16 @@ async function runVariant(name, body, { serviceWorkers }) {
   const path = join(served, "..", `dist-pwa-probe-backup-${process.pid}.json`);
   let stage = "load";
   try {
+    if (name.startsWith("blank page")) {
+      await page.goto(`${ORIGIN}/__probe-blank.html`);
+      stage = "steps";
+      await body({ page, path, context });
+      stage = "reload";
+      await page.reload();
+      stage = "render after reload";
+      await page.waitForSelector("#blank", { timeout: 10000 });
+      return { outcome: "ok", stage: "done", events };
+    }
     await page.goto(`${ORIGIN}/`);
     if (serviceWorkers === "allow") {
       stage = "service worker";
@@ -225,7 +267,8 @@ async function runVariant(name, body, { serviceWorkers }) {
     stage = "reload";
     if (how.goto) await page.goto(page.url()); else await page.reload();
     stage = "render after reload";
-    if (how.expectEmpty) await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0 && !document.querySelector("#main")?.textContent?.includes("Probe product"), undefined, { timeout: 10000 });
+    if (how.anyView) await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0 && document.querySelector("#main")?.getAttribute("aria-busy") !== "true", undefined, { timeout: 10000 });
+    else if (how.expectEmpty) await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0 && !document.querySelector("#main")?.textContent?.includes("Probe product"), undefined, { timeout: 10000 });
     else await hasProduct(page);
     return { outcome: "ok", stage: "done", events };
   } catch (error) {

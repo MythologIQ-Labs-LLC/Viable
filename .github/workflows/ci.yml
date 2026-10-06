@@ -6,6 +6,11 @@ on:
     branches: [main]
   # Manual runs (any branch) for diagnosing the cross-browser matrix.
   workflow_dispatch:
+    inputs:
+      probe_variants:
+        description: "Restore/reload reproducer: regex over variant names (empty runs all)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -258,6 +263,7 @@ jobs:
         continue-on-error: true
         env:
           PWA_BROWSER: ${{ matrix.browser }}
+          PROBE_VARIANTS: ${{ inputs.probe_variants }}
         run: node scripts/pwa-restore-reload-probe.mjs 2>&1 | tee pwa-restore-reload-probe-${{ matrix.browser }}.log
       - name: Upload ${{ matrix.browser }} capability report
         if: always()
