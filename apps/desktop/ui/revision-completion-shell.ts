@@ -30,8 +30,14 @@ const dimensionLabels: Record<IcpDimension, string> = {
   strategicFit: "Strategic fit",
   evidenceQuality: "Evidence quality",
 };
-const channels: readonly ChannelKind[] = ["linkedin", "website", "github_release"];
-const channelLabels: Record<ChannelKind, string> = { linkedin: "LinkedIn", website: "Website", github_release: "GitHub release" };
+const channels: readonly ChannelKind[] = ["linkedin", "facebook_page", "instagram_feed", "website", "github_release"];
+const channelLabels: Record<ChannelKind, string> = {
+  linkedin: "LinkedIn",
+  facebook_page: "Facebook Page",
+  instagram_feed: "Instagram Feed",
+  website: "Website",
+  github_release: "GitHub release",
+};
 
 const escapeHtml = (value: unknown): string => String(value ?? "")
   .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")

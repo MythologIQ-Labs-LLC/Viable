@@ -33,13 +33,14 @@ import type {
   ScheduleStatus,
 } from "../domain/activation-learning.js";
 import type { ActivationLearningStore } from "../ports/activation-learning-store.js";
+import type { PublicationSourceAuthorityPort } from "../ports/publication-source-authority.js";
 
 type Clock = () => Date;
 type IdFactory = () => string;
 type ReviewDecision = "approved" | "rejected" | "changes_requested";
 type PlanningKind = Exclude<CalendarEntryKind, "external_activation">;
 
-export class ActivationLearningService {
+export class ActivationLearningService implements PublicationSourceAuthorityPort {
   constructor(
     private readonly store: ActivationLearningStore,
     private readonly productStore: ProductWorkspaceStore,
@@ -52,6 +53,15 @@ export class ActivationLearningService {
 
   async load(workspaceId: string): Promise<ActivationLearningWorkspace> {
     return await this.store.load(workspaceId) ?? emptyWorkspace(workspaceId, this.clock().toISOString());
+  }
+
+  async resolve(
+    workspaceId: string,
+    kind: ActivationSourceKind,
+    sourceId: string,
+    channel: DestinationChannel,
+  ): Promise<ActivationSourceSnapshot> {
+    return this.resolveSource(workspaceId, kind, sourceId, channel);
   }
 
   async createDestination(workspaceId: string, input: Readonly<{

@@ -71,6 +71,36 @@ test("legacy unversioned workspaces remain readable without silent mutation", ()
   assert.equal(storage.getItem("key"), legacy);
 });
 
+test("additive array defaults normalize absent legacy fields without weakening shape validation", () => {
+  const storage = new MemoryStorage();
+  const value = { workspaceId: "workspace-1", items: [], updatedAt: "2026-07-16T00:00:00.000Z" };
+  const legacy = JSON.stringify(value);
+  storage.setItem("key", legacy);
+
+  const additiveShape = {
+    arrays: ["items", "publicationPolicies", "publicationInventory"],
+    defaultArrays: ["publicationPolicies", "publicationInventory"],
+    strings: ["updatedAt"],
+  } as const;
+  const loaded = readWorkspaceJson<{
+    workspaceId: string;
+    items: unknown[];
+    publicationPolicies: unknown[];
+    publicationInventory: unknown[];
+    updatedAt: string;
+  }>(storage, "key", "Test workspace", { field: "workspaceId", expected: "workspace-1" }, additiveShape);
+
+  assert.deepEqual(loaded?.publicationPolicies, []);
+  assert.deepEqual(loaded?.publicationInventory, []);
+  assert.equal(storage.getItem("key"), legacy);
+
+  storage.setItem("key", JSON.stringify({ ...value, publicationInventory: "not-an-array" }));
+  assert.throws(
+    () => readWorkspaceJson(storage, "key", "Test workspace", { field: "workspaceId", expected: "workspace-1" }, additiveShape),
+    /publicationInventory/,
+  );
+});
+
 test("unsupported future workspace schema versions fail closed and preserve the original value", () => {
   const storage = new MemoryStorage();
   const value = { workspaceId: "workspace-1", items: [], updatedAt: "2026-07-16T00:00:00.000Z" };

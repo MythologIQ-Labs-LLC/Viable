@@ -357,7 +357,7 @@ document.addEventListener("click", (event) => {
   }
   const action = button.dataset.action;
   if (action === "retry-render") { lastFailure = undefined; void refresh(); }
-  if (action === "reset-workspace") { if (confirm("Delete this local workspace from this desktop profile?")) { store.clearActiveWorkspace(); workspace = undefined; page = "home"; render(); announce("Local workspace deleted"); } }
+  if (action === "reset-workspace") { if (confirm("Delete this local workspace from this desktop profile?")) { void store.clearActiveWorkspace().then(() => { workspace = undefined; page = "home"; render(); announce("Local workspace deleted"); }, (error: unknown) => announce(`Local workspace was not deleted: ${error instanceof Error ? error.message : "storage error"}`)); } }
   if (!workspace || !button.dataset.id) {
     if (action === "create-gap-action" && workspace) {
       const dimension = button.dataset.dimension ?? "readiness";

@@ -28,17 +28,23 @@ function activateNavigation(): void {
   if (!sidebar) return;
   for (const button of sidebar.querySelectorAll<HTMLButtonElement>("nav button")) {
     const text = button.textContent?.trim() ?? "";
-    if (text.startsWith("Campaigns")) activate(button, "campaigns", "Campaigns");
-    if (text.startsWith("Studio")) activate(button, "studio", "Studio");
-    if (page && button.dataset.nav !== page) button.setAttribute("aria-current", "false");
+    // Match the stable data-nav identity first: other shells relabel these
+    // buttons (e.g. "Plan campaigns"), and text-only matching then left no
+    // navigation item marked current.
+    const nav = button.dataset.nav;
+    if (nav === "campaigns" || (!nav && text.startsWith("Campaigns"))) activate(button, "campaigns", "Campaigns");
+    else if (nav === "studio" || (!nav && text.startsWith("Studio"))) activate(button, "studio", "Studio");
+    else if (page && button.getAttribute("aria-current") !== "false") button.setAttribute("aria-current", "false");
   }
 }
 
 function activate(button: HTMLButtonElement, target: "campaigns" | "studio", text: string): void {
   button.disabled = false;
   button.dataset.nav = target;
-  if (button.textContent !== text) button.textContent = text;
-  button.setAttribute("aria-current", page === target ? "page" : "false");
+  // Keep any richer label another shell applied; only fill in a missing one.
+  if (!button.textContent?.trim()) button.textContent = text;
+  const current = page === target ? "page" : "false";
+  if (button.getAttribute("aria-current") !== current) button.setAttribute("aria-current", current);
 }
 
 function prepareForms(): void {

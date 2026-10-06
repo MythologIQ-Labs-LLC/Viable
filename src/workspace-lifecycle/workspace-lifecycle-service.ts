@@ -10,6 +10,14 @@ export const WORKSPACE_BACKUP_FORMAT = "viable.workspace-backup" as const;
 export const WORKSPACE_BACKUP_VERSION = 1 as const;
 export const WORKSPACE_QUARANTINE_FORMAT = "viable.workspace-quarantine" as const;
 export const PRODUCT_ACTIVE_KEY = "viable.product-workspace.active";
+/**
+ * Storage envelope written by every workspace store adapter
+ * (`{ schemaVersion, workspace }`, see apps/desktop/ui/local-storage-json.ts).
+ * Must equal CURRENT_WORKSPACE_SCHEMA_VERSION there; a test pins them together.
+ * Unwrapped workspace values (never envelopes) are what backups carry, so the
+ * backup format stays independent of any runtime's storage representation.
+ */
+export const WORKSPACE_STORAGE_SCHEMA_VERSION = 1;
 
 export const WORKSPACE_CONTEXTS = [
   { name: "product", label: "Product Core", prefix: "viable.product-workspace.", identityField: "id", recordFields: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], requiredArrays: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], optionalArrays: [], requiredStrings: ["createdAt", "createdBy"], requiredRecords: ["product"], optionalRecords: ["drafts"] },
@@ -249,7 +257,7 @@ export class WorkspaceLifecycleService {
         const key = `${descriptor.prefix}${backup.workspaceId}`;
         const value = backup.contexts[descriptor.name];
         if (value === null) this.storage.removeItem(key);
-        else this.storage.setItem(key, JSON.stringify(value));
+        else this.storage.setItem(key, JSON.stringify({ schemaVersion: WORKSPACE_STORAGE_SCHEMA_VERSION, workspace: value }));
       }
       this.storage.setItem(PRODUCT_ACTIVE_KEY, backup.workspaceId);
       const result = this.inspect(backup.workspaceId);
@@ -299,7 +307,7 @@ export class WorkspaceLifecycleService {
     const raw = this.storage.getItem(key);
     if (raw === null) return { descriptor, key, raw, value: null, status: "absent", recordCount: 0 };
     try {
-      const value: unknown = JSON.parse(raw);
+      const value = unwrapStoredWorkspace(JSON.parse(raw), descriptor.label);
       if (!isRecord(value)) throw new Error("stored value is not an object");
       assertContextIdentity(value, descriptor, workspaceId);
       assertContextShape(value, descriptor);
@@ -326,6 +334,19 @@ function rollback(storage: KeyValueStorage, snapshot: ReadonlyMap<string, string
       // Best effort only. The caller still receives the original failure and no success claim.
     }
   }
+}
+
+// Legacy (v0) values are stored unwrapped; current values carry the envelope.
+// Unsupported versions are reported as corrupt so they can be quarantined,
+// never silently treated as valid or rewritten.
+function unwrapStoredWorkspace(parsed: unknown, label: string): unknown {
+  if (!isRecord(parsed) || !("schemaVersion" in parsed)) return parsed;
+  const version = parsed.schemaVersion;
+  if (version !== WORKSPACE_STORAGE_SCHEMA_VERSION) {
+    throw new Error(`${label} uses unsupported workspace schema version ${String(version)}; this build supports version ${WORKSPACE_STORAGE_SCHEMA_VERSION}`);
+  }
+  if (!("workspace" in parsed)) throw new Error(`${label} schema envelope is missing its workspace payload`);
+  return parsed.workspace;
 }
 
 function countRecords(value: Readonly<Record<string, unknown>>, descriptor: ContextDescriptor): number {

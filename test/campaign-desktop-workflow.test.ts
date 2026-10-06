@@ -12,7 +12,11 @@ test("desktop exposes Campaigns and Studio workflows", async () => {
   ]);
   assert.match(shell, /dataset\.nav/);
   assert.match(shell, /CampaignsViewController/);
-  assert.match(shell, /button\.textContent !== text/);
+  // Labels are written only when missing (no observer churn), and buttons are
+  // matched by data-nav because other shells relabel them ("Plan campaigns").
+  assert.match(shell, /if \(!button\.textContent\?\.trim\(\)\) button\.textContent = text;/);
+  assert.match(shell, /nav === "campaigns"/);
+  assert.match(shell, /nav === "studio"/);
   assert.match(html, /campaign-shell\.js/);
   for (const marker of [
     "One outcome. One audience. Traceable truth.",

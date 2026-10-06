@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Manual runs (any branch) for diagnosing the cross-browser matrix.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -168,4 +170,93 @@ jobs:
           retention-days: 7
       - name: Enforce build, test, and coverage result
         if: steps.build_test.outputs.status != '0'
+        run: exit 1
+      - name: Build PWA and run real-browser smoke validation
+        id: pwa_smoke
+        shell: bash
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          set +e
+          { npm run pwa:build && npm run pwa:smoke; } 2>&1 | tee pwa-smoke.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload PWA smoke diagnostics
+        if: steps.pwa_smoke.outputs.status != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pwa-smoke-diagnostics
+          path: pwa-smoke.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce PWA smoke result
+        if: steps.pwa_smoke.outputs.status != '0'
+        run: exit 1
+      - name: Upload chromium capability report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pwa-smoke-chromium
+          path: pwa-smoke-report-chromium.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload PWA build for provenance review
+        if: steps.pwa_smoke.outputs.status == '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: viable-pwa-${{ github.sha }}
+          path: dist-pwa/
+          if-no-files-found: error
+          retention-days: 14
+
+  pwa-cross-browser:
+    # Real-browser PWA validation in Firefox and WebKit (Safari's engine) with
+    # Playwright's matched engine builds. Chromium runs in the validate job on
+    # every pull request; this heavier matrix runs automatically only on pushes
+    # to main to conserve Actions minutes, and on manual dispatch.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install ${{ matrix.browser }} engine
+        run: npx playwright-core install --with-deps ${{ matrix.browser }}
+      - name: Build PWA and run ${{ matrix.browser }} smoke validation
+        id: smoke
+        shell: bash
+        # Bounded below the job timeout so the log and report still upload.
+        timeout-minutes: 12
+        env:
+          PWA_BROWSER: ${{ matrix.browser }}
+        run: |
+          set +e
+          # tee streams progress live, so even a hung run leaves a usable log.
+          { npm run pwa:build && npm run pwa:smoke; } 2>&1 | tee pwa-smoke-${{ matrix.browser }}.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload ${{ matrix.browser }} capability report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pwa-smoke-${{ matrix.browser }}
+          path: |
+            pwa-smoke-report-${{ matrix.browser }}.json
+            pwa-smoke-${{ matrix.browser }}.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Enforce ${{ matrix.browser }} smoke result
+        if: steps.smoke.outputs.status != '0'
         run: exit 1
