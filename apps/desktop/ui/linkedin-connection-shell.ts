@@ -41,6 +41,7 @@ let vault: NativeCredentialCapability = { status: "runtime_unavailable", canStor
 let loading = false;
 let runningAutomation = false;
 let connecting = false;
+let disconnecting = false;
 let lastWorkspaceId: string | undefined;
 let lastMessage: Readonly<{ tone: "implemented" | "warning" | "error"; text: string }> | undefined;
 
@@ -102,7 +103,7 @@ function render(): void {
 
   const destinations = linkedinDestinations();
   const connectedDestinations = destinations.filter((destination) => connectionFor(destination.id)?.status === "connected");
-  const enabled = vault.canStoreSecrets && destinations.length > 0 && !connecting;
+  const enabled = vault.canStoreSecrets && destinations.length > 0 && !connecting && !disconnecting;
   const destinationOptions = destinations.map((destination) => {
     const connection = connectionFor(destination.id);
     const label = connection?.status === "connected" ? `${destination.label} · connected` : destination.label;
@@ -112,13 +113,16 @@ function render(): void {
   const connectionSummaries = destinations.map((destination) => {
     const connection = connectionFor(destination.id);
     const tone = connection?.status === "connected" ? "implemented" : connection?.status === "reconnect_required" ? "warning" : "offline";
-    return `<div class="state ${tone}"><strong>${escapeHtml(destination.label)}</strong><span>${escapeHtml(connectionStatus(connection))}</span></div>`;
+    const disconnect = connection
+      ? `<button type="button" data-linkedin-action="disconnect" data-destination-id="${escapeHtml(destination.id)}" ${disconnecting ? "disabled" : ""}>Disconnect</button>`
+      : "";
+    return `<div class="state ${tone}"><strong>${escapeHtml(destination.label)}</strong><span>${escapeHtml(connectionStatus(connection))}</span>${disconnect}</div>`;
   }).join("");
 
   const vaultWarning = vault.canStoreSecrets ? "" : `<div class="state warning" role="alert"><strong>Secure storage is not ready.</strong><span>Viable will not accept a LinkedIn token until the operating-system credential vault is available.</span></div>`;
   const destinationWarning = destinations.length > 0 ? "" : `<div class="state empty"><strong>Create a LinkedIn destination first.</strong><span>In Calendar, add an active LinkedIn destination and confirm that you control the account. Then return here to connect publishing.</span></div>`;
   const message = lastMessage ? `<div class="state ${lastMessage.tone}" role="status"><strong>${escapeHtml(lastMessage.text)}</strong></div>` : "";
-  const runDisabled = runningAutomation || connectedDestinations.length === 0 || !vault.canStoreSecrets;
+  const runDisabled = runningAutomation || disconnecting || connectedDestinations.length === 0 || !vault.canStoreSecrets;
 
   section.innerHTML = `
     <div class="section-heading">
@@ -228,6 +232,23 @@ async function connect(form: HTMLFormElement): Promise<void> {
   await refresh(true);
 }
 
+async function disconnectLinkedIn(destinationId: string): Promise<void> {
+  if (disconnecting) return;
+  disconnecting = true;
+  lastMessage = undefined;
+  render();
+  try {
+    const workspaceId = productStore.activeWorkspaceId();
+    if (!workspaceId) throw new Error("Create a Product workspace before disconnecting LinkedIn");
+    await connectionService.disconnect(workspaceId, destinationId);
+    lastMessage = { tone: "implemented", text: "LinkedIn was disconnected. Its access token was removed from the native credential vault before the local connection record was cleared." };
+    announce("LinkedIn member publishing disconnected.");
+  } finally {
+    disconnecting = false;
+    await refresh(true);
+  }
+}
+
 async function runAutomationNow(): Promise<void> {
   if (runningAutomation) return;
   runningAutomation = true;
@@ -312,6 +333,22 @@ document.addEventListener("click", (event) => {
   if (destination !== "linkedin_developer_apps" && destination !== "linkedin_token_generator") return;
   void nativeProvider.openSetupPage(destination).catch(() => {
     lastMessage = { tone: "warning", text: "Viable could not open your system browser. Open linkedin.com/developers manually." };
+    render();
+  });
+}, true);
+
+document.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-linkedin-action="disconnect"]');
+  if (!button) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const destinationId = button.dataset.destinationId;
+  if (!destinationId) return;
+  button.disabled = true;
+  void disconnectLinkedIn(destinationId).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "Unknown LinkedIn disconnect error";
+    lastMessage = { tone: "error", text: `LinkedIn was not disconnected: ${message}` };
+    announce(`LinkedIn disconnect failed: ${message}`);
     render();
   });
 }, true);
