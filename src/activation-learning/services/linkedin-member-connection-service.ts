@@ -60,15 +60,47 @@ export class LinkedInMemberConnectionService {
       updatedAt: now,
     };
 
-    await this.connectionStore.save({
-      workspaceId: input.workspaceId,
-      connections: existing
-        ? current.connections.map((candidate) => candidate.id === existing.id ? connection : candidate)
-        : [...current.connections, connection],
-      updatedAt: now,
-    });
+    try {
+      await this.connectionStore.save({
+        workspaceId: input.workspaceId,
+        connections: existing
+          ? current.connections.map((candidate) => candidate.id === existing.id ? connection : candidate)
+          : [...current.connections, connection],
+        updatedAt: now,
+      });
+    } catch (error) {
+      // Native validation stores the credential before local metadata is
+      // committed. Best-effort cleanup avoids stranding a vault entry when
+      // local persistence fails; a cleanup failure is still safe because no
+      // local record claims the connection exists.
+      await this.nativeProvider.disconnect({ credentialReference }).catch(() => undefined);
+      throw error;
+    }
 
     return { kind: "connected", connection };
+  }
+
+  async disconnect(workspaceId: string, destinationId: string): Promise<void> {
+    const current = await this.loadConnections(workspaceId);
+    const connection = current.connections.find(
+      (candidate) => candidate.provider === "linkedin_member" && candidate.destinationId === destinationId,
+    ) as LinkedInMemberConnectionRecord | undefined;
+    if (!connection) return;
+
+    // Remove the secret first. If local persistence then fails, the remaining
+    // record references a missing credential and publishing fails closed as
+    // reconnect-required. The reverse order could silently orphan a secret.
+    await this.nativeProvider.disconnect({ credentialReference: connection.credentialReference });
+    const remaining = current.connections.filter((candidate) => candidate.id !== connection.id);
+    if (remaining.length === 0) {
+      await this.connectionStore.delete(workspaceId);
+      return;
+    }
+    await this.connectionStore.save({
+      workspaceId,
+      connections: remaining,
+      updatedAt: this.clock().toISOString(),
+    });
   }
 
   async getForDestination(workspaceId: string, destinationId: string): Promise<LinkedInMemberConnectionRecord | undefined> {
