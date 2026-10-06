@@ -231,7 +231,7 @@ async function run() {
   // application code. This distinguishes a WebKit service-worker/cache defect
   // from a failure in Viable's post-update startup path.
   const productionWorker = await readFile(join(served, "sw.js"), "utf8");
-  const precacheMatch = productionWorker.match(/const PRECACHE = (\\[[^\\n]+\\]);/);
+  const precacheMatch = productionWorker.match(/const PRECACHE = (\[[^\n]+\]);/);
   if (!precacheMatch) throw new Error("Production service-worker precache list not found");
   engineControlPrecache = [...JSON.parse(precacheMatch[1]), ENGINE_CONTROL_PATH];
   const server = await startServer();
