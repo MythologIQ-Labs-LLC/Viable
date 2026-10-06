@@ -62,9 +62,10 @@ If it prints anything, keep testing the candidate commit, or create a supersedin
 | `npm run validate` on the candidate commit | pass: 311 tests; coverage 86.77% lines, 67.18% branches, 89.30% functions |
 | Chromium PWA smoke on the candidate commit | pass, including the new `aria-busy` check |
 | Rust fmt and tests on the candidate commit | pass |
+| CI dispatch on the candidate commit (run 37430207753) | `validate` (including the Chromium smoke) pass; Firefox full smoke pass; WebKit fails only on offline reload and the update reload, plus the recorded engine limitation, as on PR #124 |
 | Seed restore on the candidate build (Chromium) | restored; all 9 views render the seed with 0 page or console errors; `aria-busy` cleared on every view |
 | PR #129 exact head `b94f042` | CI, Desktop (Rust 1.88, Tauri bundle, `.deb`), CodeQL, Security audit all pass |
-| PR #124 exact head `7984a60` | CI and CodeQL pass; Firefox full smoke passes; WebKit: one engine limitation plus offline/update reload failures (see PR #124) |
+| PR #124 exact head `7984a60` | CI, Desktop, and CodeQL pass; Firefox full smoke passes; WebKit: one engine limitation plus offline/update reload failures (see PR #124) |
 
 These checks establish the machine baseline only. They do not satisfy #79 or #81.
 
