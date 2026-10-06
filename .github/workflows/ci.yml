@@ -217,7 +217,8 @@ jobs:
     # to main to conserve Actions minutes, and on manual dispatch.
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Manual runs also execute the restore/reload reproducer below.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 45 || 20 }}
     strategy:
       fail-fast: false
       matrix:
@@ -247,6 +248,16 @@ jobs:
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
+      - name: Run ${{ matrix.browser }} restore/reload reproducer (diagnostic)
+        # Manual runs only: isolates each step of the restore -> reload
+        # sequence that crashed Playwright's Linux WebKit renderer (#124).
+        # Diagnostic evidence, never a gate.
+        if: github.event_name == 'workflow_dispatch'
+        timeout-minutes: 25
+        continue-on-error: true
+        env:
+          PWA_BROWSER: ${{ matrix.browser }}
+        run: node scripts/pwa-restore-reload-probe.mjs 2>&1 | tee pwa-restore-reload-probe-${{ matrix.browser }}.log
       - name: Upload ${{ matrix.browser }} capability report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -255,6 +266,8 @@ jobs:
           path: |
             pwa-smoke-report-${{ matrix.browser }}.json
             pwa-smoke-${{ matrix.browser }}.log
+            pwa-restore-reload-probe-${{ matrix.browser }}.json
+            pwa-restore-reload-probe-${{ matrix.browser }}.log
           if-no-files-found: warn
           retention-days: 14
       - name: Enforce ${{ matrix.browser }} smoke result
