@@ -322,6 +322,13 @@ async function run() {
       await context.setOffline(false);
 
       // Update contract: a new build is offered, never applied silently.
+      // A second open tab stands in for unsaved work. Origin-wide service-worker
+      // activation must not reload that tab until it independently confirms.
+      const updateObserver = await context.newPage();
+      await updateObserver.goto(`${origin}/`);
+      await updateObserver.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
+      await updateObserver.evaluate(() => { globalThis.__viableUpdateSentinel = "unsaved-tab-state"; });
+
       const nextBuildId = `${buildInfo.buildId.slice(0, 56)}feedface`;
       await writeFile(join(served, "build-info.json"), JSON.stringify({ ...buildInfo, buildId: nextBuildId }));
       const sw = await readFile(join(served, "sw.js"), "utf8");
@@ -336,9 +343,21 @@ async function run() {
         page.click('[data-pwa-action="update"]'),
       ]);
       const updated = await page.evaluate(async () => (await (await fetch("build-info.json")).json()).buildId);
-      check(updated === nextBuildId, "confirmed update reloads into the new build");
+      check(updated === nextBuildId, "confirmed update reloads the initiating tab into the new build");
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "local workspace data survives the update");
+
+      await updateObserver.waitForSelector("[data-pwa-update-active]", { timeout: 15000 });
+      const observerStayedLoaded = await updateObserver.evaluate(() => globalThis.__viableUpdateSentinel === "unsaved-tab-state");
+      check(observerStayedLoaded, "another open tab is not reloaded by someone else's update confirmation");
+      await Promise.all([
+        updateObserver.waitForEvent("load", { timeout: 15000 }),
+        updateObserver.click('[data-pwa-action="reload"]'),
+      ]);
+      await updateObserver.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
+      check(true, "another open tab reloads only after its own confirmation");
+      await updateObserver.close();
+
       const caches = await page.evaluate(async () => (await globalThis.caches.keys()).filter((name) => name.startsWith("viable-shell-")));
       check(caches.length === 1, `old build cache removed after activation (${caches.length} shell cache)`);
     });
@@ -368,29 +387,25 @@ async function run() {
       await upgradeContext.close();
     });
 
-    // IndexedDB failure handling. Previously migrated profile: fail closed
-    // (stale localStorage copy is never shown). Never-migrated profile: keep
-    // using localStorage, which still holds the only copy.
+    // IndexedDB is the authority whenever the browser exposes it. If opening
+    // that authority fails, Viable must never guess that a legacy localStorage
+    // copy is safe, because it may be stale after a prior migration.
     await section("IndexedDB failure handling", async () => {
-      for (const migratedBefore of [true, false]) {
-        const failContext = await browser.newContext();
-        const failPage = await failContext.newPage();
-        await failPage.addInitScript(([value, marked]) => {
-          localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
-          localStorage.setItem("viable.product-workspace.active", "legacy-ws");
-          if (marked) localStorage.setItem("viable-storage-engine", "indexeddb");
-          IDBFactory.prototype.open = function () { throw new DOMException("simulated failure", "UnknownError"); };
-        }, [legacyWorkspace, migratedBefore]);
-        await failPage.goto(`${origin}/`);
-        await failPage.waitForTimeout(1500);
-        const text = (await failPage.textContent("body")) ?? "";
-        if (migratedBefore) {
-          check(/saved Viable data could not be opened/.test(text) && !/Legacy upgrade product/.test(text), "IndexedDB failure after migration fails closed and never shows the stale legacy copy");
-        } else {
-          check(/Legacy upgrade product/.test(text), "IndexedDB failure before any migration keeps working from localStorage");
-        }
-        await failContext.close();
-      }
+      const failContext = await browser.newContext();
+      const failPage = await failContext.newPage();
+      await failPage.addInitScript((value) => {
+        localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+        localStorage.setItem("viable.product-workspace.active", "legacy-ws");
+        IDBFactory.prototype.open = function () { throw new DOMException("simulated failure", "UnknownError"); };
+      }, legacyWorkspace);
+      await failPage.goto(`${origin}/`);
+      await failPage.waitForTimeout(1500);
+      const text = (await failPage.textContent("body")) ?? "";
+      check(
+        /saved Viable data could not be opened/.test(text) && !/Legacy upgrade product/.test(text),
+        "IndexedDB authority failure always fails closed and never resurrects a legacy localStorage copy",
+      );
+      await failContext.close();
     });
 
     check(errors.length === 0, `no page errors or CSP violations${errors.length ? `: ${errors.join(" | ")}` : ""}`);
