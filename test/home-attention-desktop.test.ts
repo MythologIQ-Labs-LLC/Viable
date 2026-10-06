@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("desktop loads the read-only cross-workflow Home attention shell", async () => {
@@ -9,7 +12,7 @@ test("desktop loads the read-only cross-workflow Home attention shell", async ()
     read("apps/desktop/web/index.html"),
     read("apps/desktop/ui/home-attention-shell.ts"),
   ]);
-  assert.match(html, /home-attention-shell\.js/);
+  assert.match(entry, /home-attention-shell\.js/);
   assert.match(shell, /deriveHomeAttention/);
   assert.match(shell, /Home is read-only/);
   assert.match(shell, /does not approve, mutate, publish, deliver, or invent a business-value score/i);

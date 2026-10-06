@@ -2,6 +2,9 @@ node_modules/
 dist/
 dist-pwa/
 pwa-smoke-report-*.json
+pwa-restore-reload-probe-*.json
+pwa-restore-reload-probe-*.log
+dist-pwa-probe/
 .viable/
 *.log
 .DS_Store

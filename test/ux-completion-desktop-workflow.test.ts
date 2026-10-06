@@ -4,6 +4,9 @@ import test from "node:test";
 import type { ReadinessAction } from "../src/product-core/domain/assessment.js";
 import { OneShotSurfaceFeedback, selectActiveReadinessAction } from "../src/ui/ux-completion-state.js";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 const action = (id: string, status: ReadinessAction["status"]): ReadinessAction => ({
   id,
@@ -39,7 +42,7 @@ test("UX completion shell wires Product Core lifecycle to the executable complet
     read("apps/desktop/ui/ux-completion-shell.ts"),
     read("apps/desktop/web/index.html"),
   ]);
-  assert.match(html, /ux-completion-shell\.js/);
+  assert.match(entry, /ux-completion-shell\.js/);
   for (const marker of [
     "Product Core authority",
     "Readiness actions",

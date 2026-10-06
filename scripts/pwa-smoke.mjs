@@ -26,6 +26,8 @@ const served = resolve(process.cwd(), "dist-pwa-smoke");
 const SMOKE_HOST = "localhost";
 const SMOKE_PORT = 4175;
 const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
+// An app-free page used to tell an engine defect from a Viable defect.
+const ENGINE_CONTROL_PATH = "/__engine-control.html";
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -49,6 +51,10 @@ async function browserPath() {
 function startServer() {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
+    if (url.pathname === ENGINE_CONTROL_PATH) {
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }).end("<!doctype html><title>engine control</title><p id=control>engine control</p>");
+      return;
+    }
     const path = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname));
     const file = join(served, path);
     if (!file.startsWith(served + sep)) { response.writeHead(403).end(); return; }
@@ -100,6 +106,51 @@ function withTimeout(promise, ms, label) {
 
 const SECTION_TIMEOUT_MS = 90_000;
 
+// The main page, described in the log whenever a section fails.
+let diagnosticPage;
+
+// What the page was doing when a section failed: still loading, controlled by
+// the service worker, app rendered or not.
+async function describePage(page) {
+  if (!page) return "no page";
+  return withTimeout(page.evaluate(() => JSON.stringify({
+    url: location.href,
+    readyState: document.readyState,
+    controlled: Boolean(navigator.serviceWorker?.controller),
+    navButtons: document.querySelectorAll("nav button[data-nav]").length,
+    body: (document.body?.innerText ?? "").replace(/\s+/g, " ").slice(0, 200),
+  })), 5_000, "page state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
+}
+
+// Reloads the page. Playwright's Firefox driver can leave page.reload()
+// pending forever when the URL has a #hash (microsoft/playwright#21145), and
+// Viable records the current view in the hash. In Firefox, navigate to the
+// same document without the hash instead; the app restores its default view.
+function reload(page) {
+  return BROWSER === "firefox" ? page.goto(page.url().split("#")[0]) : page.reload();
+}
+
+// WebKit refuses more than 100 history writes per 10 s; a person never comes
+// close, but 72 back-to-back transitions do. Pace each transition click.
+const TRANSITION_PACE_MS = 120;
+
+// Waits until the app has rendered and stopped re-rendering, as a person would
+// before typing. The page "load" event is not a readiness signal: engines
+// differ on whether it waits for modules still in a top-level await, and the
+// app re-renders once its stores finish loading.
+async function settled(page) {
+  await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0);
+  await withTimeout(page.evaluate(() => new Promise((resolveQuiet) => {
+    const main = document.querySelector("#main");
+    let quiet;
+    const cap = setTimeout(done, 5000);
+    const observer = new MutationObserver(() => { clearTimeout(quiet); quiet = setTimeout(done, 500); });
+    function done() { clearTimeout(quiet); clearTimeout(cap); observer.disconnect(); resolveQuiet(); }
+    quiet = setTimeout(done, 500);
+    observer.observe(main, { childList: true, subtree: true });
+  })), 10_000, "app settle");
+}
+
 // Runs one independent section; an exception or timeout is recorded as a
 // failure without hiding the results of later sections.
 async function section(name, body) {
@@ -107,6 +158,7 @@ async function section(name, body) {
     await withTimeout(body(), SECTION_TIMEOUT_MS, name);
   } catch (error) {
     check(false, `${name}: ${(error instanceof Error ? error.message : String(error)).split("\n")[0]}`);
+    console.log(`  page state: ${await describePage(diagnosticPage)}`);
   }
 }
 
@@ -155,14 +207,52 @@ async function run() {
   console.log(`Engine: ${BROWSER} ${browser.version()}`);
   const context = await browser.newContext();
   context.setDefaultTimeout(15_000);
-  const page = await context.newPage();
   const errors = [];
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-  page.on("dialog", (dialog) => void dialog.accept());
-  page.on("console", (message) => { if (message.type() === "error") errors.push(`console: ${message.text()}`); });
-  await page.addInitScript(() => {
-    document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
-  });
+  async function instrumentedPage() {
+    const created = await context.newPage();
+    created.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+    created.on("dialog", (dialog) => void dialog.accept());
+    created.on("console", (message) => {
+      if (message.type() === "error") errors.push(`console: ${message.text()}`);
+      else if (message.type() === "warning") console.log(`  page warning: ${message.text()}`);
+    });
+    await created.addInitScript(() => {
+      document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
+    });
+    diagnosticPage = created;
+    return created;
+  }
+  // Replaced only to avoid a WebKit engine defect (see webkitHistoryReloadDefectPresent).
+  let page = await instrumentedPage();
+
+  // Playwright's Linux WebKit build crashes or hangs its renderer when a page
+  // is reloaded after going Back across several pushState entries. It
+  // reproduces on an app-free page with no Viable code
+  // (scripts/pwa-restore-reload-probe.mjs; CI runs 37426515169, 37428688989),
+  // and a hung renderer also takes down later pages of the same browser.
+  // In WebKit, the app-free control runs in a separately launched browser.
+  // While it still fails, the page that went Back is replaced by a fresh page
+  // of the same profile before any further reload, so every later check
+  // still runs. Chromium and Firefox keep covering reload after Back. Once
+  // the engine is fixed, the control passes and the same page is kept.
+  async function webkitHistoryReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const control = await (await isolated.newContext()).newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await control.evaluate(async () => {
+        for (let index = 0; index < 10; index += 1) {
+          history.pushState({ index }, "", `#entry-${index}`);
+          await new Promise((resolveWait) => setTimeout(resolveWait, 150));
+        }
+      });
+      await control.goBack();
+      await control.waitForTimeout(300);
+      return await withTimeout(control.reload(), 20_000, "control reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
 
   let support = {};
   const storageAccessReport = {};
@@ -186,7 +276,7 @@ async function run() {
       await section("service worker", async () => {
           const swReady = await withTimeout(page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).active)), 20_000, "navigator.serviceWorker.ready");
           check(swReady, "service worker installs and activates");
-          await page.reload();
+          await reload(page);
           check(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), "page is controlled by the service worker after reload");
           storageAccessReport.serviceWorkerControlled = await storageAccess(page);
           console.log(`Storage access (service-worker controlled): ${JSON.stringify(storageAccessReport.serviceWorkerControlled)}`);
@@ -198,6 +288,7 @@ async function run() {
 
     // Create a Product workspace through the real UI.
     await section("workspace creation", async () => {
+      await settled(page);
       const form = page.locator("#main form").first();
       for (const field of await form.locator("input[required], textarea[required]").all()) {
         const type = await field.getAttribute("type");
@@ -208,9 +299,12 @@ async function run() {
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Product workspace created"));
       check(true, "Product workspace created through the UI");
 
-      await page.reload();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"));
       check(true, "workspace persists across reload in browser storage");
+      // index.html starts <main aria-busy="true">; a rendered view must clear it.
+      const busyCleared = await page.waitForFunction(() => document.querySelector("#main")?.getAttribute("aria-busy") === "false", undefined, { timeout: 5000 }).then(() => true, () => false);
+      check(busyCleared, "main region is not left aria-busy after startup");
     });
 
     await section("navigation", async () => {
@@ -227,8 +321,10 @@ async function run() {
       for (const from of views) {
         for (const to of views) {
           if (from === to) continue;
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${from}"]`, { noWaitAfter: true });
           await page.waitForFunction((nav) => document.querySelector(`nav button[data-nav="${nav}"]`)?.getAttribute("aria-current") === "page", from, { timeout: 4000 }).catch(() => undefined);
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${to}"]`, { noWaitAfter: true });
           const reached = await page.waitForFunction((nav) => {
             const current = [...document.querySelectorAll('nav button[aria-current="page"]')].map((button) => button.dataset.nav);
@@ -243,6 +339,14 @@ async function run() {
       const back = await page.waitForFunction((nav) => document.querySelector(`nav button[data-nav="${nav}"]`)?.getAttribute("aria-current") === "page", views.at(-1), { timeout: 4000 }).then(() => true, () => false);
       check(back, "browser Back returns to the previous view");
     });
+
+    if (BROWSER === "webkit" && await webkitHistoryReloadDefectPresent()) {
+      limitation("WebKit engine defect: reloading after Back across pushState entries crashes or hangs the renderer, reproduced on an app-free page in a separate browser. The remaining checks continue on a fresh page of the same profile; Chromium and Firefox cover reload after Back");
+      await page.close();
+      page = await instrumentedPage();
+      await page.goto(`${origin}/`);
+      await settled(page);
+    }
 
     await section("Calendar and runtime panel", async () => {
       await page.click('nav button[data-nav="calendar"]', { noWaitAfter: true });
@@ -311,10 +415,11 @@ async function run() {
       await page.click('[data-workspace-action="restore-empty"]');
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
       check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
-      await page.reload();
+      // The cross-tab check is done.
+      await second.close();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "restored workspace survives reload");
-      await second.close();
       await rm(backupPath, { force: true });
     });
 
@@ -322,7 +427,7 @@ async function run() {
     if (support.serviceWorker) await section("offline and update contract", async () => {
       await page.click('nav button[data-nav="home"]', { noWaitAfter: true });
       await context.setOffline(true);
-      const offlineLoaded = await page.reload().then(() => page.waitForFunction(
+      const offlineLoaded = await reload(page).then(() => page.waitForFunction(
         () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
         undefined,
         { timeout: 10000 },

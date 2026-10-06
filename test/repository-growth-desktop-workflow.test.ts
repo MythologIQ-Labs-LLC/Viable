@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("Product exposes the complete repository growth journey", async () => {
@@ -12,7 +15,7 @@ test("Product exposes the complete repository growth journey", async () => {
   ]);
   assert.match(shell, /Product workflow/);
   assert.match(shell, /Open repository growth/);
-  assert.match(html, /repository-growth-shell\.js/);
+  assert.match(entry, /repository-growth-shell\.js/);
   assert.match(html, /repository-growth\.css/);
   for (const marker of [
     "Useful adoption before vanity growth",

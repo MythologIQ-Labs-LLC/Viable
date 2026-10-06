@@ -2,13 +2,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("desktop loads workspace history bridge and lifecycle surface after accessibility navigation", async () => {
   const html = await read("apps/desktop/web/index.html");
-  const history = html.indexOf("navigation-history-shell.js");
-  const bridge = html.indexOf("workspace-history-bridge.js");
-  const lifecycle = html.indexOf("workspace-lifecycle-shell.js");
+  const history = entry.indexOf("navigation-history-shell.js");
+  const bridge = entry.indexOf("workspace-history-bridge.js");
+  const lifecycle = entry.indexOf("workspace-lifecycle-shell.js");
   assert.ok(history >= 0);
   assert.ok(bridge > history);
   assert.ok(lifecycle > bridge);

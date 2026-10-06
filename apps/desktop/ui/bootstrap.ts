@@ -37,4 +37,4 @@ window.addEventListener("unhandledrejection", (event) => {
   renderFailure(event.reason);
 });
 
-void import("./app.js").catch(renderFailure);
+void import("./entry.js").catch(renderFailure);
