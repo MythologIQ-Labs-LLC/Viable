@@ -21,7 +21,9 @@ Do not replace a failed result with a later passing rerun. Preserve both.
 ## Environment
 
 - Operating system and version:
-- Native package/build type:
+- Runtime: Chromium PWA at http://localhost:4175 (accepted) / other browser (exploratory) / native Tauri (exploratory)
+- Browser name and version:
+- Build identity shown in Workspace → Runtime:
 - Display resolution/scaling:
 - Interface zoom/text scale:
 - Reduced motion setting:
@@ -87,7 +89,7 @@ Note any incorrect real-world consequence the participant assigned to a state.
 - Reduced-motion behavior:
 - Non-color status comprehension:
 - Screen-reader reading order/context:
-- Native desktop-specific behavior:
+- Runtime-specific behavior (update notice, runtime panel, offline reload):
 
 ## Failure and recovery observation
 

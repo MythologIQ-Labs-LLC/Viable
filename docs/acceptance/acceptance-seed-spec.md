@@ -88,7 +88,8 @@ Before participant use, the facilitator must prove that:
 2. the backup passes the product's restore validation;
 3. restoring the backup returns the expected record counts/states;
 4. reset/delete scope is understood;
-5. no unrelated local preferences or files are unintentionally treated as workspace data.
+5. no unrelated local preferences or files are unintentionally treated as workspace data;
+6. the seed is restored at the canonical origin `http://localhost:4175`. Browser storage is origin-bound, so a seed restored at any other origin or port is a different profile.
 
 ## Deliberate failure fixture
 

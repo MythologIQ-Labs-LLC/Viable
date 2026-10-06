@@ -1,7 +1,7 @@
 # Unfamiliar-User Demo Acceptance Runbook
 
 Issue authority: #81  
-Candidate baseline: `311eb4831e5ede62833cd0b34c37887189d2c081`
+Candidate: see the current candidate record linked from [`README.md`](README.md#current-candidate)
 
 ## Goal
 
@@ -38,7 +38,7 @@ Before each run:
 
 1. restore/reset the workspace to the canonical acceptance seed;
 2. verify no prior participant's approvals, reviews, learning entries, outcomes, or failures remain;
-3. verify the exact candidate/build identity;
+3. verify the exact candidate commit and that Workspace → Runtime shows the expected build identity at `http://localhost:4175`;
 4. start timing before the task prompt is read;
 5. do not pre-navigate the participant to the "right" surface.
 

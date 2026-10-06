@@ -1,11 +1,11 @@
 # Accessibility and Recovery Acceptance Runbook
 
 Issue authority: #79  
-Candidate baseline: `311eb4831e5ede62833cd0b34c37887189d2c081`
+Candidate: see the current candidate record linked from [`README.md`](README.md#current-candidate)
 
 ## Goal
 
-Determine whether the integrated Viable desktop candidate can be operated, understood, and recovered hands-on without relying on implementation knowledge or automated-contract assumptions.
+Determine whether the integrated Viable candidate can be operated, understood, and recovered hands-on without relying on implementation knowledge or automated-contract assumptions.
 
 This runbook validates the remaining human criteria in #79. It does not replace release-platform validation in #36.
 
@@ -24,7 +24,7 @@ The facilitator records:
 - workspace seed or clean-start identity;
 - participant role and facilitator identity without unnecessary personal data.
 
-If the intended environment cannot run a packaged/native candidate, record the run as exploratory rather than packaged-native acceptance.
+The accepted environment is the one named in the current candidate record: the production PWA served by `npm run pwa:selfhost` at `http://localhost:4175` in a Chromium desktop browser (ADR-0010). A run in another browser (Firefox, Safari/WebKit) or in the native Tauri shell is recorded as **exploratory** for that runtime. It does not count toward, or substitute for, acceptance on the accepted environment.
 
 ## Facilitation rule
 
@@ -43,7 +43,7 @@ A run passes only when:
 - validation and failure states are perceivable and repairable;
 - focus moves predictably after validation, navigation, dialogs, and recovery actions;
 - unsaved or failed input is not silently lost;
-- native desktop behavior does not introduce a blocker absent from deterministic contracts;
+- the accepted runtime does not introduce a blocker absent from deterministic contracts, and native-only capabilities (credential vault, connected publishing) are stated as unavailable with a reason rather than appearing broken;
 - no P0 or unresolved P1 finding remains for the tested scope.
 
 ## Test A — Keyboard-only primary navigation
@@ -177,7 +177,7 @@ Pass expectations:
 
 ## Test H — Screen reader
 
-Run at least one screen-reader exercise on the primary accepted desktop platform. Record the exact product and version used.
+Run at least one screen-reader exercise on the accepted environment. Record the exact product and version used.
 
 Exercise:
 
@@ -206,15 +206,31 @@ Use a disposable acceptance workspace.
 
 1. Open Workspace management.
 2. Review the scope of the workspace and its contexts.
-3. Create/download a backup through the product UI.
+3. Create/download a backup through the product UI. The browser saves it as a `viable-backup-…json` download.
 4. Perform the documented destructive reset/delete path only after confirming the scope.
 5. Verify the workspace is removed as described while unrelated preferences/files remain outside the deletion boundary.
-6. Restore the validated backup.
+6. Restore the validated backup with the Workspace restore file picker, review the preview, and confirm.
 7. Verify the restored workspace returns to the expected state.
 
 If corrupt-context quarantine is part of the seeded scenario, verify quarantine export before destructive deletion.
 
 Do not run this test against personal or production data.
+
+## Test J — Runtime status without color or motion
+
+These states are specific to the PWA runtime. Each must be understandable from text and operable by keyboard.
+
+1. Open Workspace → Runtime. Identify, from the text alone, which capabilities are available and why the credential vault and connected LinkedIn publishing are unavailable in the browser.
+2. Identify the running build and the storage engine (IndexedDB) from the panel text.
+3. Facilitator only, optional: switch the browser offline (DevTools network conditions) and reload. The workspace must still open from the cached application shell.
+
+The update notice is exercised by the automated smoke, because a same-commit rebuild produces the same build identity and no update. If an update notice does appear during a run (for example after a remediation candidate is served), record whether the participant could tell from its text that nothing changes until they confirm, and whether they could confirm or postpone it by keyboard.
+
+Pass expectations:
+
+- every state is conveyed in text, not only by color, icon, or animation;
+- the update notice and its action are reachable and operable by keyboard and announced to assistive technology;
+- the participant does not believe confirming an update deletes or changes workspace data.
 
 ## Result classification
 
@@ -245,7 +261,7 @@ Before #79 can close, its issue thread must link to result records proving:
 - non-color/reduced-motion comprehension pass;
 - at least one screen-reader pass on the accepted primary environment;
 - deliberate failure/recovery pass;
-- native desktop behavior pass;
+- accepted-runtime (Chromium PWA) behavior pass, including Test J;
 - all P0/P1 findings closed and rerun.
 
 The issue should name any platform not yet accepted rather than implying universal desktop accessibility.
