@@ -23,6 +23,9 @@ import { SECURITY_HEADERS } from "./pwa-security-headers.mjs";
 
 const source = resolve(process.cwd(), process.env.VIABLE_PWA_OUT ?? "dist-pwa");
 const served = resolve(process.cwd(), "dist-pwa-smoke");
+const SMOKE_HOST = "localhost";
+const SMOKE_PORT = 4175;
+const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -60,7 +63,13 @@ function startServer() {
       response.writeHead(404).end();
     }
   });
-  return new Promise((resolveServer) => server.listen(0, "127.0.0.1", () => resolveServer(server)));
+  return new Promise((resolveServer, rejectServer) => {
+    server.once("error", rejectServer);
+    server.listen(SMOKE_PORT, SMOKE_HOST, () => {
+      server.removeListener("error", rejectServer);
+      resolveServer(server);
+    });
+  });
 }
 
 const BROWSER = process.env.PWA_BROWSER ?? "chromium";
@@ -139,7 +148,7 @@ async function run() {
   await cp(source, served, { recursive: true });
   const buildInfo = JSON.parse(await readFile(join(served, "build-info.json"), "utf8"));
   const server = await startServer();
-  const origin = `http://127.0.0.1:${server.address().port}`;
+  const origin = SMOKE_ORIGIN;
   const browser = BROWSER === "chromium"
     ? await chromium.launch({ executablePath: await browserPath() })
     : await ENGINES[BROWSER].launch();
