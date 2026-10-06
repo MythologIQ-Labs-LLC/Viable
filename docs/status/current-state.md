@@ -94,7 +94,9 @@ Persistence rules for dogfood profiles:
 
 - retention defaults (#36): one stated policy (`src/workspace-lifecycle/retention-policy.ts`), shown on the Workspace screen and in the user guide. Viable never deletes or expires data on its own; Website Watch deadlines (14/90 days/none) only make payloads eligible for a named person's prune. Workspace deletion keeps exported files, the storage-upgrade marker and provider credentials (keyed to a connection, not a workspace), and says so.
 
-Browser evidence for replace-current restore is **not** done yet (#36).
+- browser evidence for replace-current restore (#36), in its own profile in the smoke: a backup of the same workspace offers replace-current (not empty-profile) restore; without a recovery-point decision it is refused and nothing changes; the recovery point captures the state about to be replaced; the replacement is durable in IndexedDB and survives reload; restoring the recovery point undoes it.
+
+**Known gap (#36):** corrupt stored data fails closed at startup without being changed, but that startup failure also hides the Workspace screen, so quarantine export and the replace-over-corrupt gate are unreachable in the app and covered only by deterministic tests. A person cannot recover without developer tools.
 
 ### Native runtime and credential vault (PRs #108, #113)
 
@@ -300,7 +302,7 @@ This is a dogfood statement, not a public-release statement. #36 still contains 
 - localhost → public-origin migration through the portable backup;
 - supported browser and OS list with minimum versions, from actual tests, including real Safari before any Safari claim;
 - real storage-eviction and quota evidence per supported browser (#114 O3);
-- browser evidence for replace-current restore;
+- in-app recovery when stored workspace data is corrupt (startup currently fails closed before the Workspace screen is reachable);
 - privacy/security review, diagnostic export, vulnerability intake, support and known-limitations documentation;
 - honest labeling and provenance of any direct native artifacts.
 
