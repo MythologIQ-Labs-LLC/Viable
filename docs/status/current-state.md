@@ -5,115 +5,119 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-09-24 |
+| Last reviewed | 2026-10-06 |
+| Reviewed against | `main` through `a33537f5a40605c90f21be4fedc2606467e7853d` (#124, #129, and #93 merged), plus the open work listed below |
 | Product requirements | `docs/product/PRD.md` |
-| ICP product authority | `docs/product/icp-discovery-and-validation.md` |
+| Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
+| Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
 | Platform architecture | `docs/architecture/viable-platform.md` |
-| Website Watch architecture | `docs/architecture/website-watch-domain.md` |
-| Video Production architecture | `docs/architecture/video-production-domain.md` |
-| Activation and learning architecture | `docs/architecture/activation-and-learning-domain.md` |
-| Automated viability review | `docs/reviews/viability-sweep-2026-07-16.md` |
+| PWA planning review | `docs/reviews/pwa-runtime-roadmap-review-2026-10-05.md` |
 | ADRs | `docs/adr/README.md` |
 | Open decisions | `docs/decisions/open-decisions.md` |
 | Current handoff | `docs/handoff/CURRENT.md` |
 
+The previous revision of this record (2026-09-24) predated ADR-0009, ADR-0010, the publication inventory and scheduler, the credential vault, the PWA runtime, IndexedDB authority, and the localhost self-host path. It understated the implementation and is superseded by this revision.
+
+## Evidence vocabulary
+
+This record keeps these states distinct. A later state never follows automatically from an earlier one.
+
+| State | Meaning |
+|---|---|
+| **Merged** | On `main`. |
+| **Validated** | Deterministic tests, type checks, viability/security gates, and, where stated, real-browser or native-package checks passed on an exact head. |
+| **Live-proven** | Exercised against the real external system (for example a real provider API), with evidence recorded. |
+| **Human-accepted** | A named person completed the governed hands-on acceptance (keyboard-only, 200% zoom, non-color comprehension, unfamiliar-user journeys) and recorded the environment, findings, and remediation. |
+| **Deferred** | Deliberately not pursued now; the trigger for resuming is named. |
+
+As of this review, **nothing is human-accepted** and **no consequential external action is live-proven**. Read-only public GitHub collection is live-proven: #129 measured the production-default adapters succeeding in Chromium and the native webview, and that exact implementation is now merged to `main`. LinkedIn publication remains implemented but not live-proven.
+
 ## Summary
 
-Viable has completed and automatedly validated all six initial internal product slices.
+Viable implements the full local-first marketability loop (UNDERSTAND → PLAN → CREATE → ACTIVATE → MEASURE → LEARN) across its six initial product slices, Website Watch Stage 1, the UX-completion tranche (#72–#80, umbrella #81), and the deterministic publishing foundation (#98, #99, #106).
 
-The following internal workflows are implemented:
+Under ADR-0010 the **primary runtime is a local-first PWA**. Before external demand, the canonical dogfood runtime is a production PWA build served on the developer's own machine:
 
-1. Product Truth, ICP Discovery, and Marketability Assessment;
-2. Signals Inbox with bounded event and public repository evidence;
-3. Campaign Brief and Canonical Asset production;
-4. Public Repository Growth and Launch;
-5. provider-neutral Video Production packages and Studio review;
-6. Calendar, manual activation, outcome evidence, performance import, retrospectives, and learning.
+```bash
+npm ci
+npm run pwa:selfhost   # serves http://localhost:4175
+```
 
-Website Watch Stage 1 is implemented as a post-sequence Signals and Market extension.
+The native Tauri runtime is retained only where a capability earns it: the OS credential vault and connected provider publishing.
 
-PR #35, merged at `77b9572ef00df75c734b753bcd480d8e7fe9e5b9`, completed the current automated viability sweep. It hardened clean builds, repository consistency, secret scanning, dependency and workflow supply-chain controls, coverage floors, desktop persistence integrity, startup recovery, Campaign and Studio recovery, exact Rust minimum validation, and native workflow coverage. PRs #66–#70 subsequently completed machine-verifiable Signals materialization while preserving Product Core, Campaigns and Assets, Website Watch/Calendar, and Repository Growth destination authority.
+Viable is suitable for **persistent local dogfooding in a Chromium desktop browser**. It is **not** a supported end-user release: human acceptance, generalized schema migration/rollback, per-browser storage-eviction evidence, public-origin deployment trust, and operational support remain open.
 
-Human accessibility and unfamiliar-user acceptance remain open for issues #2, #5, #6, #3, #4, #7, and #29.
+## Current dogfood runtime and support boundary
 
-Issue #4 also remains open for actual ViMax execution and Windows and Linux ViMax runtime validation.
-
-Issue #36 owns the remaining non-human release-foundation work.
-
-Viable is not an end-user release. No claim should imply that direct publishing, connected provider delivery verification, automatic analytics import, live website crawling, Context.dev execution, live Webdog synchronization, actual ViMax execution, leads, sales, signed installers, tested upgrades, backup recovery, or external release readiness are operational.
-
-## Implemented documentation authority
-
-- Platinum-grade product README;
-- formal Product Requirements Document;
-- ICP discovery and validation specification;
-- marketability operating model;
-- accepted foundational ADR set;
-- platform architecture;
-- ICP domain architecture;
-- Repository Growth domain architecture;
-- Video Production domain architecture;
-- Calendar, Activation, Outcome, and Learning architecture;
-- Website Watch domain architecture;
-- initial build sequence and product roadmaps;
-- open-source repository growth model;
-- implemented ViMax Stage 1 integration assessment;
-- implemented Webdog Website Watch Stage 1 integration assessment;
-- third-party notices with Webdog revision and MIT attribution;
-- automated viability review;
-- governance and safety boundaries;
-- product provenance and ownership policy;
-- canonical glossary;
-- open decisions register;
-- restart handoff;
-- user guides for Product and ICP, Signals, Website Watch, Campaigns and Studio, Repository Growth, Video Production, Calendar, manual activation, outcomes, and learning.
-
-## Foundational authority
-
-Viable preserves:
-
-- local-first workspace authority;
-- provider-neutral capability adapters;
-- Product Core claim authority;
-- reviewed evidence and explicit partial failure;
-- named human approval for externally consequential action;
-- marketability-loop authority with bounded Event Intelligence;
-- Product Core ownership of canonical ICP hypotheses;
-- generated-analysis separation;
-- distinct schedule, approval, export, delivery, provider-verification, and outcome states;
-- explicit unavailable, partial, delayed, not-collected, and verified-zero states.
-
-Repository Growth, Video Production, Calendar and Learning, and Website Watch implement these boundaries without creating duplicate authority.
-
-## Workstream coverage
-
-| Workstream | Issue | Automated state |
+| Runtime | Status | Evidence |
 |---|---|---|
-| Sanitized event foundation and migration | #1 | Implemented and closed |
-| Product Truth, ICP Discovery, and Marketability Assessment | #2 | Implemented; human acceptance open |
-| Signals Inbox | #5 | Implemented; human acceptance open |
-| Campaign Brief and Canonical Asset | #6 | Implemented; human acceptance open |
-| Public Repository Growth and Launch | #3 | Implemented; human acceptance open |
-| Video Production and ViMax package prototype | #4 | Stage 1 implemented; actual ViMax execution and human acceptance open |
-| Calendar, Manual Activation, Outcome Capture, and Learning | #7 | Implemented; human acceptance open |
-| Website Watch and Webdog-compatible Signals extension | #29 | Stage 1 implemented and hardened; human acceptance open |
-| Release foundations | #36 | Open |
+| Chromium (desktop) PWA at `http://localhost:4175` | **Supported for dogfood.** Install, service-worker control, IndexedDB authority, backup/delete/restore, offline reload, user-confirmed update, per-tab reload consent, migration, and fail-closed storage are validated by the real-browser smoke on every pull request. | CI `validate` job; PR #126 |
+| Firefox PWA | **Experimental candidate.** Before PR #124 the app did not finish starting in Firefox. Merged #124 now passes the full Playwright Firefox smoke on exact-head validation. No person has dogfooded Firefox yet, so Chromium remains the supported dogfood browser. | PR #124 |
+| WebKit / Safari PWA | **Experimental; Safari support is not claimed.** Merged #124 now starts and completes the Playwright Linux WebKit smoke with four documented limitations. Three reload-related findings are reproduced by app-free controls with no Viable application code: reload after Back across multiple `pushState` entries; offline reload under Playwright's offline emulation; and the user-confirmed service-worker `controllerchange` update reload using production-equivalent cache churn. `navigator.storage.persist()` is also unavailable in that engine. Chromium and Firefox cover the affected contracts. **No real Safari has been tested**, so Safari stays unsupported until a hand test exists. | PR #124 exact head `65fd274`; CI run 37506023154 |
+| Native Tauri (Linux `.deb` build) | **Capability runtime, not the dogfood path.** Builds and packages in CI. Required for the OS credential vault and (when proven) LinkedIn publishing. | Desktop workflow |
 
-Website Watch is a bounded Signals and Market extension, not a seventh foundational slice.
+Persistence rules for dogfood profiles:
 
-## Implemented runtime foundation
+- Use exactly `http://localhost:4175`. Browser storage is origin-bound; `pwa:selfhost` fails rather than moving to another port.
+- An application update replaces the PWA shell, never the IndexedDB workspace.
+- Export a `viable.workspace-backup` before upgrade experiments or destructive testing.
+- The PWA never promises closed-app or exact-time publication. It evaluates the scheduler only while open.
 
-### Shared platform
+## Runtime and persistence foundation
 
-- Tauri 2 desktop shell with Viable identity;
-- local browser-profile persistence for current desktop workflows;
-- atomic local JSON adapters for reusable domain services;
-- named human approval primitive;
-- strict core and desktop TypeScript;
-- deterministic Node tests;
-- Rust formatting and tests;
-- Tauri bundle and Debian package validation;
-- failure-only diagnostics for viability, secrets, dependency audit, compiler surfaces, tests, and coverage.
+### PWA runtime (ADR-0010; PRs #118, #125, #126)
+
+- deterministic static `dist-pwa/` build with manifest, icons, content-hash build identity (`build-info.json`), and SHA-256 build manifest;
+- strict CSP and security headers from one source (`scripts/pwa-security-headers.mjs`); the only external network origin is `https://api.github.com`;
+- versioned service worker that caches the application shell only. It never stores, proxies, or deletes workspace data;
+- **update model:** a new build is announced, never applied silently. Only the person's confirmation activates it, and only the confirming tab reloads. Other open tabs show that the app was updated elsewhere and reload only on their own confirmation. Old shell caches are removed after activation;
+- runtime capability model (`src/runtime/runtime-capabilities.ts`) and a Workspace → Runtime panel that states each capability as available, limited, or unavailable with a reason;
+- `npm run pwa:selfhost` serves the production build at the canonical loopback origin with production headers and fails clearly when the port is occupied.
+
+### Workspace storage authority (PRs #119, #126)
+
+- Authoritative workspace data lives in **IndexedDB** in both the PWA and the native webview, through `DurableKeyValueStorage`. Reads come from a snapshot loaded at startup. Writes commit as atomic, durable transactions. A failed commit reverts the snapshot.
+- Existing `localStorage` data is migrated once and verified; the legacy copy is kept as a recovery source, except that deleting a workspace also removes that workspace's legacy records once the IndexedDB deletion is durable (#36). Legacy copies of workspaces deleted before this change are not purged automatically, because after an IndexedDB eviction they may be the only recovery source.
+- Changes made in one tab reach other open tabs through `BroadcastChannel`.
+- **Fail closed:** whenever the runtime exposes IndexedDB and it cannot be opened, Viable shows a visible error and refuses writes rather than serving a possibly stale `localStorage` copy. `localStorage` is used only where the runtime does not expose IndexedDB at all.
+- All seven workspace stores await a durable commit before reporting success.
+
+### Schema versions, backup, restore, quarantine, deletion (PRs #62, #88, #117, #119)
+
+- every authoritative workspace store writes a versioned envelope; unversioned v0 data remains readable; unsupported future versions are treated as corrupt and quarantinable, never as valid;
+- `viable.workspace-backup` v1: one file covering all seven workspace contexts, secret-field rejection, and a CRC32 integrity checksum (not a signature);
+- restore into an empty profile or replace the current workspace, both through a validated preview and an explicit confirmation;
+- quarantine export of unreadable raw records; destructive deletion is blocked until quarantine has been exported;
+- durable deletion across the seven contexts;
+- recovery points (#36): deletion and replace-current restore require either a downloaded recovery point of exactly the current state (an ordinary backup, refused as stale if the workspace changed afterwards) or an explicit choice to continue without one; Viable keeps no internal copy;
+- browser round trip validated in the smoke: backup → deletion refused without a recovery-point decision → recovery point downloaded → delete (seen by a second open tab) → restore the recovery point into an empty profile → reload.
+
+Product-wide retention defaults and browser evidence for replace-current restore are **not** done yet (#36).
+
+### Native runtime and credential vault (PRs #108, #113)
+
+- Tauri 2 shell; Debian package built and inspected in CI on the pinned Rust 1.88 baseline;
+- native credential vault boundary: provider secrets are stored only through the OS credential store (Linux Secret Service, Windows Credential Manager) behind narrow commands (`credential_capability`, `credential_put`, `credential_has`, `credential_delete`). Secrets never return to JavaScript, workspace data, logs, or exports;
+- in the PWA, the vault and connected publishing are shown as unavailable with the concrete reason (browsers have no OS keychain API; LinkedIn blocks browser-origin requests and requires a native-only PKCE flow or a Client Secret).
+
+## Deterministic publishing foundation (umbrella #97)
+
+| Slice | Issue / PR | State |
+|---|---|---|
+| A. Publication inventory and approval authority | #98 / #104 | Merged and validated |
+| B. Deterministic scheduler and execution ledger | #99 / #105 | Merged and validated |
+| C. Native credential vault boundary | #106 / #108 | Merged and validated |
+| Credential-store contract research | #100 | Closed (decision recorded) |
+| First live provider selection | #101 | Closed: LinkedIn member publishing selected (#107) |
+| D. LinkedIn member publishing proof | #107 / PR #109 | **Implemented on an open draft PR; not live-proven** |
+
+Implemented on `main`:
+
+- publication inventory items bound to exact approved source snapshots, publication policy, and destination;
+- deterministic scheduler with an execution ledger, idempotency keys, explicit `not_dispatched`, `published`, `outcome_unknown`, retryable, and reconnect-required states, and no automatic retry after an ambiguous provider dispatch;
+- a deterministic fake provider for tests only; manual activation remains the fallback for every destination.
+
+PR #109 (LinkedIn member publishing, native-only) is complete enough for its live proof. On 2026-10-06 it was brought onto current `main`. Its provider-connection store now persists through `workspaceStorage` with a durable `commit()` (#119), and the storage contract test discovers every store instead of a fixed list. The one remaining gate is a developer-owned LinkedIn publication using a human-generated token entered only into Viable's native connection UI, with the person's consent. No connected publishing claim is made until that proof exists.
 
 ### Product Core
 
@@ -130,7 +134,7 @@ Website Watch is a bounded Signals and Market extension, not a seventh foundatio
 - provider-neutral sources and source health;
 - provenance, freshness, confidence, and limitations;
 - bounded Event Intelligence import;
-- public GitHub repository metadata and activity evidence;
+- public GitHub repository metadata and activity evidence. Merged #129 fixes the production-default unbound-`fetch` receiver defect in every runtime and adds the narrow native CSP authority required for `https://api.github.com`. Live collection was measured succeeding in Chromium and in the native webview;
 - strict manual JSON import;
 - named review, save, tag, assign, connect, and proposed-work conversion;
 - governed reviewed-signal materialization into Product Core actions, Campaign drafts, Campaign-owned content briefs, Website Watch response planning through Calendar, and existing finding-backed Repository Growth actions;
@@ -247,97 +251,84 @@ The viability gate checks:
 
 ### Coverage
 
-| Metric | Observed during sweep | Enforced floor |
+| Metric | Observed on merged-equivalent acceptance head `3793380` (2026-10-06) | Enforced floor |
 |---|---:|---:|
-| Lines | 88.69% | 85% |
-| Branches | 62.44% | 55% |
-| Functions | 89.81% | 85% |
+| Lines | 88.57% | 85% |
+| Branches | 68.54% | 55% |
+| Functions | 89.79% | 85% |
 
 Coverage floors apply to reusable core source. They do not prove user comprehension or evidence quality.
 
-### Desktop persistence and recovery
 
-All seven desktop stores validate minimum workspace identity and structure before loading authority data.
+### Real-browser and native validation
 
-The runtime now:
+- every pull request runs the full Chromium PWA smoke at the canonical `http://localhost:4175` origin. It covers install, 72 view-to-view transitions with history, Calendar, the runtime panel, IndexedDB commits, backup/delete/restore with a second tab, offline reload, the update contract with a second tab, migration, and both IndexedDB failure paths. Any page error or CSP violation fails it;
+- the Firefox and WebKit matrix runs on pushes to `main` and on manual dispatch, and writes a per-engine capability report;
+- the Desktop workflow runs exact Rust 1.88 formatting and tests, a RustSec advisory gate, clean desktop web compilation, Tauri bundle construction, and Debian package inspection whenever `apps/desktop/**`, `src/**`, or build inputs change.
 
-- rejects malformed, mismatched, or incomplete saved data;
-- preserves the original saved value for recovery or deletion;
-- surfaces storage access, quota, serialization, and incomplete-removal failures;
-- renders a visible startup failure instead of remaining indefinitely busy;
-- renders Campaign and Studio load recovery and retry behavior;
-- preserves Product workspace identity through partial deletion so cleanup can be retried.
+## Open work after convergence
 
-This does not implement schema versions, cross-version migrations, backup, restore, or corruption quarantine.
+| PR / issue | Purpose | State |
+|---|---|---|
+| #109 / #107 | LinkedIn member publishing proof | Implementation is green and mergeable but remains draft until one human-owned live publication with a human-generated token and consent proves the provider path. |
+| #112 / #110 | Discoverability strategy on channel variants | Implementation is green and bounded; hands-on UX review and real-content dogfood remain, sequenced behind the LinkedIn live proof. |
+| #36 | Release foundations | Durable migration/recovery, browser storage durability evidence, operational readiness, and public-release trust remain. Public-hosting work is deferred until external distribution is justified. |
+| #95, #96, #111, #121 | Dependency updates | Triage separately. Do not raise the pinned Rust 1.88 baseline implicitly; #111 requires a deliberate baseline decision. |
 
-### Exact-head evidence
+Merged convergence work: #124 (cross-browser/runtime correctness), #129 (public GitHub reads and native CSP/O5), and #93 (acceptance runbooks/seed/candidate).
 
-PR #35 was validated at `041193349de518e708b8e80378e4de9a9f46d5ad`:
+## Remaining gates
 
-- CI run #118 passed repository viability, working-tree secret scan, npm dependency audit, strict TypeScript, complete deterministic tests, and coverage floors;
-- Desktop run #62 passed exact Rust 1.88 formatting and tests, clean desktop web compilation, Tauri bundle construction, and Debian package inspection.
+### Machine-verifiable blockers for routine local dogfood
 
-Shared `src/**` changes now trigger native validation.
+No known machine-verifiable blocker remains for routine Chromium localhost dogfood. #124 and #129 are merged: the PWA runtime is stable on the supported Chromium path, public GitHub reads work, and startup no longer leaves the main region indefinitely busy.
 
-Signals materialization PRs #66–#70 were each exact-head validated before merge. The final two destination tranches passed CI #222 / Desktop #151 for Website Watch-to-Calendar and CI #224 / Desktop #153 for Repository Growth binding. These automated gates do not satisfy issue #5's remaining human accessibility or unfamiliar-user acceptance requirements.
+This is a dogfood statement, not a public-release statement. #36 still contains release-foundation work.
+
+### Human gates (cannot be satisfied by automation)
+
+- **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. The governed runbooks, deterministic seed, and candidate record are now merged under `docs/acceptance/`; start with `ux-candidate-2026-10-06.md`. The frozen candidate is `fee77c8` (PWA build `1bd83169cbba`), and the record explains when current `main` is application-equivalent.
+- **#107 / #109:** one developer-owned LinkedIn publication with a human-generated token and consent.
+- **#112 / #110:** hands-on review of the discoverability fieldset and dogfood against real content, after a stable LinkedIn path exists.
+- Slice-level acceptance for #2, #3, #4, #5, #6, #7, and #29 is carried by the #81 demo acceptance journeys.
+
+### External / public-release requirements (not dogfood blockers)
+
+- production HTTPS origin, deployment provenance, and rollback (#114 O4, #36);
+- localhost → public-origin migration through the portable backup;
+- supported browser and OS list with minimum versions, from actual tests, including real Safari before any Safari claim;
+- real storage-eviction and quota evidence per supported browser (#114 O3);
+- product-wide retention defaults; browser evidence for replace-current restore;
+- privacy/security review, diagnostic export, vulnerability intake, support and known-limitations documentation;
+- honest labeling and provenance of any direct native artifacts.
+
+### Deliberately deferred
+
+- Microsoft Store MSIX proof of concept for the native runtime (#114 O2);
+- native background or closed-app publishing, until the LinkedIn live proof establishes real timing needs;
+- additional providers, connected metrics, Meta setup, a general setup-executor registry (#97 decision topology);
+- interactive browser provider publishing (decided per provider; LinkedIn excluded);
+- public product/documentation pages for discoverability (#110 fog);
+- `tauri-build` 2.7 / `tauri-utils` 2.10, which require Rust 1.90, until the Rust baseline is deliberately raised (#111).
 
 ## Designed or required but not implemented
 
-- direct social, website, or GitHub publishing adapters;
-- automatic provider delivery verification;
+- live connected publishing for any provider (LinkedIn is implemented on #109 but not live-proven or merged);
+- automatic provider delivery verification beyond the #109 provider response mapping;
 - connected analytics and search imports;
 - local ViMax execution or managed worker;
 - model-provider execution;
-- live Context.dev collection;
-- live Webdog service synchronization;
-- social and search research adapters beyond implemented sources;
+- live Context.dev collection and live Webdog synchronization;
 - authenticated GitHub traffic and write adapters;
 - website crawl, SEO, AEO, and conversion analysis;
-- lead and organization records;
-- sales enablement;
-- automated attribution computation;
-- automatic ICP or Product Core mutation from learning;
-- hosted synchronization and multi-user collaboration;
-- explicit schema versions and cross-version migrations;
-- product-wide backup and restore;
-- product-wide retention and deletion propagation;
-- corruption quarantine and malformed-record export;
-- Rust dependency minimization and advisory scanning;
-- ~~signed installers and publisher identity~~ — no longer a mainstream release prerequisite under ADR-0010 (PWA-first); native signing is optional, and the cert-free Windows-native candidate is a Microsoft Store MSIX proof of concept;
-- tested update, interruption, rollback, upgrade, and uninstall behavior;
-- Windows installer validation;
-- ~~macOS packaging and notarization decision~~ — decided by ADR-0010: macOS is served by the PWA; no native macOS package is planned for ordinary users;
-- operational support readiness.
-
-## Human acceptance gates
-
-Issue #2 remains open for Product and ICP accessibility, unfamiliar-founder completion, and remediation.
-
-Issue #5 remains open for Signals accessibility, unfamiliar-user completion, and remediation.
-
-Issue #6 remains open for Campaigns and Studio accessibility, unfamiliar-user campaign-to-export completion, and remediation.
-
-Issue #3 remains open for Repository Growth accessibility, unfamiliar-maintainer completion, and remediation.
-
-Issue #4 remains open for actual ViMax execution, Windows and Linux ViMax validation, accessibility, unfamiliar-user completion, and remediation.
-
-Issue #7 remains open for Calendar and Analytics accessibility, unfamiliar-user completion through outcome and learning, and remediation.
-
-Issue #29 remains open for Website Watch accessibility, unfamiliar-founder completion through reviewed change and Calendar planning, and remediation.
-
-Automated semantics, coverage, persistence checks, focus styling, responsive styling, reduced motion, deterministic tests, and native packaging are not substitutes for those reviews.
-
-## Immediate next milestones
-
-1. Complete and remediate human acceptance for issues #2, #5, #6, #3, #4, #7, and #29.
-2. Progress release-foundation issue #36.
-3. Use Viable's Product and ICP workflow to select and validate its narrower launch ICP.
-4. Decide the first connected publishing, analytics, search, CRM, Context.dev, and live Webdog adapters from product evidence.
-5. Define Relationships and Sales authority before implementing lead or opportunity records.
-6. Reopen ViMax execution only when the machine-safe contract and operating-system validation plan exist.
+- lead, organization, and sales records;
+- automated attribution computation and automatic ICP or Product Core mutation from learning;
+- hosted synchronization and multi-user collaboration (not planned; ADR-0001);
+- closed-app or exact-time background publication;
+- tested native update, uninstall, and Windows packaging behavior.
 
 ## Release posture
 
-Viable is not ready for an end-user product release.
+Viable is ready for **local Chromium dogfooding** at `http://localhost:4175`, including live public GitHub evidence collection. It is not ready for an end-user release.
 
-The repository supports controlled internal development and automated package validation. A public or commercial release requires human acceptance, tested backup and restore, schema migration, explicit product-wide retention and deletion, dependency hardening, a trusted distribution channel (per ADR-0010: the PWA deployment trust contract; native signing is optional), update and rollback behavior, supported-platform validation, privacy and security review, and operational support documentation.
+A public release requires the human gates above, the external/public-release requirements above, and an explicit supported-platform statement grounded in tests. A public code-signing certificate is not a prerequisite (ADR-0010).

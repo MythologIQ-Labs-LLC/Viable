@@ -10,6 +10,7 @@ import type {
   ManualExportPackage,
 } from "../../../src/campaigns/domain/campaign.js";
 import { CampaignService } from "../../../src/campaigns/services/campaign-service.js";
+import { discoverabilityFieldset, discoverabilityFromForm, discoverabilityPanel } from "./discoverability-view.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
 
@@ -143,6 +144,7 @@ export class CampaignsViewController {
           String(form.get("channel")) as ChannelKind,
           String(form.get("body")),
           lineValues(form.get("constraints")),
+          discoverabilityFromForm(form),
         );
         return "Channel variant created as a draft";
       }
@@ -384,14 +386,14 @@ export class CampaignsViewController {
     return `<section class="panel" aria-labelledby="variant-heading">
       <div class="section-heading"><div><p class="eyebrow">Channel variants</p><h3 id="variant-heading">Adapt and compare</h3></div>${pill(`${workspace.variants.length} variants`)}</div>
       <p class="guidance">Channel variants adapt the approved canonical asset. They do not duplicate or replace canonical authority.</p>
-      ${approvedAssets.length ? `<details><summary>Create a channel variant</summary><form data-form="campaign-create-variant"><label>Approved canonical asset<select name="assetId">${approvedAssets.map((item) => `<option value="${item.id}">${escapeHtml(item.title)}</option>`).join("")}</select></label><label>Channel<select name="channel">${CHANNELS.map((channel) => `<option value="${channel}">${CHANNEL_LABELS[channel]}</option>`).join("")}</select></label><label>Channel body<textarea name="body" required rows="7"></textarea></label><label>Channel constraints, one per line<textarea name="constraints" required rows="4"></textarea></label><button class="primary" type="submit">Create channel variant draft</button></form></details>` : `<div class="state empty"><strong>No approved canonical asset is available.</strong><span>Complete named asset review before adapting channel variants.</span></div>`}
+      ${approvedAssets.length ? `<details><summary>Create a channel variant</summary><form data-form="campaign-create-variant"><label>Approved canonical asset<select name="assetId">${approvedAssets.map((item) => `<option value="${item.id}">${escapeHtml(item.title)}</option>`).join("")}</select></label><label>Channel<select name="channel">${CHANNELS.map((channel) => `<option value="${channel}">${CHANNEL_LABELS[channel]}</option>`).join("")}</select></label><label>Channel body<textarea name="body" required rows="7"></textarea></label><label>Channel constraints, one per line<textarea name="constraints" required rows="4"></textarea></label>${discoverabilityFieldset()}<button class="primary" type="submit">Create channel variant draft</button></form></details>` : `<div class="state empty"><strong>No approved canonical asset is available.</strong><span>Complete named asset review before adapting channel variants.</span></div>`}
       <div class="cards">${workspace.variants.length ? workspace.variants.map((variant) => this.variantCard(variant)).join("") : `<div class="state empty"><strong>No channel variants yet.</strong><span>Create only the variants the approved campaign intends to use.</span></div>`}</div>
       ${this.variantComparison(workspace.variants)}
     </section>`;
   }
 
   private variantCard(variant: ChannelVariant): string {
-    return `<article class="record"><div class="record-top"><h4>${CHANNEL_LABELS[variant.channel]}</h4>${pill(variant.status)}</div><p>${escapeHtml(variant.body)}</p><small>Version ${variant.version} · Constraints: ${escapeHtml(variant.constraints.join(" · "))}</small><div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(variant.status) ? `<button type="button" data-campaign-action="submit-variant" data-id="${variant.id}">Submit for review</button>` : ""}${variant.status === "in_review" ? reviewButtons("variant", variant.id) : ""}</div></article>`;
+    return `<article class="record"><div class="record-top"><h4>${CHANNEL_LABELS[variant.channel]}</h4>${pill(variant.status)}</div><p>${escapeHtml(variant.body)}</p><small>Version ${variant.version} · Constraints: ${escapeHtml(variant.constraints.join(" · "))}</small>${discoverabilityPanel(variant)}<div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(variant.status) ? `<button type="button" data-campaign-action="submit-variant" data-id="${variant.id}">Submit for review</button>` : ""}${variant.status === "in_review" ? reviewButtons("variant", variant.id) : ""}</div></article>`;
   }
 
   private variantComparison(variants: readonly ChannelVariant[]): string {

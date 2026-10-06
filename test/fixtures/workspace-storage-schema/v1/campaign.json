@@ -1,0 +1,1 @@
+{"schemaVersion":1,"workspace":{"workspaceId":"fixture-ws","campaigns":[{"id":"campaign-1","claimIds":["claim-1"],"status":"approved"}],"assets":[{"id":"asset-1"}],"variants":[{"id":"variant-1","approvedBy":"Fixture Owner"}],"exports":[{"id":"export-1"}],"updatedAt":"2026-09-01T12:00:00.000Z"}}

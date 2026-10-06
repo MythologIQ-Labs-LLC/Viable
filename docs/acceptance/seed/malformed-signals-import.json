@@ -1,0 +1,11 @@
+{
+  "signals": [
+    {
+      "kind": "manual",
+      "summary": "A studio owner asked whether Ledgerly can export the close checklist to a spreadsheet. The title is intentionally missing.",
+      "sourceUrl": "https://example.com/community/checklist-export",
+      "observedAt": "2026-09-20T00:00:00.000Z",
+      "confidence": "medium"
+    }
+  ]
+}

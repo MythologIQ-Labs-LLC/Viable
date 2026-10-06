@@ -10,7 +10,9 @@ import type {
   ClaimReference,
   ContentBrief,
 } from "../domain/campaign.js";
+import type { DiscoverabilityBrief } from "../domain/discoverability.js";
 import type { CampaignWorkspaceStore } from "../ports/campaign-workspace-store.js";
+import { normalizeDiscoverabilityBrief } from "./discoverability-assessment.js";
 
 type Clock = () => Date;
 type DescendantState = Readonly<{
@@ -60,6 +62,8 @@ export type ChannelVariantCorrectionInput = Readonly<{
   rationale: string;
   body: string;
   constraints: readonly string[];
+  /** Omit to keep the current brief; pass null to remove it. */
+  discoverability?: DiscoverabilityBrief | null;
 }>;
 
 export class CampaignRevisionService {
@@ -162,13 +166,18 @@ export class CampaignRevisionService {
     const workspace = await this.load(workspaceId);
     const current = required(workspace.variants, variantId, "Channel variant");
     if (current.status === "in_review") throw new Error("A channel variant in review must receive a review decision before it can be revised");
-    const changedFields = variantChangedFields(current, input);
-    if (changedFields.length === 0) throw new Error("Change the channel body or constraints before saving a revision");
+    const discoverability = input.discoverability === undefined
+      ? current.discoverability
+      : input.discoverability === null ? undefined : normalizeDiscoverabilityBrief(input.discoverability);
+    const changedFields = variantChangedFields(current, input, discoverability);
+    if (changedFields.length === 0) throw new Error("Change the channel body, constraints, or discoverability before saving a revision");
     const now = this.clock().toISOString();
     const revision = authorityRevision(current.version, now, input.editor, input.rationale, changedFields, current);
     const status: ChannelVariant["status"] = current.status === "approved" ? "approval_invalidated" : "draft";
+    const { discoverability: _previous, ...withoutDiscoverability } = current;
     const revised: ChannelVariant = stripReview({
-      ...current,
+      ...withoutDiscoverability,
+      ...(discoverability ? { discoverability } : {}),
       body: input.body.trim(),
       constraints: clean(input.constraints),
       version: current.version + 1,
@@ -319,8 +328,12 @@ function contentBriefChangedFields(current: ContentBrief, input: ContentBriefCor
   ]);
 }
 
-function variantChangedFields(current: ChannelVariant, input: ChannelVariantCorrectionInput): string[] {
-  return changed([["body", current.body, input.body.trim()], ["constraints", current.constraints, clean(input.constraints)]]);
+function variantChangedFields(current: ChannelVariant, input: ChannelVariantCorrectionInput, discoverability: DiscoverabilityBrief | undefined): string[] {
+  return changed([
+    ["body", current.body, input.body.trim()],
+    ["constraints", current.constraints, clean(input.constraints)],
+    ["discoverability", current.discoverability ?? null, discoverability ?? null],
+  ]);
 }
 
 function changed(comparisons: readonly (readonly [string, unknown, unknown])[]): string[] {

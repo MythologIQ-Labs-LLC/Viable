@@ -14,7 +14,7 @@ test("desktop workflow loads Product Core through the guarded bootstrap", async 
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /generated\/apps\/desktop\/ui\/bootstrap\.js/);
   assert.doesNotMatch(html, /generated\/apps\/desktop\/ui\/app\.js/);
-  assert.match(bootstrap, /import\("\.\/app\.js"\)\.catch\(renderFailure\)/);
+  assert.match(bootstrap, /import\("\.\/entry\.js"\)\.catch\(renderFailure\)/);
   assert.match(app, /new ProductCoreService/);
   assert.match(app, /service\.createWorkspace/);
   assert.match(app, /service\.updateProductTruth/);

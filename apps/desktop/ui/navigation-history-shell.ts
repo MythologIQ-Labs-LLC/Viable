@@ -23,7 +23,13 @@ function writeHistory(nav: string, mode: "push" | "replace"): void {
   const url = new URL(location.href);
   url.hash = nav;
   const state = { ...(history.state && typeof history.state === "object" ? history.state : {}), viableNav: nav };
-  if (mode === "push") history.pushState(state, "", url); else history.replaceState(state, "", url);
+  // Browsers may refuse rapid history writes (WebKit throws after 100 in 10 s).
+  // Navigation itself already happened; only the history entry is skipped.
+  try {
+    if (mode === "push") history.pushState(state, "", url); else history.replaceState(state, "", url);
+  } catch {
+    /* history entry not recorded; the visible view is unaffected */
+  }
 }
 
 // Only history events (initial load, back/forward, hash edits) navigate from

@@ -1,3 +1,10 @@
+import {
+  CURRENT_WORKSPACE_SCHEMA_VERSION,
+  decodeStoredWorkspace,
+  encodeStoredWorkspace,
+  type RetainedWorkspaceSchemaVersion,
+} from "./workspace-storage-schema.js";
+
 export interface KeyValueStorage {
   readonly length: number;
   key(index: number): string | null;
@@ -11,13 +18,12 @@ export const WORKSPACE_BACKUP_VERSION = 1 as const;
 export const WORKSPACE_QUARANTINE_FORMAT = "viable.workspace-quarantine" as const;
 export const PRODUCT_ACTIVE_KEY = "viable.product-workspace.active";
 /**
- * Storage envelope written by every workspace store adapter
- * (`{ schemaVersion, workspace }`, see apps/desktop/ui/local-storage-json.ts).
- * Must equal CURRENT_WORKSPACE_SCHEMA_VERSION there; a test pins them together.
- * Unwrapped workspace values (never envelopes) are what backups carry, so the
- * backup format stays independent of any runtime's storage representation.
+ * Storage envelope version written by every workspace store adapter and by
+ * restore. Defined once in workspace-storage-schema.ts. Unwrapped workspace
+ * values (never envelopes) are what backups carry, so the backup format stays
+ * independent of any runtime's storage representation.
  */
-export const WORKSPACE_STORAGE_SCHEMA_VERSION = 1;
+export const WORKSPACE_STORAGE_SCHEMA_VERSION = CURRENT_WORKSPACE_SCHEMA_VERSION;
 
 export const WORKSPACE_CONTEXTS = [
   { name: "product", label: "Product Core", prefix: "viable.product-workspace.", identityField: "id", recordFields: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], requiredArrays: ["claims", "evidence", "icpHypotheses", "assessments", "actions"], optionalArrays: [], requiredStrings: ["createdAt", "createdBy"], requiredRecords: ["product"], optionalRecords: ["drafts"] },
@@ -38,6 +44,8 @@ export type WorkspaceContextPreview = Readonly<{
   key: string;
   status: WorkspaceContextStatus;
   recordCount: number;
+  /** Storage schema version of a present context; 0 upgrades on its next save. */
+  schemaVersion?: RetainedWorkspaceSchemaVersion;
   issue?: string;
 }>;
 
@@ -69,10 +77,46 @@ export type WorkspaceImportPreview = Readonly<{
   currentActiveWorkspaceId?: string;
   canRestoreIntoEmptyProfile: boolean;
   canReplaceCurrentWorkspace: boolean;
+  /**
+   * The workspace being replaced holds corrupt or newer-version contexts.
+   * Replacing it would destroy the only copy, so restore requires the raw
+   * data to be exported to quarantine first.
+   */
+  requiresQuarantineExport: boolean;
   conflict?: string;
 }>;
 
 export type RestoreMode = "empty_profile" | "replace_current";
+
+/**
+ * A recovery point is an ordinary `viable.workspace-backup` file of the
+ * workspace exactly as it is immediately before a destructive action. It is
+ * handed to the person as a file they control; Viable never keeps a hidden
+ * internal copy, so deletion still retains nothing inside the app.
+ */
+export type RecoveryPoint = Readonly<{
+  backup: string;
+  /** Fingerprint of the workspace's stored state the backup was taken from. */
+  fingerprint: string;
+}>;
+
+/**
+ * Every destructive action needs an explicit decision: either a recovery point
+ * of the current state was downloaded, or the person chose to continue without
+ * one (for example, to avoid creating another copy of data they want gone).
+ */
+export type RecoveryPointDecision =
+  | Readonly<{ kind: "downloaded"; fingerprint: string }>
+  | Readonly<{ kind: "declined" }>;
+
+export type DestructiveOptions = Readonly<{
+  recoveryPoint?: RecoveryPointDecision;
+}>;
+
+export type RestoreOptions = DestructiveOptions & Readonly<{
+  /** The caller exported the target workspace's corrupt raw data to quarantine. */
+  quarantineExported?: boolean;
+}>;
 
 export type WorkspaceQuarantineEnvelope = Readonly<{
   format: typeof WORKSPACE_QUARANTINE_FORMAT;
@@ -99,8 +143,14 @@ type ParsedContext = Readonly<{
   value: unknown | null;
   status: WorkspaceContextStatus;
   recordCount: number;
+  schemaVersion?: RetainedWorkspaceSchemaVersion;
   issue?: string;
 }>;
+
+/** Every storage key that holds one workspace's scoped records. */
+export function workspaceScopedKeys(workspaceId: string): readonly string[] {
+  return WORKSPACE_CONTEXTS.map((descriptor) => `${descriptor.prefix}${workspaceId}`);
+}
 
 export class WorkspaceLifecycleService {
   constructor(
@@ -119,6 +169,7 @@ export class WorkspaceLifecycleService {
         key: context.key,
         status: context.status,
         recordCount: context.recordCount,
+        ...(context.schemaVersion !== undefined ? { schemaVersion: context.schemaVersion } : {}),
         ...(context.issue ? { issue: context.issue } : {}),
       })),
       totalRecords: contexts.reduce((sum, context) => sum + context.recordCount, 0),
@@ -153,6 +204,26 @@ export class WorkspaceLifecycleService {
       contexts: values,
     };
     return JSON.stringify({ ...payload, checksum: checksum(payload) } satisfies WorkspaceBackupEnvelope, null, 2);
+  }
+
+  /** Fingerprint of everything a destructive action on this workspace would change. */
+  stateFingerprint(workspaceId: string): string {
+    requireWorkspaceId(workspaceId);
+    const keys = workspaceScopedKeys(workspaceId);
+    return checksum({
+      workspaceId,
+      records: keys.map((key) => [key, this.storage.getItem(key)]),
+      active: this.storage.getItem(PRODUCT_ACTIVE_KEY),
+    });
+  }
+
+  /**
+   * Creates a recovery point to download before a destructive action. Blocked
+   * whenever a normal backup is blocked (corrupt context, missing Product Core,
+   * credential-like fields); the person can then only continue by declining.
+   */
+  createRecoveryPoint(workspaceId: string): RecoveryPoint {
+    return { backup: this.createBackup(workspaceId), fingerprint: this.stateFingerprint(workspaceId) };
   }
 
   exportQuarantine(workspaceId: string): string {
@@ -225,6 +296,7 @@ export class WorkspaceLifecycleService {
     const canRestoreIntoEmptyProfile = currentWorkspaceIds.length === 0 && !currentActiveWorkspaceId;
     const otherWorkspaceIds = currentWorkspaceIds.filter((id) => id !== backup.workspaceId);
     const canReplaceCurrentWorkspace = otherWorkspaceIds.length === 0 && (!currentActiveWorkspaceId || currentActiveWorkspaceId === backup.workspaceId);
+    const requiresQuarantineExport = currentWorkspaceIds.includes(backup.workspaceId) && this.inspect(backup.workspaceId).hasCorruptData;
     const conflict = canRestoreIntoEmptyProfile || canReplaceCurrentWorkspace
       ? undefined
       : currentActiveWorkspaceId && currentActiveWorkspaceId !== backup.workspaceId
@@ -236,11 +308,12 @@ export class WorkspaceLifecycleService {
       ...(currentActiveWorkspaceId ? { currentActiveWorkspaceId } : {}),
       canRestoreIntoEmptyProfile,
       canReplaceCurrentWorkspace,
+      requiresQuarantineExport,
       ...(conflict ? { conflict } : {}),
     };
   }
 
-  restoreBackup(text: string, mode: RestoreMode): WorkspaceScopePreview {
+  restoreBackup(text: string, mode: RestoreMode, options: RestoreOptions = {}): WorkspaceScopePreview {
     const preview = this.previewImport(text);
     const { backup } = preview;
     if (mode === "empty_profile" && !preview.canRestoreIntoEmptyProfile) throw new Error("Restore into an empty profile is blocked because workspace data already exists");
@@ -248,6 +321,10 @@ export class WorkspaceLifecycleService {
     if (mode === "replace_current" && preview.currentWorkspaceIds.length === 0 && !preview.currentActiveWorkspaceId) {
       throw new Error("There is no existing workspace to replace; use restore into empty profile instead");
     }
+    if (mode === "replace_current" && preview.requiresQuarantineExport && !options.quarantineExported) {
+      throw new Error("The current workspace contains corrupt or newer-version data that this restore would overwrite. Export quarantine data before replacing it.");
+    }
+    if (mode === "replace_current") this.requireRecoveryPointDecision(backup.workspaceId, options.recoveryPoint, "replacing it from a backup");
 
     const keys = WORKSPACE_CONTEXTS.map((descriptor) => `${descriptor.prefix}${backup.workspaceId}`);
     const snapshot = new Map<string, string | null>(keys.map((key) => [key, this.storage.getItem(key)]));
@@ -257,7 +334,7 @@ export class WorkspaceLifecycleService {
         const key = `${descriptor.prefix}${backup.workspaceId}`;
         const value = backup.contexts[descriptor.name];
         if (value === null) this.storage.removeItem(key);
-        else this.storage.setItem(key, JSON.stringify({ schemaVersion: WORKSPACE_STORAGE_SCHEMA_VERSION, workspace: value }));
+        else this.storage.setItem(key, JSON.stringify(encodeStoredWorkspace(value)));
       }
       this.storage.setItem(PRODUCT_ACTIVE_KEY, backup.workspaceId);
       const result = this.inspect(backup.workspaceId);
@@ -271,10 +348,11 @@ export class WorkspaceLifecycleService {
     }
   }
 
-  deleteWorkspace(workspaceId: string): WorkspaceScopePreview {
+  deleteWorkspace(workspaceId: string, options: DestructiveOptions = {}): WorkspaceScopePreview {
     requireWorkspaceId(workspaceId);
+    this.requireRecoveryPointDecision(workspaceId, options.recoveryPoint, "deleting it");
     const preview = this.inspect(workspaceId);
-    const keys = WORKSPACE_CONTEXTS.map((descriptor) => `${descriptor.prefix}${workspaceId}`);
+    const keys = workspaceScopedKeys(workspaceId);
     const snapshot = new Map<string, string | null>(keys.map((key) => [key, this.storage.getItem(key)]));
     snapshot.set(PRODUCT_ACTIVE_KEY, this.storage.getItem(PRODUCT_ACTIVE_KEY));
     try {
@@ -285,6 +363,13 @@ export class WorkspaceLifecycleService {
     } catch (error) {
       rollback(this.storage, snapshot);
       throw new Error(`Workspace deletion failed and prior local state was restored: ${error instanceof Error ? error.message : "Unknown deletion error"}`);
+    }
+  }
+
+  private requireRecoveryPointDecision(workspaceId: string, decision: RecoveryPointDecision | undefined, action: string): void {
+    if (!decision) throw new Error(`Download a recovery point of this workspace, or explicitly continue without one, before ${action}. Nothing was changed.`);
+    if (decision.kind === "downloaded" && decision.fingerprint !== this.stateFingerprint(workspaceId)) {
+      throw new Error(`This workspace changed after its recovery point was downloaded, so that file would not restore what is about to be lost. Download a new recovery point before ${action}. Nothing was changed.`);
     }
   }
 
@@ -307,11 +392,11 @@ export class WorkspaceLifecycleService {
     const raw = this.storage.getItem(key);
     if (raw === null) return { descriptor, key, raw, value: null, status: "absent", recordCount: 0 };
     try {
-      const value = unwrapStoredWorkspace(JSON.parse(raw), descriptor.label);
+      const { schemaVersion, workspace: value } = unwrapStoredWorkspace(JSON.parse(raw), descriptor.label);
       if (!isRecord(value)) throw new Error("stored value is not an object");
       assertContextIdentity(value, descriptor, workspaceId);
       assertContextShape(value, descriptor);
-      return { descriptor, key, raw, value, status: "present", recordCount: countRecords(value, descriptor) };
+      return { descriptor, key, raw, value, status: "present", recordCount: countRecords(value, descriptor), schemaVersion };
     } catch (error) {
       return {
         descriptor,
@@ -336,17 +421,17 @@ function rollback(storage: KeyValueStorage, snapshot: ReadonlyMap<string, string
   }
 }
 
-// Legacy (v0) values are stored unwrapped; current values carry the envelope.
-// Unsupported versions are reported as corrupt so they can be quarantined,
-// never silently treated as valid or rewritten.
-function unwrapStoredWorkspace(parsed: unknown, label: string): unknown {
-  if (!isRecord(parsed) || !("schemaVersion" in parsed)) return parsed;
-  const version = parsed.schemaVersion;
-  if (version !== WORKSPACE_STORAGE_SCHEMA_VERSION) {
-    throw new Error(`${label} uses unsupported workspace schema version ${String(version)}; this build supports version ${WORKSPACE_STORAGE_SCHEMA_VERSION}`);
+// Retained versions decode through the shared contract. Unsupported versions
+// are reported as corrupt so they can be quarantined, never silently treated
+// as valid, rewritten, or downgraded.
+function unwrapStoredWorkspace(parsed: unknown, label: string): Readonly<{ schemaVersion: RetainedWorkspaceSchemaVersion; workspace: unknown }> {
+  const decoded = decodeStoredWorkspace(parsed);
+  if (decoded.status === "decoded") return decoded;
+  if (decoded.status === "unsupported_future") {
+    throw new Error(`${label} uses unsupported workspace schema version ${decoded.schemaVersion}; this build supports version ${WORKSPACE_STORAGE_SCHEMA_VERSION}`);
   }
-  if (!("workspace" in parsed)) throw new Error(`${label} schema envelope is missing its workspace payload`);
-  return parsed.workspace;
+  if (decoded.reason === "invalid_version") throw new Error(`${label} uses an invalid workspace schema version; this build supports version ${WORKSPACE_STORAGE_SCHEMA_VERSION}`);
+  throw new Error(`${label} schema envelope is missing its workspace payload`);
 }
 
 function countRecords(value: Readonly<Record<string, unknown>>, descriptor: ContextDescriptor): number {
