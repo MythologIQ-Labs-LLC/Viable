@@ -7,6 +7,7 @@ import {
   type WorkspaceImportPreview,
   type WorkspaceScopePreview,
 } from "../../../src/workspace-lifecycle/workspace-lifecycle-service.js";
+import { RETENTION_POLICY } from "../../../src/workspace-lifecycle/retention-policy.js";
 import { decodeStoredWorkspace } from "../../../src/workspace-lifecycle/workspace-storage-schema.js";
 import { purgeLegacyWorkspaceRecords, workspaceStorage } from "./workspace-storage.js";
 
@@ -136,6 +137,23 @@ function recoveryPointControls(workspaceId: string, backupBlocked: boolean, decl
     </fieldset>`;
 }
 
+const DELETION_EFFECT: Readonly<Record<string, string>> = {
+  removed: "Removed",
+  kept: "Kept",
+  not_workspace_data: "Not workspace data",
+};
+
+function retentionSection(): string {
+  return `<section class="panel" aria-labelledby="retention-heading" data-workspace-retention>
+    <div class="section-heading"><div><p class="eyebrow">Retention</p><h3 id="retention-heading">How long Viable keeps data</h3></div></div>
+    <p class="guidance">Viable never deletes or expires data on its own. Data stays until you change, replace, or delete it. Dates such as retention deadlines only make data eligible for a removal that a person runs.</p>
+    <details><summary><strong>Review what is kept, where, and for how long</strong></summary>
+      <table><thead><tr><th scope="col">Data</th><th scope="col">Where</th><th scope="col">Kept until</th><th scope="col">Workspace deletion</th></tr></thead>
+      <tbody>${RETENTION_POLICY.map((rule) => `<tr data-retention-rule="${escapeHtml(rule.id)}"><th scope="row">${escapeHtml(rule.data)}</th><td>${escapeHtml(rule.location)}</td><td>${escapeHtml(rule.keptUntil)}</td><td>${escapeHtml(DELETION_EFFECT[rule.workspaceDeletion])}</td></tr>`).join("")}</tbody></table>
+    </details>
+  </section>`;
+}
+
 function backupSection(preview: WorkspaceScopePreview): string {
   const blocked = preview.hasCorruptData;
   return `<section class="panel" aria-labelledby="backup-heading">
@@ -176,7 +194,7 @@ function deleteSection(preview: WorkspaceScopePreview): string {
   const corruptBlocked = preview.hasCorruptData && quarantineExportedFor !== preview.workspaceId;
   return `<section class="panel danger-zone" aria-labelledby="delete-heading">
     <div class="section-heading"><div><p class="eyebrow">Destructive action</p><h3 id="delete-heading">Delete or reset this workspace</h3></div><span class="pill warning">Local and product-wide</span></div>
-    <p>This removes all seven workspace-scoped contexts and the active workspace pointer from this desktop profile. It does not delete exported backup, recovery-point, or quarantine files outside Viable, application files, or unrelated desktop/browser preferences. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
+    <p>This removes all seven workspace-scoped contexts and the active workspace pointer from this desktop profile. It does not delete exported backup, recovery-point, or quarantine files outside Viable, provider credentials in the operating system's credential vault, application files, or unrelated desktop/browser preferences. See “How long Viable keeps data” for everything Viable stores. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
     <details><summary><strong>Review exact deletion scope</strong><span>${preview.totalRecords} counted local records across the contexts below.</span></summary>${scopeTable(preview)}<h4>Retained outside workspace deletion</h4><ul>${preview.retainedOutsideWorkspace.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><h4>Anonymized</h4><p>None. Workspace-scoped records are deleted rather than converted into anonymous copies.</p></details>
     ${corruptBlocked ? `<section class="state warning"><strong>Deletion is blocked until corrupt raw data is exported.</strong><span>Use “Export quarantine data” above. This avoids destroying the only recoverable copy of unreadable local context.</span></section>` : ""}
     <form data-workspace-delete>
@@ -197,6 +215,7 @@ function renderWorkspace(): void {
     main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>Backup, restore, and local data lifecycle.</h2><p>This desktop profile does not currently contain a Viable workspace.</p></div></header>
       ${actionFailure ? `<section class="state error" role="alert"><strong>Workspace action failed.</strong><span>${escapeHtml(actionFailure)}</span></section>` : ""}
       ${restoreSection()}
+      ${retentionSection()}
       <section class="panel" data-runtime-capabilities aria-labelledby="runtime-heading"></section>`;
     activateNavigation();
     main.focus();
@@ -213,6 +232,7 @@ function renderWorkspace(): void {
     <section class="panel" aria-labelledby="scope-heading"><div class="section-heading"><div><p class="eyebrow">Scope preview</p><h3 id="scope-heading">What belongs to this workspace</h3></div></div>${scopeTable(preview)}</section>
     ${backupSection(preview)}
     ${restoreSection()}
+    ${retentionSection()}
     ${deleteSection(preview)}`;
   activateNavigation();
   main.focus();

@@ -491,6 +491,8 @@ async function run() {
       check(Boolean(storedKey), "workspace data is committed to IndexedDB");
       const engine = await page.locator("[data-storage-engine]").getAttribute("data-storage-engine");
       check(engine === "indexeddb", `runtime panel reports the IndexedDB storage engine (${engine})`);
+      const retentionRules = await page.locator("[data-workspace-retention] [data-retention-rule]").count();
+      check(retentionRules >= 10, `Workspace screen states the retention policy (${retentionRules} rules)`);
 
       // Browser backup -> delete -> restore round trip (#36), observed from a second tab.
       const second = await context.newPage();
