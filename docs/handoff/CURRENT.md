@@ -11,24 +11,26 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `aebe800ccba927baebdf4383425b7eacb0916abc` (PR #128, localhost PWA dogfood documentation)
+- `main` at review: `a33537f5a40605c90f21be4fedc2606467e7853d` (#124 cross-browser/runtime correctness, #129 public GitHub reads/O5, and #93 governed acceptance tooling all merged)
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
 - Human acceptance: **none completed**. #79 is the last open child of the UX umbrella #81
-- Live provider proof: **none completed**. LinkedIn member publishing (#107) is implemented on draft PR #109 and waits on a human-owned live publication
+- Live read-only integration proof: public GitHub collection is proven in Chromium and the native webview by merged #129. Live publishing proof: **none completed**; LinkedIn member publishing (#107) is implemented on draft PR #109 and waits on a human-owned live publication
 - Release foundations: #36, re-scoped by ADR-0010. A code-signing certificate is not a prerequisite
 
 ## Open pull requests and their boundaries
 
 | PR | What it is | What remains |
 |---|---|---|
-| #124 | Firefox/WebKit startup (single module graph), bounded storage load, throttled-history tolerance, `aria-busy` startup fix | Reconciled with `main`; Chromium and Firefox smoke pass. The WebKit reload crash reproduces on an app-free page (`pushState` ×10, Back, reload), so it is an engine defect in Playwright's Linux WebKit, and the smoke diagnoses it in-run. Do not claim Safari support without a hand test on real Safari. |
-| #129 | Public GitHub reads work in every runtime (unbound `fetch`); native CSP `connect-src`/`media-src` (#114 O5) | Exact-head CI and Desktop validation, then merge |
-| #109 | LinkedIn member publishing proof (native-only) | On current `main`, with provider connections persisted through `workspaceStorage` and `commit()`. Remaining: **one human-owned live publication** with a human-generated token and consent. Never substitute mocked evidence. |
-| #112 | Discoverability strategy on channel variants (#110) | Hands-on UX review; real-content dogfood after a stable LinkedIn path. Do not expand. |
-| #93 | Acceptance runbooks, seed `ux-acceptance-seed-v2`, candidate record 2026-10-06 | Merge it, then run the human gates against candidate `fee77c8` (or `main`, once it is shown to be equivalent) |
-| Dependabot #95, #96, #111, #121 | Dependency bumps | #111 needs Rust 1.90 (`tauri-build` 2.7.1) and fails the pinned 1.88 baseline; it waits for a deliberate baseline decision |
+| #109 | LinkedIn member publishing proof (native-only) | Implementation is green and mergeable. Remaining: **one human-owned live publication** with a human-generated token and consent. Never substitute mocked evidence. |
+| #112 | Discoverability strategy on channel variants (#110) | Green, bounded implementation. Hands-on UX review and real-content dogfood remain after the LinkedIn live proof. Do not expand. |
+| Dependabot #95, #96, #111, #121 | Dependency bumps | Triage independently. #111 requires Rust 1.90 (`tauri-build` 2.7.1) and must not raise the pinned 1.88 baseline implicitly. |
+
+Recently merged convergence work:
+- #124: Firefox/WebKit startup, bounded storage load, throttled-history tolerance, and the `aria-busy` startup fix. Chromium and Firefox pass; Playwright Linux WebKit passes with controlled engine/harness limitations. Safari remains unsupported pending a real-Safari hand test.
+- #129: production-default public GitHub reads work in Chromium and native; O5 is resolved with the narrow native CSP required for `api.github.com` and media review.
+- #93: governed human-acceptance runbooks, deterministic seed, and the 2026-10-06 candidate record are now on `main`.
 
 ## Read before acting
 
@@ -40,7 +42,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 6. `docs/architecture/viable-platform.md`
 7. `docs/architecture/content-inventory-and-automated-publishing.md`
 8. `docs/reviews/pwa-runtime-roadmap-review-2026-10-05.md`
-9. `docs/acceptance/` (when present on `main`) for the human acceptance program
+9. `docs/acceptance/` for the human acceptance program
 10. `docs/decisions/open-decisions.md`
 11. the selected GitHub issue and every linked pull request
 
@@ -93,9 +95,9 @@ Viable is not a social scheduler, content generator, event monitor, repository s
 |---|---|---|
 | Sanitized Event Radar migration | #1 | Implemented and closed |
 | Product Truth, ICP, Assessment | #2 | Implemented; human acceptance via #81 journeys |
-| Signals Inbox | #5 | Implemented; live GitHub collection fixed on #129; human acceptance via #81 |
+| Signals Inbox | #5 | Implemented; live GitHub collection fixed by merged #129; human acceptance via #81 |
 | Campaign Brief and Canonical Asset | #6 | Implemented; human acceptance via #81 |
-| Repository Growth and Launch | #3 | Implemented; live GitHub collection fixed on #129; human acceptance via #81 |
+| Repository Growth and Launch | #3 | Implemented; live GitHub collection fixed by merged #129; human acceptance via #81 |
 | Video Production and ViMax package | #4 | Stage 1 implemented; ViMax execution and human acceptance open |
 | Calendar, Activation, Outcomes, Learning | #7 | Implemented; human acceptance via #81 |
 | Website Watch Stage 1 | #29 | Implemented and hardened; human acceptance via #81 |
@@ -103,7 +105,7 @@ Viable is not a social scheduler, content generator, event monitor, repository s
 | Publishing foundation | #97 (#98, #99, #100, #101, #106) | Inventory, scheduler, and vault merged; decisions closed |
 | LinkedIn live proof | #107 / #109 | Implemented on draft; human live proof open |
 | Discoverability | #110 / #112 | Implemented on draft; hands-on review open |
-| PWA runtime | #114 | Foundation, IndexedDB, cross-browser harness, localhost self-host, and update hardening merged; O5 resolved on #129; O2/O3/O4 open or deferred |
+| PWA runtime | #114 | Foundation, IndexedDB, cross-browser harness, localhost self-host, update hardening, and O5 are merged; O2/O3/O4 remain open or deferred |
 | Release foundations | #36 | Open; see the classification in the status record |
 
 Do not restart any of these as unimplemented slices.
@@ -118,15 +120,15 @@ These cannot be completed by automation and must not be marked complete because 
 - unfamiliar-user journeys with recorded participant role, environment, findings, and remediation;
 - the LinkedIn live publication (token and consent are the developer's own).
 
-The acceptance runbooks, the seed, and the current candidate record live under `docs/acceptance/` (PR #93). The facilitator starts at `docs/acceptance/ux-candidate-2026-10-06.md` → **Start here**.
+The acceptance runbooks, deterministic seed, and current candidate record are merged under `docs/acceptance/`. The facilitator starts at `docs/acceptance/ux-candidate-2026-10-06.md` → **Start here**.
 
 ## Next priorities
 
-1. Land #129 and settle #124 so Chromium dogfood has live GitHub evidence and Firefox/WebKit status is truthful.
-2. Run the #79/#81 human acceptance on the pinned candidate, then fix only P0/P1 findings in narrow PRs.
-3. Perform the human-owned LinkedIn live proof on #109's exact validated head.
-4. Progress #36 items that block dogfood. Leave public-hosting work until external distribution is justified.
-5. Only then revisit #112 sequencing, connected metrics, and additional providers.
+1. Run the #79/#81 human acceptance on the governed candidate, then fix only reproducible P0/P1 findings in narrow PRs.
+2. Perform the human-owned LinkedIn live proof on #109's exact validated head.
+3. Progress the remaining #36 durable-storage/recovery and operational-readiness work. Leave public-hosting work until external distribution is justified.
+4. After the LinkedIn proof is stable, complete the #112 hands-on discoverability review and real-content dogfood.
+5. Keep dependency work separate from product convergence; do not raise the Rust baseline accidentally.
 
 No new broad feature tranche precedes these.
 
