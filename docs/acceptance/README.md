@@ -6,7 +6,7 @@ Human acceptance is intentionally separate from deterministic CI, code review, a
 
 ## Current candidate
 
-The current frozen acceptance baseline is documented in [UX candidate 2026-09-25](ux-candidate-2026-09-25.md).
+The current frozen acceptance baseline is [UX candidate 2026-10-06](ux-candidate-2026-10-06.md). Its **Start here** section is the facilitator's entry point. It supersedes [UX candidate 2026-09-25](ux-candidate-2026-09-25.md), which predates the PWA runtime.
 
 Do not silently move an acceptance run to a newer commit. If the candidate changes, record the new commit, validation evidence, reason for the change, and which prior acceptance evidence must be rerun.
 

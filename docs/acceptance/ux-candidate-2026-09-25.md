@@ -1,5 +1,7 @@
 # UX Acceptance Candidate — 2026-09-25
 
+> **Superseded** by [UX candidate 2026-10-06](ux-candidate-2026-10-06.md). This record predates the PWA-first runtime (ADR-0010) and IndexedDB workspace authority. No human acceptance results were recorded against it. It is kept unchanged below as history.
+
 ## Purpose
 
 Freeze one integrated Viable UX baseline for human accessibility and unfamiliar-user acceptance.
