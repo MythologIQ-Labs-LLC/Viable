@@ -220,7 +220,7 @@ jobs:
     # Playwright's matched engine builds. Chromium runs in the validate job on
     # every pull request; this heavier matrix runs automatically only on pushes
     # to main to conserve Actions minutes, and on manual dispatch.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.number == 124)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     # Manual runs also execute the restore/reload reproducer below.
     timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 45 || 20 }}
