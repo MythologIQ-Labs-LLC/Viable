@@ -26,6 +26,8 @@ const served = resolve(process.cwd(), "dist-pwa-smoke");
 const SMOKE_HOST = "localhost";
 const SMOKE_PORT = 4175;
 const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
+// An app-free page used to tell an engine defect from a Viable defect.
+const ENGINE_CONTROL_PATH = "/__engine-control.html";
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -49,6 +51,10 @@ async function browserPath() {
 function startServer() {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
+    if (url.pathname === ENGINE_CONTROL_PATH) {
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }).end("<!doctype html><title>engine control</title><p id=control>engine control</p>");
+      return;
+    }
     const path = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname));
     const file = join(served, path);
     if (!file.startsWith(served + sep)) { response.writeHead(403).end(); return; }
@@ -201,18 +207,58 @@ async function run() {
   console.log(`Engine: ${BROWSER} ${browser.version()}`);
   const context = await browser.newContext();
   context.setDefaultTimeout(15_000);
-  const page = await context.newPage();
   const errors = [];
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-  page.on("dialog", (dialog) => void dialog.accept());
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
-    else if (message.type() === "warning") console.log(`  page warning: ${message.text()}`);
-  });
-  diagnosticPage = page;
-  await page.addInitScript(() => {
-    document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
-  });
+  async function instrumentedPage() {
+    const created = await context.newPage();
+    created.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+    created.on("dialog", (dialog) => void dialog.accept());
+    created.on("console", (message) => {
+      if (message.type() === "error") errors.push(`console: ${message.text()}`);
+      else if (message.type() === "warning") console.log(`  page warning: ${message.text()}`);
+    });
+    await created.addInitScript(() => {
+      document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
+    });
+    diagnosticPage = created;
+    return created;
+  }
+  // Replaced only when an engine defect kills the renderer (see reloadOrEngineDefect).
+  let page = await instrumentedPage();
+
+  // Playwright's Linux WebKit build crashes or hangs its renderer when a page
+  // is reloaded after going Back across several pushState entries. It
+  // reproduces on an app-free page (scripts/pwa-restore-reload-probe.mjs,
+  // CI run 37426515169). When a WebKit reload fails, rerun that app-free
+  // control in a fresh context. Only if the control fails too is the failure
+  // recorded as an engine limitation; the run then continues on a fresh page
+  // of the same profile. Otherwise the original failure stands.
+  async function engineControlFails() {
+    const controlContext = await browser.newContext();
+    try {
+      const control = await controlContext.newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await control.evaluate(async () => {
+        for (let index = 0; index < 10; index += 1) {
+          history.pushState({ index }, "", `#entry-${index}`);
+          await new Promise((resolveWait) => setTimeout(resolveWait, 150));
+        }
+      });
+      await control.goBack();
+      await control.waitForTimeout(300);
+      return await withTimeout(control.reload(), 20_000, "control reload").then(() => false, () => true);
+    } finally {
+      await controlContext.close().catch(() => undefined);
+    }
+  }
+  async function reloadOrEngineDefect(label) {
+    const failure = await withTimeout(reload(page), 20_000, `${label} reload`).then(() => undefined, (error) => error);
+    if (!failure) return;
+    if (BROWSER !== "webkit" || !(await engineControlFails())) throw failure;
+    limitation(`${label}: the reload did not complete (${String(failure.message ?? failure).split("\n")[0]}), and the app-free control (pushState x10, Back, reload) failed the same way in a fresh context. Recorded as a Playwright WebKit engine defect, not a Viable failure; continuing on a fresh page`);
+    await page.close().catch(() => undefined);
+    page = await instrumentedPage();
+    await page.goto(`${origin}/`);
+  }
 
   let support = {};
   const storageAccessReport = {};
@@ -367,11 +413,10 @@ async function run() {
       await page.click('[data-workspace-action="restore-empty"]');
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
       check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
-      // The cross-tab check is done; close the second tab before reloading.
-      // Playwright's Linux WebKit build crashed its renderer when reloading
-      // here with the other same-origin tab still open (two CI runs).
+      // The cross-tab check is done.
       await second.close();
-      await reload(page);
+      // First reload after the navigation section's Back (see reloadOrEngineDefect).
+      await reloadOrEngineDefect("restored workspace reload");
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "restored workspace survives reload");
       await rm(backupPath, { force: true });
