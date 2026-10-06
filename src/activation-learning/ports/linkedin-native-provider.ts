@@ -53,4 +53,8 @@ export interface LinkedInNativeProviderPort {
     memberUrn: string;
     text: string;
   }>): Promise<LinkedInPublishResult>;
+
+  disconnect(input: Readonly<{
+    credentialReference: string;
+  }>): Promise<void>;
 }
