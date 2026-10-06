@@ -569,10 +569,45 @@ async function run() {
       check(true, "new build is announced to the person");
       const stillOld = await page.evaluate(async () => (await (await fetch("build-info.json")).json()).buildId);
       check(stillOld === buildInfo.buildId, "running session keeps its build until the person confirms");
-      await Promise.all([
-        page.waitForEvent("load", { timeout: 15000 }),
-        page.click('[data-pwa-action="update"]'),
-      ]);
+      if (BROWSER === "webkit") {
+        await page.evaluate(() => {
+          const key = "__viableSmokeUpdateEvents";
+          const mark = (event) => {
+            const prior = localStorage.getItem(key);
+            localStorage.setItem(key, prior ? `${prior},${event}` : event);
+          };
+          localStorage.setItem(key, "armed");
+          navigator.serviceWorker.addEventListener("controllerchange", () => mark("controllerchange"));
+          window.addEventListener("beforeunload", () => mark("beforeunload"));
+          window.addEventListener("pagehide", () => mark("pagehide"));
+        });
+      }
+      try {
+        await Promise.all([
+          page.waitForEvent("load", { timeout: 15000 }),
+          page.click('[data-pwa-action="update"]'),
+        ]);
+      } catch (error) {
+        if (BROWSER === "webkit") {
+          let forensic = { events: "unavailable", active: null, waiting: null, contextAlive: false };
+          try {
+            const witness = await context.newPage();
+            await witness.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+            forensic = await witness.evaluate(async () => {
+              const registration = await navigator.serviceWorker.getRegistration("/");
+              return {
+                events: localStorage.getItem("__viableSmokeUpdateEvents") ?? "none",
+                active: registration?.active?.scriptURL ?? null,
+                waiting: registration?.waiting?.scriptURL ?? null,
+                contextAlive: true,
+              };
+            });
+            await witness.close();
+          } catch { /* diagnostic only */ }
+          console.log(`update forensic: ${JSON.stringify(forensic)}`);
+        }
+        throw error;
+      }
       const updated = await page.evaluate(async () => (await (await fetch("build-info.json")).json()).buildId);
       check(updated === nextBuildId, "confirmed update reloads the initiating tab into the new build");
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
