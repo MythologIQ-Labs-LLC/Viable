@@ -4,6 +4,7 @@ import {
   encodeStoredWorkspace,
   type RetainedWorkspaceSchemaVersion,
 } from "./workspace-storage-schema.js";
+import { retainedOutsideWorkspaceDeletion } from "./retention-policy.js";
 
 export interface KeyValueStorage {
   readonly length: number;
@@ -175,11 +176,7 @@ export class WorkspaceLifecycleService {
       totalRecords: contexts.reduce((sum, context) => sum + context.recordCount, 0),
       hasCorruptData: contexts.some((context) => context.status === "corrupt"),
       active: this.storage.getItem(PRODUCT_ACTIVE_KEY) === workspaceId,
-      retainedOutsideWorkspace: [
-        "Viable application files and code",
-        "User-exported backup files outside the app",
-        "Non-workspace operating-system or browser preferences",
-      ],
+      retainedOutsideWorkspace: retainedOutsideWorkspaceDeletion(),
       anonymized: [],
     };
   }

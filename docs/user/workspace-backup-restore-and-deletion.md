@@ -122,6 +122,7 @@ Deletion retains:
 
 - Viable application files and code;
 - backup, recovery-point, or quarantine files the user already exported outside the app;
+- provider credentials in the operating system's credential vault (desktop only), which are keyed to a provider connection rather than a workspace;
 - unrelated operating-system, browser, or desktop-profile preferences that are not Viable workspace contexts;
 - other explicitly distinct workspace IDs, if abnormal local state contains more than one. The Workspace screen shows those IDs separately rather than combining them.
 
@@ -143,9 +144,24 @@ Rollback is best-effort if the underlying storage itself is failing repeatedly. 
 
 ## Retention
 
-Viable does not currently run automatic retention pruning for these workspace stores. Data remains local until the user changes it through an owning workflow, restores a backup over the same workspace, or explicitly deletes/resets the workspace.
+Viable never deletes or expires data on its own. Data stays until you change it in its workflow, replace it from a backup, or delete the workspace. Dates such as a Website Watch retention deadline or a publication-inventory expiry only make something eligible or unavailable; removal is always an action a person runs.
 
-If automatic retention is added later, it must define its own preview, provenance, and recovery rules before it is allowed to remove authority or evidence.
+The Workspace screen shows this policy under **How long Viable keeps data**. Its source is `src/workspace-lifecycle/retention-policy.ts`, and the deletion scope preview derives what deletion keeps from it.
+
+| Rule | Data | Where | Kept until | Workspace deletion |
+| --- | --- | --- | --- | --- |
+| workspace-data | All seven workspace contexts, including histories, ledgers and approvals | This browser profile or desktop app (IndexedDB) | You change, replace or delete it. Nothing expires automatically. | Removed |
+| website-watch-snapshots | Website Watch snapshot payloads and screenshot references | Inside the workspace | Eligible for pruning after the site's retention class: ephemeral 14 days, standard 90 days, extended no deadline. Removed only when a named person runs **Prune expired snapshots** or deletes a payload; the observation record stays. | Removed |
+| active-pointer | Which workspace is active | This browser profile or desktop app | Another workspace becomes active, or this one is deleted. | Removed |
+| legacy-copy | Pre-IndexedDB copy left by the one-time storage upgrade as a recovery source | This browser profile (localStorage) | That workspace is deleted. Copies of workspaces deleted before deletion purged them remain until you clear this site's data in the browser. | Removed |
+| migration-marker | Record that the storage upgrade ran (time and record count only) | This browser profile or desktop app (IndexedDB) | The life of the browser profile, so the upgrade never runs twice. | Kept |
+| exported-files | Backups, recovery points and quarantine exports | Files you downloaded, outside Viable | You delete the files. Viable cannot see or remove them. | Kept |
+| provider-credentials | Provider credentials (desktop only) | The operating system's credential vault; never workspace data, browser storage or backups | Removed from the operating system's credential vault. They are keyed to a provider connection, not a workspace. | Kept |
+| app-shell-cache | Viable's own code and assets for offline use (browser app only) | Service-worker cache | You confirm an update; the previous build's cache is then removed. Contains no workspace data. | Not workspace data |
+| draft-step-position | Which step of a multi-step draft a tab was showing | This browser tab (sessionStorage) | The tab is closed. Contains no draft content. | Not workspace data |
+| browser-eviction | Everything Viable stores in a browser | This browser profile | The browser may clear site data under storage pressure unless it has granted persistent storage. Ask it to keep Viable data from the Workspace screen, and keep backups. | Not workspace data |
+
+Any future automatic retention must define its own preview, provenance and recovery rules, and update this policy, before it may remove authority or evidence.
 
 ## Demo and sample workspaces
 
