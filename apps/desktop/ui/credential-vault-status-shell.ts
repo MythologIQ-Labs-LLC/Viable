@@ -61,9 +61,15 @@ function render(): void {
     hero?.insertAdjacentElement("afterend", section);
     if (!hero) workspace.prepend(section);
   }
-  section.className = `state ${copy.tone}`;
-  section.setAttribute("role", capability.canStoreSecrets ? "status" : "alert");
-  section.innerHTML = `<strong>${escapeHtml(copy.heading)}</strong><span>${escapeHtml(copy.detail)}</span>`;
+  // render() runs from a subtree MutationObserver on #main. Writing identical
+  // markup would itself mutate #main and re-trigger the observer forever, so
+  // only touch the DOM when the rendered state actually changes.
+  const className = `state ${copy.tone}`;
+  const role = capability.canStoreSecrets ? "status" : "alert";
+  const html = `<strong>${escapeHtml(copy.heading)}</strong><span>${escapeHtml(copy.detail)}</span>`;
+  if (section.className !== className) section.className = className;
+  if (section.getAttribute("role") !== role) section.setAttribute("role", role);
+  if (section.innerHTML !== html) section.innerHTML = html;
 }
 
 async function refresh(): Promise<void> {

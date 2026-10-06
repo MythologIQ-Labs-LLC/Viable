@@ -1,5 +1,6 @@
 import type { CampaignWorkspace } from "../../../src/campaigns/domain/campaign.js";
 import type { CampaignWorkspaceStore } from "../../../src/campaigns/ports/campaign-workspace-store.js";
+import { workspaceStorage } from "./workspace-storage.js";
 import { readWorkspaceJson, writeWorkspaceJson } from "./local-storage-json.js";
 
 const PREFIX = "viable.campaign-workspace.";
@@ -7,7 +8,7 @@ const PREFIX = "viable.campaign-workspace.";
 export class LocalStorageCampaignWorkspaceStore implements CampaignWorkspaceStore {
   async load(workspaceId: string): Promise<CampaignWorkspace> {
     return readWorkspaceJson<CampaignWorkspace>(
-      localStorage,
+      workspaceStorage,
       `${PREFIX}${workspaceId}`,
       "Campaign workspace",
       { field: "workspaceId", expected: workspaceId },
@@ -23,6 +24,7 @@ export class LocalStorageCampaignWorkspaceStore implements CampaignWorkspaceStor
   }
 
   async save(workspace: CampaignWorkspace): Promise<void> {
-    writeWorkspaceJson(localStorage, `${PREFIX}${workspace.workspaceId}`, "Campaign workspace", workspace);
+    writeWorkspaceJson(workspaceStorage, `${PREFIX}${workspace.workspaceId}`, "Campaign workspace", workspace);
+    await workspaceStorage.commit();
   }
 }

@@ -303,10 +303,10 @@ Signals materialization PRs #66–#70 were each exact-head validated before merg
 - product-wide retention and deletion propagation;
 - corruption quarantine and malformed-record export;
 - Rust dependency minimization and advisory scanning;
-- signed installers and publisher identity;
+- ~~signed installers and publisher identity~~ — no longer a mainstream release prerequisite under ADR-0010 (PWA-first); native signing is optional, and the cert-free Windows-native candidate is a Microsoft Store MSIX proof of concept;
 - tested update, interruption, rollback, upgrade, and uninstall behavior;
 - Windows installer validation;
-- macOS packaging and notarization decision;
+- ~~macOS packaging and notarization decision~~ — decided by ADR-0010: macOS is served by the PWA; no native macOS package is planned for ordinary users;
 - operational support readiness.
 
 ## Human acceptance gates
@@ -340,4 +340,4 @@ Automated semantics, coverage, persistence checks, focus styling, responsive sty
 
 Viable is not ready for an end-user product release.
 
-The repository supports controlled internal development and automated package validation. A public or commercial release requires human acceptance, tested backup and restore, schema migration, explicit product-wide retention and deletion, dependency hardening, signed installers, update and rollback behavior, supported-platform validation, privacy and security review, and operational support documentation.
+The repository supports controlled internal development and automated package validation. A public or commercial release requires human acceptance, tested backup and restore, schema migration, explicit product-wide retention and deletion, dependency hardening, a trusted distribution channel (per ADR-0010: the PWA deployment trust contract; native signing is optional), update and rollback behavior, supported-platform validation, privacy and security review, and operational support documentation.

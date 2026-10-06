@@ -1,5 +1,6 @@
 import type { RepositoryGrowthWorkspace } from "../../../src/repository-growth/domain/repository-growth.js";
 import type { RepositoryGrowthStore } from "../../../src/repository-growth/ports/repository-growth-store.js";
+import { workspaceStorage } from "./workspace-storage.js";
 import { readWorkspaceJson, writeWorkspaceJson } from "./local-storage-json.js";
 
 const PREFIX = "viable.repository-growth.";
@@ -7,7 +8,7 @@ const PREFIX = "viable.repository-growth.";
 export class LocalStorageRepositoryGrowthStore implements RepositoryGrowthStore {
   async load(workspaceId: string): Promise<RepositoryGrowthWorkspace> {
     return readWorkspaceJson<RepositoryGrowthWorkspace>(
-      localStorage,
+      workspaceStorage,
       `${PREFIX}${workspaceId}`,
       "Repository Growth workspace",
       { field: "workspaceId", expected: workspaceId },
@@ -25,6 +26,7 @@ export class LocalStorageRepositoryGrowthStore implements RepositoryGrowthStore 
   }
 
   async save(workspace: RepositoryGrowthWorkspace): Promise<void> {
-    writeWorkspaceJson(localStorage, `${PREFIX}${workspace.workspaceId}`, "Repository Growth workspace", workspace);
+    writeWorkspaceJson(workspaceStorage, `${PREFIX}${workspace.workspaceId}`, "Repository Growth workspace", workspace);
+    await workspaceStorage.commit();
   }
 }

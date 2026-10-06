@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-pwa/
+pwa-smoke-report-*.json
 .viable/
 *.log
 .DS_Store

@@ -33,7 +33,9 @@ function activateNavigation(): void {
   }
   activate(analytics, "analytics", "Analytics");
   for (const button of nav.querySelectorAll<HTMLButtonElement>("button")) {
-    if (page && button.dataset.nav !== page && ["calendar", "analytics"].includes(button.dataset.nav ?? "")) button.setAttribute("aria-current", "false");
+    // Exactly one navigation item may be current; other shells' buttons
+    // (Home, Product, ...) must not stay marked while Calendar/Analytics is open.
+    if (page && button.dataset.nav && button.dataset.nav !== page && button.getAttribute("aria-current") !== "false") button.setAttribute("aria-current", "false");
   }
 }
 
