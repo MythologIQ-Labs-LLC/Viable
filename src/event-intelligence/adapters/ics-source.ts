@@ -1,6 +1,7 @@
 import type { EventCandidate } from "../domain/event.js";
 import type { SourceOutcome } from "../domain/source-outcome.js";
 import type { EventSource } from "../ports/event-source.js";
+import { globalFetch } from "../../runtime/global-fetch.js";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -63,7 +64,7 @@ export class IcsEventSource implements EventSource {
   constructor(
     readonly id: string,
     private readonly url: string,
-    private readonly fetcher: FetchLike = fetch,
+    private readonly fetcher: FetchLike = globalFetch,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
