@@ -20,6 +20,13 @@ requireCondition(packageJson.engines?.node === ">=22", "The declared Node runtim
 requireCondition(rustVersion === "1.88", "Cargo.toml rust-version must remain synchronized with the validated minimum toolchain");
 requireCondition(packageJson.scripts?.build?.includes("clean:core"), "Core builds must remove stale output before compilation");
 requireCondition(packageJson.scripts?.["desktop:web"]?.includes("clean:desktop"), "Desktop web builds must remove stale output before compilation");
+requireCondition(packageJson.scripts?.["pwa:serve"] === "node scripts/serve-pwa.mjs", "PWA serve command must use the checked-in stable localhost server");
+requireCondition(packageJson.scripts?.["pwa:selfhost"] === "npm run pwa:build && npm run pwa:serve", "PWA self-host command must build before serving the production shell");
+execFileSync(process.execPath, ["--check", "scripts/serve-pwa.mjs"], { cwd: root, stdio: "pipe" });
+const localPwaServer = await read("scripts/serve-pwa.mjs");
+requireCondition(localPwaServer.includes('const HOST = "localhost";'), "PWA self-host server must use the canonical localhost hostname");
+requireCondition(localPwaServer.includes("const PORT = 4175;"), "PWA self-host server must stay on canonical port 4175");
+requireCondition(localPwaServer.includes("EADDRINUSE") && localPwaServer.includes("will not silently move to another origin"), "PWA self-host server must fail closed when the canonical port is busy");
 
 const gitignore = await read(".gitignore");
 requireCondition(gitignore.split(/\r?\n/).includes("dist/"), "dist must remain ignored");
@@ -123,4 +130,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, pinned actions, CSP, ${storageFiles.length} versioned local stores, TypeScript suppression, test focus, and Markdown links.`);
+console.log(`Repository viability checks passed across versions, build hygiene, workflow coverage, pinned actions, CSP, stable localhost PWA serving, ${storageFiles.length} versioned local stores, TypeScript suppression, test focus, and Markdown links.`);
