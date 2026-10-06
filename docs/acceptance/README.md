@@ -10,6 +10,10 @@ The current frozen acceptance baseline is documented in [UX candidate 2026-09-25
 
 Do not silently move an acceptance run to a newer commit. If the candidate changes, record the new commit, validation evidence, reason for the change, and which prior acceptance evidence must be rerun.
 
+## Starting seed
+
+Restore the canonical synthetic workspace [`ux-acceptance-seed-v2`](seed/README.md) before every participant run. Its README lists the inventory, how to restore and reset it, the deliberate failure fixture, and its known limitations.
+
 ## Acceptance tracks
 
 ### Accessibility and recovery

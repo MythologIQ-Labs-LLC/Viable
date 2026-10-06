@@ -1,0 +1,973 @@
+{
+  "format": "viable.workspace-backup",
+  "version": 1,
+  "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+  "createdAt": "2026-10-01T12:00:00.000Z",
+  "contexts": {
+    "product": {
+      "id": "ledgerly-ux-acceptance-seed-v2",
+      "createdAt": "2026-09-01T14:00:00.000Z",
+      "createdBy": "Morgan Reyes",
+      "product": {
+        "identity": {
+          "name": "Ledgerly",
+          "description": "A bookkeeping assistant for independent creative studios that matches bank-feed transactions to receipts and prepares a month-end close checklist.",
+          "lifecycle": "private_beta",
+          "supportedEnvironments": [
+            "Web browser (desktop)",
+            "Installable web app"
+          ]
+        },
+        "capabilities": [
+          "Suggests matches between imported bank-feed transactions and uploaded receipts",
+          "Builds a month-end close checklist from unmatched items",
+          "Exports a reconciliation summary for the studio's accountant"
+        ],
+        "limitations": [
+          "Does not file taxes or replace an accountant",
+          "Bank feeds are imported from CSV files; there is no live bank connection",
+          "Receipt matching still needs human confirmation"
+        ],
+        "positioning": "Ledgerly helps small creative studios close their books each month without a dedicated bookkeeper.",
+        "alternatives": [
+          "Spreadsheet reconciliation",
+          "General-purpose accounting suites",
+          "Outsourced monthly bookkeeping"
+        ],
+        "differentiation": [
+          "Built around project-based studio spending",
+          "Close checklist instead of a full ledger"
+        ],
+        "pricing": [
+          "Private beta: free for invited studios"
+        ],
+        "packaging": [
+          "One workspace per studio"
+        ],
+        "offers": [
+          "Guided first month-end close with a Ledgerly specialist"
+        ],
+        "callsToAction": [
+          "Join the private beta waitlist"
+        ],
+        "brandVoice": [
+          "Plain, calm, and specific",
+          "No promises about tax outcomes"
+        ],
+        "terminology": {
+          "close": "The month-end reconciliation of transactions and receipts"
+        },
+        "accessibilityConstraints": [
+          "All screenshots need alt text",
+          "No information conveyed by colour alone"
+        ],
+        "revision": 2,
+        "updatedAt": "2026-09-02T15:00:00.000Z",
+        "updatedBy": "Morgan Reyes",
+        "history": [
+          {
+            "revision": 1,
+            "changedAt": "2026-09-02T15:00:00.000Z",
+            "changedBy": "Morgan Reyes",
+            "rationale": "First complete product truth after the private beta kickoff.",
+            "changedFields": [
+              "capabilities",
+              "limitations",
+              "positioning",
+              "alternatives",
+              "differentiation",
+              "pricing",
+              "packaging",
+              "offers",
+              "callsToAction",
+              "brandVoice",
+              "terminology",
+              "accessibilityConstraints"
+            ],
+            "snapshot": "{\"identity\":{\"name\":\"Ledgerly\",\"description\":\"A bookkeeping assistant for independent creative studios that matches bank-feed transactions to receipts and prepares a month-end close checklist.\",\"lifecycle\":\"private_beta\",\"supportedEnvironments\":[\"Web browser (desktop)\",\"Installable web app\"]},\"capabilities\":[],\"limitations\":[],\"positioning\":\"\",\"alternatives\":[],\"differentiation\":[],\"pricing\":[],\"packaging\":[],\"offers\":[],\"callsToAction\":[],\"brandVoice\":[],\"terminology\":{},\"accessibilityConstraints\":[],\"revision\":1,\"updatedAt\":\"2026-09-01T14:00:00.000Z\",\"updatedBy\":\"Morgan Reyes\"}"
+          }
+        ]
+      },
+      "claims": [
+        {
+          "statement": "Ledgerly suggests receipt matches for most imported bank-feed transactions; a person confirms each match.",
+          "evidenceIds": [
+            "evidence-2"
+          ],
+          "prohibitedContexts": [
+            "github_release"
+          ],
+          "rationale": "Private beta usage shows most transactions receive a confirmed suggested match.",
+          "id": "claim-1",
+          "revision": 2,
+          "status": "approved",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-04T11:00:00.000Z"
+        },
+        {
+          "statement": "Studios finish their month-end close in a single afternoon with Ledgerly.",
+          "evidenceIds": [
+            "evidence-1"
+          ],
+          "prohibitedContexts": [],
+          "rationale": "Interviews describe the current pain, not the post-Ledgerly duration; needs outcome evidence before approval.",
+          "id": "claim-2",
+          "revision": 1,
+          "status": "proposed"
+        }
+      ],
+      "evidence": [
+        {
+          "title": "Five studio-owner interviews on month-end close",
+          "summary": "Five owners of 3-12 person design studios described spending most of a working day each month matching card transactions to receipts.",
+          "origin": "interview",
+          "observedAt": "2026-08-20T00:00:00.000Z",
+          "freshnessReviewAt": "2027-06-30T00:00:00.000Z",
+          "reviewStatus": "reviewed",
+          "confidence": "medium",
+          "id": "evidence-1",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-04T10:00:00.000Z"
+        },
+        {
+          "title": "Private beta receipt-matching usage",
+          "summary": "Across 14 private beta studios, 71% of imported transactions had a suggested receipt match confirmed by a person within the same week.",
+          "origin": "analytics",
+          "observedAt": "2026-08-31T00:00:00.000Z",
+          "freshnessReviewAt": "2027-06-30T00:00:00.000Z",
+          "reviewStatus": "reviewed",
+          "confidence": "high",
+          "id": "evidence-2",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-04T10:00:01.000Z"
+        },
+        {
+          "title": "Freelancer forum thread about invoice chasing",
+          "summary": "A public thread where solo freelancers say chasing unpaid invoices hurts more than reconciliation. Not yet checked for representativeness.",
+          "origin": "public_source",
+          "sourceRef": "https://example.com/forum/freelancer-invoices",
+          "observedAt": "2026-08-28T00:00:00.000Z",
+          "freshnessReviewAt": "2027-03-31T00:00:00.000Z",
+          "reviewStatus": "suggested",
+          "confidence": "low",
+          "id": "evidence-3"
+        },
+        {
+          "title": "Agency pricing objection notes",
+          "summary": "Sales notes from three agency calls: owners would pay for the close checklist but objected to per-seat pricing.",
+          "origin": "sales",
+          "observedAt": "2026-06-15T00:00:00.000Z",
+          "freshnessReviewAt": "2026-09-20T00:00:00.000Z",
+          "reviewStatus": "reviewed",
+          "confidence": "medium",
+          "id": "evidence-4",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-04T10:00:02.000Z"
+        }
+      ],
+      "icpHypotheses": [
+        {
+          "name": "Independent design studios (3-15 people)",
+          "summary": "Owner-led design studios that pay for projects on shared cards and close their books monthly without a bookkeeper.",
+          "status": "selected",
+          "origin": "human",
+          "reviewStatus": "reviewed",
+          "roles": {
+            "users": [
+              "Studio operations lead"
+            ],
+            "economicBuyers": [
+              "Studio owner"
+            ],
+            "decisionMakers": [
+              "Studio owner"
+            ],
+            "approvers": [],
+            "influencers": [
+              "External accountant"
+            ],
+            "champions": [],
+            "blockers": [],
+            "partners": [],
+            "maintainers": [],
+            "contributors": []
+          },
+          "dimensions": {
+            "problemIntensity": {
+              "rating": 3,
+              "rationale": "Interviewed owners lose most of a working day each month to reconciliation.",
+              "evidenceIds": [
+                "evidence-1"
+              ],
+              "confidence": "medium"
+            },
+            "urgency": {
+              "rating": 2,
+              "rationale": "Pain peaks at month end and before quarterly tax estimates.",
+              "evidenceIds": [
+                "evidence-1"
+              ],
+              "confidence": "medium"
+            },
+            "productFit": {
+              "rating": 3,
+              "rationale": "Beta usage shows most transactions receive a confirmed suggested match.",
+              "evidenceIds": [
+                "evidence-2"
+              ],
+              "confidence": "high"
+            },
+            "timeToValue": {
+              "rating": 3,
+              "rationale": "Value appears in the first close after importing one month of CSV data.",
+              "evidenceIds": [
+                "evidence-2"
+              ],
+              "confidence": "medium"
+            },
+            "access": {
+              "rating": 2,
+              "rationale": "Reachable through design community newsletters and LinkedIn.",
+              "evidenceIds": [],
+              "confidence": "medium"
+            },
+            "proof": {
+              "rating": 2,
+              "rationale": "One reviewed usage metric; no published case study yet.",
+              "evidenceIds": [
+                "evidence-2"
+              ],
+              "confidence": "medium"
+            },
+            "adoptionFriction": {
+              "rating": 2,
+              "rationale": "Needs a monthly CSV export from the bank.",
+              "evidenceIds": [
+                "evidence-1"
+              ],
+              "confidence": "medium"
+            },
+            "commercialViability": {
+              "rating": 2,
+              "rationale": "Owners would pay for the checklist but object to per-seat pricing.",
+              "evidenceIds": [
+                "evidence-4"
+              ],
+              "confidence": "medium"
+            },
+            "retentionPotential": {
+              "rating": 3,
+              "rationale": "Monthly close is a recurring job.",
+              "evidenceIds": [
+                "evidence-1"
+              ],
+              "confidence": "medium"
+            },
+            "strategicFit": {
+              "rating": 3,
+              "rationale": "Matches the project-based spending model Ledgerly is built around.",
+              "evidenceIds": [],
+              "confidence": "medium"
+            },
+            "evidenceQuality": {
+              "rating": 2,
+              "rationale": "Small interview sample plus beta analytics.",
+              "evidenceIds": [
+                "evidence-1",
+                "evidence-2"
+              ],
+              "confidence": "medium"
+            }
+          },
+          "disqualifiers": [
+            "Studios with an in-house finance team",
+            "Studios that do not reconcile monthly"
+          ],
+          "antiIcpConditions": [
+            "Needs payroll or tax filing inside the product"
+          ],
+          "assumptions": [
+            "Owners will export a bank CSV each month"
+          ],
+          "contradictions": [
+            "Two interviewed studios already pay an outside bookkeeper and saw less value"
+          ],
+          "evidenceIds": [
+            "evidence-1",
+            "evidence-2"
+          ],
+          "confidence": "medium",
+          "owner": "Morgan Reyes",
+          "nextValidationAction": "Interview three more studios that do not use an outside bookkeeper",
+          "changeConditions": [
+            "Fewer than half of new interviewees report monthly reconciliation pain"
+          ],
+          "experiments": [
+            {
+              "id": "experiment-1",
+              "hypothesis": "Studios without an outside bookkeeper report monthly reconciliation pain",
+              "method": "Three 30-minute interviews using the existing interview guide",
+              "owner": "Morgan Reyes",
+              "startsAt": "2026-10-12T00:00:00.000Z",
+              "observationEndsAt": "2026-11-13T00:00:00.000Z",
+              "successCriteria": [
+                "At least two of three describe monthly reconciliation as a top-three admin pain"
+              ],
+              "failureCriteria": [
+                "Fewer than two of three describe monthly reconciliation pain"
+              ],
+              "decisionCriteria": [
+                "Keep or narrow the studio ICP based on the result"
+              ],
+              "status": "planned"
+            }
+          ],
+          "id": "icp-1",
+          "revision": 2,
+          "history": [
+            {
+              "revision": 1,
+              "changedAt": "2026-09-06T10:00:01.000Z",
+              "changedBy": "Sam Okafor",
+              "rationale": "Strongest reviewed evidence and the clearest product fit for the beta.",
+              "snapshot": "{\"name\":\"Independent design studios (3-15 people)\",\"summary\":\"Owner-led design studios that pay for projects on shared cards and close their books monthly without a bookkeeper.\",\"status\":\"candidate\",\"origin\":\"human\",\"reviewStatus\":\"reviewed\",\"roles\":{\"users\":[\"Studio operations lead\"],\"economicBuyers\":[\"Studio owner\"],\"decisionMakers\":[\"Studio owner\"],\"approvers\":[],\"influencers\":[\"External accountant\"],\"champions\":[],\"blockers\":[],\"partners\":[],\"maintainers\":[],\"contributors\":[]},\"dimensions\":{\"problemIntensity\":{\"rating\":3,\"rationale\":\"Interviewed owners lose most of a working day each month to reconciliation.\",\"evidenceIds\":[\"evidence-1\"],\"confidence\":\"medium\"},\"urgency\":{\"rating\":2,\"rationale\":\"Pain peaks at month end and before quarterly tax estimates.\",\"evidenceIds\":[\"evidence-1\"],\"confidence\":\"medium\"},\"productFit\":{\"rating\":3,\"rationale\":\"Beta usage shows most transactions receive a confirmed suggested match.\",\"evidenceIds\":[\"evidence-2\"],\"confidence\":\"high\"},\"timeToValue\":{\"rating\":3,\"rationale\":\"Value appears in the first close after importing one month of CSV data.\",\"evidenceIds\":[\"evidence-2\"],\"confidence\":\"medium\"},\"access\":{\"rating\":2,\"rationale\":\"Reachable through design community newsletters and LinkedIn.\",\"evidenceIds\":[],\"confidence\":\"medium\"},\"proof\":{\"rating\":2,\"rationale\":\"One reviewed usage metric; no published case study yet.\",\"evidenceIds\":[\"evidence-2\"],\"confidence\":\"medium\"},\"adoptionFriction\":{\"rating\":2,\"rationale\":\"Needs a monthly CSV export from the bank.\",\"evidenceIds\":[\"evidence-1\"],\"confidence\":\"medium\"},\"commercialViability\":{\"rating\":2,\"rationale\":\"Owners would pay for the checklist but object to per-seat pricing.\",\"evidenceIds\":[\"evidence-4\"],\"confidence\":\"medium\"},\"retentionPotential\":{\"rating\":3,\"rationale\":\"Monthly close is a recurring job.\",\"evidenceIds\":[\"evidence-1\"],\"confidence\":\"medium\"},\"strategicFit\":{\"rating\":3,\"rationale\":\"Matches the project-based spending model Ledgerly is built around.\",\"evidenceIds\":[],\"confidence\":\"medium\"},\"evidenceQuality\":{\"rating\":2,\"rationale\":\"Small interview sample plus beta analytics.\",\"evidenceIds\":[\"evidence-1\",\"evidence-2\"],\"confidence\":\"medium\"}},\"disqualifiers\":[\"Studios with an in-house finance team\",\"Studios that do not reconcile monthly\"],\"antiIcpConditions\":[\"Needs payroll or tax filing inside the product\"],\"assumptions\":[\"Owners will export a bank CSV each month\"],\"contradictions\":[\"Two interviewed studios already pay an outside bookkeeper and saw less value\"],\"evidenceIds\":[\"evidence-1\",\"evidence-2\"],\"confidence\":\"medium\",\"owner\":\"Morgan Reyes\",\"nextValidationAction\":\"Interview three more studios that do not use an outside bookkeeper\",\"changeConditions\":[\"Fewer than half of new interviewees report monthly reconciliation pain\"],\"experiments\":[],\"id\":\"icp-1\",\"revision\":1,\"history\":[],\"lastReviewedAt\":\"2026-09-06T10:00:00.000Z\"}"
+            }
+          ],
+          "lastReviewedAt": "2026-09-06T10:00:01.000Z"
+        },
+        {
+          "name": "Solo freelance creatives",
+          "summary": "Individual illustrators and photographers who track income and expenses alone.",
+          "status": "candidate",
+          "origin": "human",
+          "reviewStatus": "suggested",
+          "roles": {
+            "users": [
+              "Freelancer"
+            ],
+            "economicBuyers": [
+              "Freelancer"
+            ],
+            "decisionMakers": [
+              "Freelancer"
+            ],
+            "approvers": [],
+            "influencers": [],
+            "champions": [],
+            "blockers": [],
+            "partners": [],
+            "maintainers": [],
+            "contributors": []
+          },
+          "dimensions": {
+            "problemIntensity": {
+              "rating": 2,
+              "rationale": "Forum thread suggests invoicing pain outweighs reconciliation pain.",
+              "evidenceIds": [
+                "evidence-3"
+              ],
+              "confidence": "low"
+            },
+            "urgency": {
+              "rating": 1,
+              "rationale": "Urgency is seasonal around tax deadlines.",
+              "evidenceIds": [
+                "evidence-3"
+              ],
+              "confidence": "low"
+            },
+            "productFit": {
+              "rating": 1,
+              "rationale": "Ledgerly does not chase invoices.",
+              "evidenceIds": [],
+              "confidence": "low"
+            },
+            "timeToValue": {
+              "rating": 2,
+              "rationale": "Small transaction volume means a quick first close.",
+              "evidenceIds": [],
+              "confidence": "low"
+            },
+            "access": {
+              "rating": 3,
+              "rationale": "Large, visible online communities.",
+              "evidenceIds": [
+                "evidence-3"
+              ],
+              "confidence": "low"
+            },
+            "proof": {
+              "rating": 1,
+              "rationale": "Only unreviewed public-source evidence so far.",
+              "evidenceIds": [
+                "evidence-3"
+              ],
+              "confidence": "low"
+            },
+            "adoptionFriction": {
+              "rating": 2,
+              "rationale": "Many use personal accounts mixed with business spending.",
+              "evidenceIds": [],
+              "confidence": "low"
+            },
+            "commercialViability": {
+              "rating": 1,
+              "rationale": "Low willingness to pay suggested by the thread.",
+              "evidenceIds": [
+                "evidence-3"
+              ],
+              "confidence": "low"
+            },
+            "retentionPotential": {
+              "rating": 2,
+              "rationale": "Recurring need, but may churn after tax season.",
+              "evidenceIds": [],
+              "confidence": "low"
+            },
+            "strategicFit": {
+              "rating": 1,
+              "rationale": "Pulls the roadmap toward invoicing.",
+              "evidenceIds": [],
+              "confidence": "low"
+            },
+            "evidenceQuality": {
+              "rating": 1,
+              "rationale": "Single unreviewed public thread.",
+              "evidenceIds": [
+                "evidence-3"
+              ],
+              "confidence": "low"
+            }
+          },
+          "disqualifiers": [
+            "Needs invoicing or payment collection"
+          ],
+          "antiIcpConditions": [
+            "Mixes personal and business spending in one account"
+          ],
+          "assumptions": [
+            "Freelancers reconcile at least quarterly"
+          ],
+          "contradictions": [],
+          "evidenceIds": [
+            "evidence-3"
+          ],
+          "confidence": "low",
+          "owner": "Morgan Reyes",
+          "nextValidationAction": "Review the forum evidence, then decide whether to compare this audience with the studio ICP",
+          "changeConditions": [
+            "Reviewed evidence shows reconciliation pain comparable to studios"
+          ],
+          "experiments": [],
+          "id": "icp-2",
+          "revision": 1,
+          "history": []
+        }
+      ],
+      "assessments": [],
+      "actions": [
+        {
+          "source": "product_gap",
+          "sourceId": "claim-1",
+          "title": "Publish a studio pricing page that avoids per-seat pricing",
+          "owner": "Morgan Reyes",
+          "dueAt": "2026-10-30T17:00:00.000Z",
+          "kind": "action",
+          "verification": "Pricing page draft reviewed against the agency pricing objection notes",
+          "id": "readiness-action-1",
+          "status": "open"
+        }
+      ]
+    },
+    "campaign": {
+      "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+      "campaigns": [
+        {
+          "id": "campaign-1",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "title": "Close the month in an afternoon",
+          "objective": "Grow the private beta waitlist with owner-led design studios",
+          "primaryOutcome": "Private beta waitlist sign-ups from studio owners",
+          "primaryAudience": "Independent design studios (3-15 people)",
+          "audienceKind": "selected_icp",
+          "icpHypothesisId": "icp-1",
+          "problem": "Month-end reconciliation takes most of a working day for small studios.",
+          "trigger": "The end of the month and the run-up to quarterly tax estimates.",
+          "offer": "A guided first month-end close with a Ledgerly specialist",
+          "messageHierarchy": [
+            "Receipt matching is suggested, you confirm",
+            "A close checklist instead of a full ledger"
+          ],
+          "proof": [
+            "Private beta receipt-matching usage"
+          ],
+          "claimReferences": [
+            {
+              "claimId": "claim-1",
+              "claimRevision": 2,
+              "statement": "Ledgerly suggests receipt matches for most imported bank-feed transactions; a person confirms each match.",
+              "evidenceIds": [
+                "evidence-2"
+              ]
+            }
+          ],
+          "evidenceIds": [
+            "evidence-2",
+            "evidence-1"
+          ],
+          "callToAction": "Join the private beta waitlist",
+          "channels": [
+            "linkedin",
+            "website"
+          ],
+          "assetPlan": [
+            "One canonical announcement",
+            "LinkedIn post",
+            "Website announcement"
+          ],
+          "owner": "Morgan Reyes",
+          "successMeasures": [
+            "Waitlist sign-ups attributed to the announcement",
+            "Demo requests from studios"
+          ],
+          "dependencies": [
+            "Approved product screenshot with alt text"
+          ],
+          "version": 1,
+          "status": "approved",
+          "createdAt": "2026-09-09T10:00:00.000Z",
+          "updatedAt": "2026-09-09T15:00:00.000Z",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-09T15:00:00.000Z",
+          "reviewNote": "Audience and claim match the reviewed Product Core authority."
+        }
+      ],
+      "assets": [
+        {
+          "id": "asset-1",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "campaignId": "campaign-1",
+          "title": "Month-end close announcement",
+          "audience": "Independent design studios (3-15 people)",
+          "claimReferences": [
+            {
+              "claimId": "claim-1",
+              "claimRevision": 2,
+              "statement": "Ledgerly suggests receipt matches for most imported bank-feed transactions; a person confirms each match.",
+              "evidenceIds": [
+                "evidence-2"
+              ]
+            }
+          ],
+          "evidenceIds": [
+            "evidence-2",
+            "evidence-1"
+          ],
+          "rights": [
+            "Copy written by the Ledgerly team",
+            "Screenshot from the Ledgerly beta using synthetic data"
+          ],
+          "accessibilityRequirements": [
+            "Screenshot alt text describes the close checklist",
+            "Link text names its destination"
+          ],
+          "disclosureRequirements": [
+            "State that Ledgerly is in private beta"
+          ],
+          "origin": "human",
+          "owner": "Morgan Reyes",
+          "versions": [
+            {
+              "version": 1,
+              "body": "Ledgerly is opening its private beta to small design studios. Import your bank CSV, confirm the receipt matches Ledgerly suggests, and work through a short close checklist. Join the waitlist for a guided first close.",
+              "changedAt": "2026-09-10T10:00:00.000Z",
+              "changedBy": "Morgan Reyes",
+              "changeNote": "Initial canonical version"
+            }
+          ],
+          "comments": [],
+          "status": "approved",
+          "createdAt": "2026-09-10T10:00:00.000Z",
+          "updatedAt": "2026-09-10T16:00:00.000Z",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-10T16:00:00.000Z",
+          "reviewNote": "Claim wording matches the approved Product Core claim."
+        }
+      ],
+      "variants": [
+        {
+          "id": "variant-1",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "canonicalAssetId": "asset-1",
+          "channel": "linkedin",
+          "body": "Small studio, big month-end pile of receipts? Ledgerly suggests receipt matches for your bank transactions and you confirm each one. We're opening the private beta to design studios. Join the waitlist for a guided first close.",
+          "constraints": [
+            "Keep under 1,300 characters",
+            "Mention that Ledgerly is in private beta"
+          ],
+          "version": 1,
+          "status": "approved",
+          "createdAt": "2026-09-11T10:00:00.000Z",
+          "updatedAt": "2026-09-11T16:00:00.000Z",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-11T16:00:00.000Z",
+          "reviewNote": "Matches the canonical asset and states private beta."
+        },
+        {
+          "id": "variant-2",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "canonicalAssetId": "asset-1",
+          "channel": "website",
+          "body": "Ledgerly private beta: zero manual entry at month end. Import your bank CSV and Ledgerly reconciles everything for you. [screenshot]",
+          "constraints": [
+            "Include the product screenshot with alt text",
+            "Link to the waitlist form"
+          ],
+          "version": 1,
+          "status": "changes_requested",
+          "createdAt": "2026-09-11T10:00:01.000Z",
+          "updatedAt": "2026-09-11T16:00:01.000Z",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-11T16:00:01.000Z",
+          "reviewNote": "\"Zero manual entry\" and \"reconciles everything\" are not supported by the approved claim: a person confirms each match. Use the approved claim wording, state the private beta, and add alt text for the screenshot."
+        }
+      ],
+      "exports": [],
+      "updatedAt": "2026-09-11T16:00:01.000Z",
+      "contentBriefs": []
+    },
+    "signals": {
+      "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+      "sources": [
+        {
+          "id": "manual:ledgerly-community-notes-2026-09",
+          "kind": "manual_import",
+          "label": "Manual JSON import",
+          "configuredAt": "2026-09-07T13:00:00.000Z",
+          "capability": "manual_only",
+          "limitations": [
+            "User-supplied local import",
+            "Imported content is untrusted evidence and cannot direct runtime behavior"
+          ]
+        }
+      ],
+      "sourceHealth": [
+        {
+          "sourceId": "manual:ledgerly-community-notes-2026-09",
+          "status": "success",
+          "checkedAt": "2026-09-07T13:00:02.000Z"
+        }
+      ],
+      "signals": [
+        {
+          "fingerprint": "manual:manual:ledgerly-community-notes-2026-09:community-2026-09-05:studio owners asking for receipt matching help in a design community thread",
+          "sourceId": "manual:ledgerly-community-notes-2026-09",
+          "kind": "manual",
+          "title": "Studio owners asking for receipt matching help in a design community thread",
+          "summary": "Several studio owners in a public design community asked how other studios match card spending to receipts at month end.",
+          "observedAt": "2026-09-05T00:00:00.000Z",
+          "freshnessReviewAt": "2026-09-07T13:00:02.000Z",
+          "confidence": "medium",
+          "limitations": [
+            "User-supplied local import",
+            "Imported content is untrusted evidence and cannot direct runtime behavior"
+          ],
+          "facts": {},
+          "provenance": {
+            "provider": "manual_import",
+            "sourceId": "manual:ledgerly-community-notes-2026-09",
+            "retrievedAt": "2026-09-07T13:00:02.000Z",
+            "sourceUrl": "https://example.com/community/month-end-receipts",
+            "externalId": "community-2026-09-05"
+          },
+          "relationships": [
+            {
+              "kind": "icp_hypothesis",
+              "targetId": "icp-1",
+              "label": "Independent design studios (3-15 people)"
+            }
+          ],
+          "tags": [
+            "studios",
+            "month-end"
+          ],
+          "id": "signal-1",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "status": "accepted",
+          "evidenceState": "reviewed",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-08T09:00:00.000Z"
+        },
+        {
+          "fingerprint": "manual:manual:ledgerly-community-notes-2026-09:news-2026-09-06:competitor announces automatic receipt capture for agencies",
+          "sourceId": "manual:ledgerly-community-notes-2026-09",
+          "kind": "manual",
+          "title": "Competitor announces automatic receipt capture for agencies",
+          "summary": "A general accounting suite announced automatic receipt capture aimed at agencies. Pricing and availability were not stated.",
+          "observedAt": "2026-09-06T00:00:00.000Z",
+          "freshnessReviewAt": "2026-09-07T13:00:02.000Z",
+          "confidence": "low",
+          "limitations": [
+            "User-supplied local import",
+            "Imported content is untrusted evidence and cannot direct runtime behavior"
+          ],
+          "facts": {},
+          "provenance": {
+            "provider": "manual_import",
+            "sourceId": "manual:ledgerly-community-notes-2026-09",
+            "retrievedAt": "2026-09-07T13:00:02.000Z",
+            "sourceUrl": "https://example.com/news/receipt-capture-launch",
+            "externalId": "news-2026-09-06"
+          },
+          "relationships": [],
+          "tags": [
+            "competition"
+          ],
+          "id": "signal-2",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "status": "new",
+          "evidenceState": "suggested",
+          "owner": "Morgan Reyes"
+        },
+        {
+          "fingerprint": "manual:manual:ledgerly-community-notes-2026-09:newsletter-2026-09-07:accountant newsletter reminds freelancers of the quarterly estimate deadline",
+          "sourceId": "manual:ledgerly-community-notes-2026-09",
+          "kind": "manual",
+          "title": "Accountant newsletter reminds freelancers of the quarterly estimate deadline",
+          "summary": "An accountant's newsletter reminded freelancers that quarterly estimated payments are due mid-month and recommended reconciling first.",
+          "observedAt": "2026-09-07T00:00:00.000Z",
+          "freshnessReviewAt": "2026-09-07T13:00:02.000Z",
+          "confidence": "low",
+          "limitations": [
+            "User-supplied local import",
+            "Imported content is untrusted evidence and cannot direct runtime behavior",
+            "No validated source URL supplied"
+          ],
+          "facts": {},
+          "provenance": {
+            "provider": "manual_import",
+            "sourceId": "manual:ledgerly-community-notes-2026-09",
+            "retrievedAt": "2026-09-07T13:00:02.000Z",
+            "externalId": "newsletter-2026-09-07"
+          },
+          "relationships": [],
+          "tags": [
+            "freelancers",
+            "deadline"
+          ],
+          "id": "signal-3",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "status": "new",
+          "evidenceState": "suggested"
+        }
+      ],
+      "conversions": [],
+      "updatedAt": "2026-09-08T09:00:03.000Z"
+    },
+    "activation": {
+      "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+      "destinations": [
+        {
+          "id": "destination-1",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "label": "Ledgerly company page on LinkedIn",
+          "channel": "linkedin",
+          "accountReference": "linkedin-page/ledgerly-example",
+          "accountOwner": "Morgan Reyes",
+          "ownershipConfirmed": true,
+          "deliveryMode": "manual_only",
+          "capabilityNotes": [
+            "Manual posting only; Viable holds no account access"
+          ],
+          "rateLimitNotes": "No automated posting.",
+          "retryPolicy": "If posting fails, check the page once, retry manually, and record the failure in Viable.",
+          "dataHandlingNotes": "Post text and one synthetic screenshot only; no customer data.",
+          "status": "active",
+          "createdAt": "2026-09-12T09:00:01.000Z",
+          "updatedAt": "2026-09-12T09:00:01.000Z"
+        },
+        {
+          "id": "destination-2",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "label": "Ledgerly website announcements",
+          "channel": "website",
+          "accountReference": "example.com/announcements",
+          "accountOwner": "Morgan Reyes",
+          "ownershipConfirmed": true,
+          "deliveryMode": "manual_only",
+          "capabilityNotes": [
+            "Published by hand through the website editor"
+          ],
+          "rateLimitNotes": "None.",
+          "retryPolicy": "Republish by hand and record the outcome in Viable.",
+          "dataHandlingNotes": "Public marketing copy only.",
+          "status": "active",
+          "createdAt": "2026-09-12T09:00:02.000Z",
+          "updatedAt": "2026-09-12T09:00:02.000Z"
+        }
+      ],
+      "calendarEntries": [
+        {
+          "id": "calendar-1",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "kind": "external_activation",
+          "title": "LinkedIn launch post: month-end close",
+          "owner": "Morgan Reyes",
+          "startsAt": "2026-09-15T15:00:00.000Z",
+          "endsAt": "2026-09-15T16:00:00.000Z",
+          "timezone": "America/Chicago",
+          "notes": "Post the approved LinkedIn variant by hand from the company page.",
+          "destinationId": "destination-1",
+          "source": {
+            "kind": "campaign_variant",
+            "sourceId": "variant-1",
+            "sourceVersion": 1,
+            "title": "Month-end close announcement",
+            "audience": "Independent design studios (3-15 people)",
+            "channel": "linkedin",
+            "campaignId": "campaign-1",
+            "canonicalAssetId": "asset-1",
+            "claimReferences": [
+              {
+                "claimId": "claim-1",
+                "claimRevision": 2,
+                "statement": "Ledgerly suggests receipt matches for most imported bank-feed transactions; a person confirms each match.",
+                "evidenceIds": [
+                  "evidence-2"
+                ]
+              }
+            ],
+            "evidenceIds": [
+              "evidence-2",
+              "evidence-1"
+            ],
+            "rights": [
+              "Copy written by the Ledgerly team",
+              "Screenshot from the Ledgerly beta using synthetic data"
+            ],
+            "accessibilityRequirements": [
+              "Screenshot alt text describes the close checklist",
+              "Link text names its destination"
+            ],
+            "disclosureRequirements": [
+              "State that Ledgerly is in private beta"
+            ],
+            "body": "Small studio, big month-end pile of receipts? Ledgerly suggests receipt matches for your bank transactions and you confirm each one. We're opening the private beta to design studios. Join the waitlist for a guided first close.",
+            "capturedAt": "2026-09-12T10:00:02.000Z"
+          },
+          "scheduleStatus": "scheduled",
+          "activationStatus": "ready_for_manual_activation",
+          "createdAt": "2026-09-12T10:00:01.000Z",
+          "updatedAt": "2026-09-15T14:00:01.000Z",
+          "reviewedBy": "Sam Okafor",
+          "reviewedAt": "2026-09-12T15:00:01.000Z",
+          "reviewNote": "Approved variant and owned destination; schedule for the 15th."
+        },
+        {
+          "id": "calendar-2",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "kind": "follow_up",
+          "title": "Decide whether to repeat the LinkedIn launch post",
+          "owner": "Morgan Reyes",
+          "startsAt": "2026-10-14T15:00:00.000Z",
+          "endsAt": "2026-10-14T15:30:00.000Z",
+          "timezone": "America/Chicago",
+          "notes": "Use the retrospective and learning entry for the launch post before deciding.",
+          "relatedRecordId": "calendar-1",
+          "scheduleStatus": "scheduled",
+          "activationStatus": "not_applicable",
+          "createdAt": "2026-09-16T09:00:00.000Z",
+          "updatedAt": "2026-09-16T09:00:00.000Z"
+        }
+      ],
+      "packages": [
+        {
+          "id": "activation-package-1",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "calendarEntryId": "calendar-1",
+          "destinationId": "destination-1",
+          "idempotencyKey": "manual:ledgerly-ux-acceptance-seed-v2:calendar-1:1",
+          "createdAt": "2026-09-15T14:00:01.000Z",
+          "createdBy": "Morgan Reyes",
+          "status": "manual_export_ready",
+          "credentialsIncluded": false,
+          "deliveryClaimed": false,
+          "manifest": "{\n  \"schemaVersion\": \"1.0\",\n  \"calendar\": {\n    \"id\": \"calendar-1\",\n    \"title\": \"LinkedIn launch post: month-end close\",\n    \"startsAt\": \"2026-09-15T15:00:00.000Z\",\n    \"endsAt\": \"2026-09-15T16:00:00.000Z\",\n    \"timezone\": \"America/Chicago\",\n    \"owner\": \"Morgan Reyes\"\n  },\n  \"approval\": {\n    \"status\": \"scheduled\",\n    \"reviewedBy\": \"Sam Okafor\",\n    \"reviewedAt\": \"2026-09-12T15:00:01.000Z\",\n    \"reviewNote\": \"Approved variant and owned destination; schedule for the 15th.\"\n  },\n  \"destination\": {\n    \"id\": \"destination-1\",\n    \"label\": \"Ledgerly company page on LinkedIn\",\n    \"channel\": \"linkedin\",\n    \"accountReference\": \"linkedin-page/ledgerly-example\",\n    \"accountOwner\": \"Morgan Reyes\",\n    \"deliveryMode\": \"manual_only\",\n    \"retryPolicy\": \"If posting fails, check the page once, retry manually, and record the failure in Viable.\",\n    \"dataHandlingNotes\": \"Post text and one synthetic screenshot only; no customer data.\"\n  },\n  \"source\": {\n    \"kind\": \"campaign_variant\",\n    \"sourceId\": \"variant-1\",\n    \"sourceVersion\": 1,\n    \"title\": \"Month-end close announcement\",\n    \"audience\": \"Independent design studios (3-15 people)\",\n    \"channel\": \"linkedin\",\n    \"campaignId\": \"campaign-1\",\n    \"canonicalAssetId\": \"asset-1\",\n    \"claimReferences\": [\n      {\n        \"claimId\": \"claim-1\",\n        \"claimRevision\": 2,\n        \"statement\": \"Ledgerly suggests receipt matches for most imported bank-feed transactions; a person confirms each match.\",\n        \"evidenceIds\": [\n          \"evidence-2\"\n        ]\n      }\n    ],\n    \"evidenceIds\": [\n      \"evidence-2\",\n      \"evidence-1\"\n    ],\n    \"rights\": [\n      \"Copy written by the Ledgerly team\",\n      \"Screenshot from the Ledgerly beta using synthetic data\"\n    ],\n    \"accessibilityRequirements\": [\n      \"Screenshot alt text describes the close checklist\",\n      \"Link text names its destination\"\n    ],\n    \"disclosureRequirements\": [\n      \"State that Ledgerly is in private beta\"\n    ],\n    \"body\": \"Small studio, big month-end pile of receipts? Ledgerly suggests receipt matches for your bank transactions and you confirm each one. We're opening the private beta to design studios. Join the waitlist for a guided first close.\",\n    \"capturedAt\": \"2026-09-15T14:00:00.000Z\"\n  },\n  \"manualActivation\": {\n    \"idempotencyKey\": \"manual:ledgerly-ux-acceptance-seed-v2:calendar-1:1\",\n    \"credentialsIncluded\": false,\n    \"directPublishingAvailable\": false,\n    \"deliveryClaimed\": false,\n    \"providerVerified\": false,\n    \"instructions\": [\n      \"Use the approved payload only at the named destination.\",\n      \"Do not add unsupported claims or unapproved assets.\",\n      \"Record the delivery URL, publication identifier, or explicit failure evidence in Viable.\"\n    ]\n  }\n}"
+        }
+      ],
+      "exportOperations": [
+        {
+          "id": "activation-package-2",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "packageId": "activation-package-1",
+          "status": "downloaded",
+          "attempts": 1,
+          "createdAt": "2026-09-15T14:00:01.000Z",
+          "updatedAt": "2026-09-15T14:10:00.000Z",
+          "completedAt": "2026-09-15T14:10:00.000Z"
+        }
+      ],
+      "deliveryOutcomes": [],
+      "measurementPlans": [
+        {
+          "id": "measurement-4",
+          "workspaceId": "ledgerly-ux-acceptance-seed-v2",
+          "calendarEntryId": "calendar-1",
+          "observationStartsAt": "2026-09-15T15:00:00.000Z",
+          "observationEndsAt": "2026-09-29T15:00:00.000Z",
+          "baseline": [
+            {
+              "id": "measurement-1",
+              "metric": "Waitlist sign-ups",
+              "state": "observed",
+              "windowStartsAt": "2026-09-01T00:00:00.000Z",
+              "windowEndsAt": "2026-09-14T23:59:59.000Z",
+              "capturedAt": "2026-09-13T10:00:00.000Z",
+              "source": "Waitlist form export (manual)",
+              "evidenceReference": "Waitlist export 2026-09-01 to 2026-09-14",
+              "value": 6,
+              "unit": "sign-ups"
+            },
+            {
+              "id": "measurement-2",
+              "metric": "Demo requests from studios",
+              "state": "verified_zero",
+              "windowStartsAt": "2026-09-01T00:00:00.000Z",
+              "windowEndsAt": "2026-09-14T23:59:59.000Z",
+              "capturedAt": "2026-09-13T10:00:00.000Z",
+              "source": "Demo request inbox review (manual)",
+              "evidenceReference": "Demo inbox reviewed 2026-09-13; no studio requests",
+              "value": 0,
+              "unit": "requests"
+            },
+            {
+              "id": "measurement-3",
+              "metric": "LinkedIn post impressions",
+              "state": "unavailable",
+              "windowStartsAt": "2026-09-01T00:00:00.000Z",
+              "windowEndsAt": "2026-09-14T23:59:59.000Z",
+              "capturedAt": "2026-09-13T10:00:00.000Z",
+              "source": "LinkedIn page analytics (manual)",
+              "evidenceReference": "No earlier company-page post exists",
+              "limitation": "No earlier company-page post exists, so there is no impressions baseline. This is missing, not zero."
+            }
+          ],
+          "createdAt": "2026-09-13T10:00:00.000Z",
+          "createdBy": "Morgan Reyes"
+        }
+      ],
+      "performanceImports": [],
+      "retrospectives": [],
+      "learningLedger": [],
+      "updatedAt": "2026-09-16T09:00:00.000Z",
+      "publicationPolicies": [],
+      "publicationInventory": [],
+      "publicationJobs": [],
+      "publicationAttempts": []
+    },
+    "repositoryGrowth": null,
+    "videoProduction": null,
+    "websiteWatch": null
+  },
+  "checksum": "crc32:c9f2ee2d"
+}
