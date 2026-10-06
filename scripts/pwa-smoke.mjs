@@ -29,6 +29,7 @@ const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
 // An app-free page used to tell an engine defect from a Viable defect.
 const ENGINE_CONTROL_PATH = "/__engine-control.html";
 const ENGINE_CONTROL_SW_PATH = "/__engine-control-sw.js";
+let engineControlSwVersion = 1;
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -58,9 +59,12 @@ function startServer() {
     }
     if (url.pathname === ENGINE_CONTROL_SW_PATH) {
       response.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/" }).end(`
-const CACHE = "viable-engine-control-v1";
+const CACHE = "viable-engine-control-v${engineControlSwVersion}";
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.add("${ENGINE_CONTROL_PATH}"))));
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "ACTIVATE") void self.skipWaiting();
+});
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin === self.location.origin && url.pathname === "${ENGINE_CONTROL_PATH}") {
@@ -294,6 +298,49 @@ async function run() {
     }
   }
 
+  // A second app-free control mirrors Viable's update handoff: install a
+  // service worker, publish a changed worker, activate it only after an
+  // explicit message, then reload from controllerchange. If Playwright WebKit
+  // cannot observe that reload on the blank page, its update-navigation
+  // harness cannot establish Viable behavior either.
+  async function webkitUpdateReloadDefectPresent() {
+    engineControlSwVersion = 1;
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const isolatedContext = await isolated.newContext();
+      const control = await isolatedContext.newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await withTimeout(control.evaluate(async (workerPath) => {
+        await navigator.serviceWorker.register(workerPath, { scope: "/" });
+        await navigator.serviceWorker.ready;
+      }, ENGINE_CONTROL_SW_PATH), 20_000, "update control service worker registration");
+      await control.reload();
+      if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
+
+      engineControlSwVersion = 2;
+      await control.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) throw new Error("control registration missing");
+        await registration.update();
+      });
+      const waiting = await control.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration())?.waiting), undefined, { timeout: 15000 }).then(() => true, () => false);
+      if (!waiting) return false;
+
+      await control.evaluate(() => {
+        navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
+      });
+      const load = control.waitForEvent("load", { timeout: 15000 }).then(() => true, () => false);
+      await control.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        registration?.waiting?.postMessage({ type: "ACTIVATE" });
+      });
+      return !(await load);
+    } finally {
+      engineControlSwVersion = 1;
+      await isolated.close().catch(() => undefined);
+    }
+  }
+
   let support = {};
   const storageAccessReport = {};
   let backup;
@@ -481,6 +528,12 @@ async function run() {
       }
 
       // Update contract: a new build is offered, never applied silently.
+      const webkitUpdateHarnessDefect = BROWSER === "webkit" && await webkitUpdateReloadDefectPresent();
+      if (webkitUpdateHarnessDefect) {
+        limitation("WebKit engine/harness limitation: a blank page using the same user-confirmed service-worker activation and controllerchange reload does not produce a load event. Chromium and Firefox cover Viable update activation; real Safari requires hands-on validation");
+        return;
+      }
+
       // A second open tab stands in for unsaved work. Origin-wide service-worker
       // activation must not reload that tab until it independently confirms.
       const updateObserver = await context.newPage();
