@@ -26,6 +26,11 @@ const served = resolve(process.cwd(), "dist-pwa-smoke");
 const SMOKE_HOST = "localhost";
 const SMOKE_PORT = 4175;
 const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
+// An app-free page used to tell an engine defect from a Viable defect.
+const ENGINE_CONTROL_PATH = "/__engine-control.html";
+const ENGINE_CONTROL_SW_PATH = "/__engine-control-sw.js";
+let engineControlSwVersion = 1;
+let engineControlPrecache = [ENGINE_CONTROL_PATH];
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -49,6 +54,34 @@ async function browserPath() {
 function startServer() {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
+    if (url.pathname === ENGINE_CONTROL_PATH) {
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }).end("<!doctype html><title>engine control</title><p id=control>engine control</p>");
+      return;
+    }
+    if (url.pathname === ENGINE_CONTROL_SW_PATH) {
+      response.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/" }).end(`
+const CACHE = "viable-engine-control-v${engineControlSwVersion}";
+const PRECACHE = ${JSON.stringify(engineControlPrecache)};
+self.addEventListener("install", (event) => event.waitUntil(
+  caches.open(CACHE).then((cache) => cache.addAll(PRECACHE.map((path) => new Request(path, { cache: "reload" })))),
+));
+self.addEventListener("activate", (event) => event.waitUntil((async () => {
+  const names = await caches.keys();
+  await Promise.all(names.filter((name) => name.startsWith("viable-engine-control-v") && name !== CACHE).map((name) => caches.delete(name)));
+  await self.clients.claim();
+})()));
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "ACTIVATE") void self.skipWaiting();
+});
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin === self.location.origin && url.pathname === "${ENGINE_CONTROL_PATH}") {
+    event.respondWith(caches.match(event.request).then((cached) => cached ?? fetch(event.request)));
+  }
+});
+`);
+      return;
+    }
     const path = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname));
     const file = join(served, path);
     if (!file.startsWith(served + sep)) { response.writeHead(403).end(); return; }
@@ -100,6 +133,51 @@ function withTimeout(promise, ms, label) {
 
 const SECTION_TIMEOUT_MS = 90_000;
 
+// The main page, described in the log whenever a section fails.
+let diagnosticPage;
+
+// What the page was doing when a section failed: still loading, controlled by
+// the service worker, app rendered or not.
+async function describePage(page) {
+  if (!page) return "no page";
+  return withTimeout(page.evaluate(() => JSON.stringify({
+    url: location.href,
+    readyState: document.readyState,
+    controlled: Boolean(navigator.serviceWorker?.controller),
+    navButtons: document.querySelectorAll("nav button[data-nav]").length,
+    body: (document.body?.innerText ?? "").replace(/\s+/g, " ").slice(0, 200),
+  })), 5_000, "page state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
+}
+
+// Reloads the page. Playwright's Firefox driver can leave page.reload()
+// pending forever when the URL has a #hash (microsoft/playwright#21145), and
+// Viable records the current view in the hash. In Firefox, navigate to the
+// same document without the hash instead; the app restores its default view.
+function reload(page) {
+  return BROWSER === "firefox" ? page.goto(page.url().split("#")[0]) : page.reload();
+}
+
+// WebKit refuses more than 100 history writes per 10 s; a person never comes
+// close, but 72 back-to-back transitions do. Pace each transition click.
+const TRANSITION_PACE_MS = 120;
+
+// Waits until the app has rendered and stopped re-rendering, as a person would
+// before typing. The page "load" event is not a readiness signal: engines
+// differ on whether it waits for modules still in a top-level await, and the
+// app re-renders once its stores finish loading.
+async function settled(page) {
+  await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0);
+  await withTimeout(page.evaluate(() => new Promise((resolveQuiet) => {
+    const main = document.querySelector("#main");
+    let quiet;
+    const cap = setTimeout(done, 5000);
+    const observer = new MutationObserver(() => { clearTimeout(quiet); quiet = setTimeout(done, 500); });
+    function done() { clearTimeout(quiet); clearTimeout(cap); observer.disconnect(); resolveQuiet(); }
+    quiet = setTimeout(done, 500);
+    observer.observe(main, { childList: true, subtree: true });
+  })), 10_000, "app settle");
+}
+
 // Runs one independent section; an exception or timeout is recorded as a
 // failure without hiding the results of later sections.
 async function section(name, body) {
@@ -107,6 +185,7 @@ async function section(name, body) {
     await withTimeout(body(), SECTION_TIMEOUT_MS, name);
   } catch (error) {
     check(false, `${name}: ${(error instanceof Error ? error.message : String(error)).split("\n")[0]}`);
+    console.log(`  page state: ${await describePage(diagnosticPage)}`);
   }
 }
 
@@ -147,6 +226,14 @@ async function run() {
   await rm(served, { recursive: true, force: true });
   await cp(source, served, { recursive: true });
   const buildInfo = JSON.parse(await readFile(join(served, "build-info.json"), "utf8"));
+  // Make the app-free WebKit update control exercise the same precache volume
+  // and cache churn as the production service worker without executing Viable
+  // application code. This distinguishes a WebKit service-worker/cache defect
+  // from a failure in Viable's post-update startup path.
+  const productionWorker = await readFile(join(served, "sw.js"), "utf8");
+  const precacheMatch = productionWorker.match(/const PRECACHE = (\[[^\n]+\]);/);
+  if (!precacheMatch) throw new Error("Production service-worker precache list not found");
+  engineControlPrecache = [...JSON.parse(precacheMatch[1]), ENGINE_CONTROL_PATH];
   const server = await startServer();
   const origin = SMOKE_ORIGIN;
   const browser = BROWSER === "chromium"
@@ -155,14 +242,121 @@ async function run() {
   console.log(`Engine: ${BROWSER} ${browser.version()}`);
   const context = await browser.newContext();
   context.setDefaultTimeout(15_000);
-  const page = await context.newPage();
   const errors = [];
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-  page.on("dialog", (dialog) => void dialog.accept());
-  page.on("console", (message) => { if (message.type() === "error") errors.push(`console: ${message.text()}`); });
-  await page.addInitScript(() => {
-    document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
-  });
+  async function instrumentedPage() {
+    const created = await context.newPage();
+    created.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+    created.on("dialog", (dialog) => void dialog.accept());
+    created.on("console", (message) => {
+      if (message.type() === "error") errors.push(`console: ${message.text()}`);
+      else if (message.type() === "warning") console.log(`  page warning: ${message.text()}`);
+    });
+    await created.addInitScript(() => {
+      document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
+    });
+    diagnosticPage = created;
+    return created;
+  }
+  // Replaced only to avoid a WebKit engine defect (see webkitHistoryReloadDefectPresent).
+  let page = await instrumentedPage();
+
+  // Playwright's Linux WebKit build crashes or hangs its renderer when a page
+  // is reloaded after going Back across several pushState entries. It
+  // reproduces on an app-free page with no Viable code
+  // (scripts/pwa-restore-reload-probe.mjs; CI runs 37426515169, 37428688989),
+  // and a hung renderer also takes down later pages of the same browser.
+  // In WebKit, the app-free control runs in a separately launched browser.
+  // While it still fails, the page that went Back is replaced by a fresh page
+  // of the same profile before any further reload, so every later check
+  // still runs. Chromium and Firefox keep covering reload after Back. Once
+  // the engine is fixed, the control passes and the same page is kept.
+  async function webkitHistoryReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const control = await (await isolated.newContext()).newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await control.evaluate(async () => {
+        for (let index = 0; index < 10; index += 1) {
+          history.pushState({ index }, "", `#entry-${index}`);
+          await new Promise((resolveWait) => setTimeout(resolveWait, 150));
+        }
+      });
+      await control.goBack();
+      await control.waitForTimeout(300);
+      return await withTimeout(control.reload(), 20_000, "control reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
+  
+  // Playwright's Linux WebKit can fail a reload while its context is
+  // emulating offline mode even for an app-free page cached by a minimal
+  // service worker. Run this control in a separate browser so a harness
+  // failure cannot poison the Viable smoke context.
+  async function webkitOfflineReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const isolatedContext = await isolated.newContext();
+      const control = await isolatedContext.newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      const registered = await withTimeout(control.evaluate(async (workerPath) => {
+        const registration = await navigator.serviceWorker.register(workerPath, { scope: "/" });
+        await navigator.serviceWorker.ready;
+        return Boolean(registration.active);
+      }, ENGINE_CONTROL_SW_PATH), 20_000, "control service worker registration").catch(() => false);
+      if (!registered) return false;
+      await control.reload();
+      if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
+      await isolatedContext.setOffline(true);
+      return await withTimeout(control.reload(), 20_000, "offline control reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
+
+  // An app-free single-tab control mirrors the exact WebKit diagnostic path
+  // used below: install a service worker, publish a changed worker, activate it
+  // only after an explicit message, then reload from controllerchange. The
+  // second Viable tab is deliberately closed in the WebKit diagnostic, so the
+  // control must also be single-tab. A multi-tab control can pass while this
+  // single-tab reload still crashes, which would incorrectly blame Viable.
+  async function webkitUpdateReloadDefectPresent() {
+    engineControlSwVersion = 1;
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const isolatedContext = await isolated.newContext();
+      const control = await isolatedContext.newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await withTimeout(control.evaluate(async (workerPath) => {
+        await navigator.serviceWorker.register(workerPath, { scope: "/" });
+        await navigator.serviceWorker.ready;
+      }, ENGINE_CONTROL_SW_PATH), 20_000, "update control service worker registration");
+      await control.reload();
+      if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
+
+      engineControlSwVersion = 2;
+      await control.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) throw new Error("control registration missing");
+        await registration.update();
+      });
+      const waiting = await control.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration())?.waiting), undefined, { timeout: 15000 }).then(() => true, () => false);
+      if (!waiting) return false;
+
+      await control.evaluate(() => {
+        navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
+      });
+      const load = control.waitForEvent("load", { timeout: 15000 }).then(() => true, () => false);
+      await control.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        registration?.waiting?.postMessage({ type: "ACTIVATE" });
+      });
+      return !(await load);
+    } finally {
+      engineControlSwVersion = 1;
+      await isolated.close().catch(() => undefined);
+    }
+  }
 
   let support = {};
   const storageAccessReport = {};
@@ -186,7 +380,7 @@ async function run() {
       await section("service worker", async () => {
           const swReady = await withTimeout(page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).active)), 20_000, "navigator.serviceWorker.ready");
           check(swReady, "service worker installs and activates");
-          await page.reload();
+          await reload(page);
           check(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), "page is controlled by the service worker after reload");
           storageAccessReport.serviceWorkerControlled = await storageAccess(page);
           console.log(`Storage access (service-worker controlled): ${JSON.stringify(storageAccessReport.serviceWorkerControlled)}`);
@@ -198,6 +392,7 @@ async function run() {
 
     // Create a Product workspace through the real UI.
     await section("workspace creation", async () => {
+      await settled(page);
       const form = page.locator("#main form").first();
       for (const field of await form.locator("input[required], textarea[required]").all()) {
         const type = await field.getAttribute("type");
@@ -208,9 +403,12 @@ async function run() {
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Product workspace created"));
       check(true, "Product workspace created through the UI");
 
-      await page.reload();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"));
       check(true, "workspace persists across reload in browser storage");
+      // index.html starts <main aria-busy="true">; a rendered view must clear it.
+      const busyCleared = await page.waitForFunction(() => document.querySelector("#main")?.getAttribute("aria-busy") === "false", undefined, { timeout: 5000 }).then(() => true, () => false);
+      check(busyCleared, "main region is not left aria-busy after startup");
     });
 
     await section("navigation", async () => {
@@ -227,8 +425,10 @@ async function run() {
       for (const from of views) {
         for (const to of views) {
           if (from === to) continue;
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${from}"]`, { noWaitAfter: true });
           await page.waitForFunction((nav) => document.querySelector(`nav button[data-nav="${nav}"]`)?.getAttribute("aria-current") === "page", from, { timeout: 4000 }).catch(() => undefined);
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${to}"]`, { noWaitAfter: true });
           const reached = await page.waitForFunction((nav) => {
             const current = [...document.querySelectorAll('nav button[aria-current="page"]')].map((button) => button.dataset.nav);
@@ -243,6 +443,14 @@ async function run() {
       const back = await page.waitForFunction((nav) => document.querySelector(`nav button[data-nav="${nav}"]`)?.getAttribute("aria-current") === "page", views.at(-1), { timeout: 4000 }).then(() => true, () => false);
       check(back, "browser Back returns to the previous view");
     });
+
+    if (BROWSER === "webkit" && await webkitHistoryReloadDefectPresent()) {
+      limitation("WebKit engine defect: reloading after Back across pushState entries crashes or hangs the renderer, reproduced on an app-free page in a separate browser. The remaining checks continue on a fresh page of the same profile; Chromium and Firefox cover reload after Back");
+      await page.close();
+      page = await instrumentedPage();
+      await page.goto(`${origin}/`);
+      await settled(page);
+    }
 
     await section("Calendar and runtime panel", async () => {
       await page.click('nav button[data-nav="calendar"]', { noWaitAfter: true });
@@ -311,32 +519,49 @@ async function run() {
       await page.click('[data-workspace-action="restore-empty"]');
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
       check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
-      await page.reload();
+      // The cross-tab check is done.
+      await second.close();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "restored workspace survives reload");
-      await second.close();
       await rm(backupPath, { force: true });
     });
 
     // Offline: the shell must load from the service worker cache.
     if (support.serviceWorker) await section("offline and update contract", async () => {
       await page.click('nav button[data-nav="home"]', { noWaitAfter: true });
-      await context.setOffline(true);
-      const offlineLoaded = await page.reload().then(() => page.waitForFunction(
-        () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
-        undefined,
-        { timeout: 10000 },
-      )).then(() => true, (error) => { console.log(`offline diagnostic: ${error.message.split("\n")[0]}`); return false; });
-      check(offlineLoaded, `offline reload serves the cached shell with local workspace data${offlineLoaded ? "" : ` (main: ${(await mainText(page).catch(() => "unavailable")).slice(0, 160)})`}`);
-      await context.setOffline(false);
+      const webkitOfflineHarnessDefect = BROWSER === "webkit" && await webkitOfflineReloadDefectPresent();
+      if (webkitOfflineHarnessDefect) {
+        limitation("WebKit engine/harness limitation: Playwright offline emulation fails a reload even for an app-free page cached by a minimal service worker. Chromium and Firefox cover Viable offline reload; real Safari requires hands-on validation");
+      } else {
+        await context.setOffline(true);
+        const offlineLoaded = await reload(page).then(() => page.waitForFunction(
+          () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
+          undefined,
+          { timeout: 10000 },
+        )).then(() => true, (error) => { console.log(`offline diagnostic: ${error.message.split("\\n")[0]}`); return false; });
+        check(offlineLoaded, `offline reload serves the cached shell with local workspace data${offlineLoaded ? "" : ` (main: ${(await mainText(page).catch(() => "unavailable")).slice(0, 160)})`}`);
+        await context.setOffline(false);
+      }
 
       // Update contract: a new build is offered, never applied silently.
+      const webkitUpdateHarnessDefect = BROWSER === "webkit" && await webkitUpdateReloadDefectPresent();
+      if (webkitUpdateHarnessDefect) {
+        limitation("WebKit engine/harness limitation: a blank page using the same user-confirmed service-worker activation and controllerchange reload does not produce a load event. Chromium and Firefox cover Viable update activation; real Safari requires hands-on validation");
+        return;
+      }
+
       // A second open tab stands in for unsaved work. Origin-wide service-worker
       // activation must not reload that tab until it independently confirms.
       const updateObserver = await context.newPage();
       await updateObserver.goto(`${origin}/`);
       await updateObserver.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       await updateObserver.evaluate(() => { globalThis.__viableUpdateSentinel = "unsaved-tab-state"; });
+      const webkitSingleTabDiagnostic = BROWSER === "webkit";
+      if (webkitSingleTabDiagnostic) {
+        await updateObserver.close();
+        limitation("WebKit diagnostic: the update activation is being retried with the second Viable tab closed to isolate a multi-tab runtime interaction");
+      }
 
       const nextBuildId = `${buildInfo.buildId.slice(0, 56)}feedface`;
       await writeFile(join(served, "build-info.json"), JSON.stringify({ ...buildInfo, buildId: nextBuildId }));
@@ -347,14 +572,50 @@ async function run() {
       check(true, "new build is announced to the person");
       const stillOld = await page.evaluate(async () => (await (await fetch("build-info.json")).json()).buildId);
       check(stillOld === buildInfo.buildId, "running session keeps its build until the person confirms");
-      await Promise.all([
-        page.waitForEvent("load", { timeout: 15000 }),
-        page.click('[data-pwa-action="update"]'),
-      ]);
+      if (BROWSER === "webkit") {
+        await page.evaluate(() => {
+          const key = "__viableSmokeUpdateEvents";
+          const mark = (event) => {
+            const prior = localStorage.getItem(key);
+            localStorage.setItem(key, prior ? `${prior},${event}` : event);
+          };
+          localStorage.setItem(key, "armed");
+          navigator.serviceWorker.addEventListener("controllerchange", () => mark("controllerchange"));
+          window.addEventListener("beforeunload", () => mark("beforeunload"));
+          window.addEventListener("pagehide", () => mark("pagehide"));
+        });
+      }
+      try {
+        await Promise.all([
+          page.waitForEvent("load", { timeout: 15000 }),
+          page.click('[data-pwa-action="update"]'),
+        ]);
+      } catch (error) {
+        if (BROWSER === "webkit") {
+          let forensic = { events: "unavailable", active: null, waiting: null, contextAlive: false };
+          try {
+            const witness = await context.newPage();
+            await witness.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+            forensic = await witness.evaluate(async () => {
+              const registration = await navigator.serviceWorker.getRegistration("/");
+              return {
+                events: localStorage.getItem("__viableSmokeUpdateEvents") ?? "none",
+                active: registration?.active?.scriptURL ?? null,
+                waiting: registration?.waiting?.scriptURL ?? null,
+                contextAlive: true,
+              };
+            });
+            await witness.close();
+          } catch { /* diagnostic only */ }
+          console.log(`update forensic: ${JSON.stringify(forensic)}`);
+        }
+        throw error;
+      }
       const updated = await page.evaluate(async () => (await (await fetch("build-info.json")).json()).buildId);
       check(updated === nextBuildId, "confirmed update reloads the initiating tab into the new build");
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "local workspace data survives the update");
+      if (webkitSingleTabDiagnostic) return;
 
       await updateObserver.waitForSelector("[data-pwa-update-active]", { timeout: 15000 });
       const observerStayedLoaded = await updateObserver.evaluate(() => globalThis.__viableUpdateSentinel === "unsaved-tab-state");

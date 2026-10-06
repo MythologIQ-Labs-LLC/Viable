@@ -57,6 +57,9 @@ for (const directive of ["default-src 'self'", "img-src 'self' data:", "style-sr
 }
 requireCondition(!csp.includes("'unsafe-inline'"), "Tauri CSP must not allow unsafe-inline");
 requireCondition(!csp.includes("'unsafe-eval'"), "Tauri CSP must not allow unsafe-eval");
+// #114 O5: public GitHub reads are the only external network origin.
+requireCondition(csp.includes("connect-src 'self' ipc: http://ipc.localhost https://api.github.com"), "Tauri CSP connect-src must allow exactly Tauri IPC and https://api.github.com");
+requireCondition(!csp.includes("*"), "Tauri CSP must not use wildcards");
 
 const storageFiles = [
   "apps/desktop/ui/local-storage-product-workspace-store.ts",

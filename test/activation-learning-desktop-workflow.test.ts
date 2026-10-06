@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("Calendar exposes destination scheduling export and delivery evidence journey", async () => {
@@ -25,7 +28,7 @@ test("Calendar exposes destination scheduling export and delivery evidence journ
   assert.match(shell, /synchronizeSourceOptions/);
   assert.match(shell, /synchronizeDeliveryEntry/);
   assert.match(html, /activation-learning\.css/);
-  assert.match(html, /activation-learning-shell\.js/);
+  assert.match(entry, /activation-learning-shell\.js/);
 });
 
 test("Calendar composes publication inventory as additive activation authority", async () => {

@@ -21,6 +21,10 @@ const CHANNEL = "viable-workspace-storage";
 // app. A timeout is a fail-closed authority error, not permission to resurrect
 // a potentially stale legacy localStorage copy.
 const OPEN_TIMEOUT_MS = 8000;
+// Reading saved data (and the one-time migration) must not hang startup either.
+// A load timeout fails closed too: the migration may still be finishing in the
+// background, so falling back to localStorage could diverge from it.
+const LOAD_TIMEOUT_MS = 15000;
 
 export type WorkspaceStorage = Pick<DurableKeyValueStorage, "length" | "key" | "getItem" | "setItem" | "removeItem" | "commit">;
 
@@ -35,6 +39,14 @@ function request<T>(value: IDBRequest<T>): Promise<T> {
     value.onsuccess = () => resolve(value.result);
     value.onerror = () => reject(value.error);
   });
+}
+
+function withinLoadTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("IndexedDB did not finish loading saved data in time.")), LOAD_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -120,7 +132,7 @@ async function openWorkspaceStorage(): Promise<{ storage: WorkspaceStorage; stat
   try {
     const backend = new IndexedDbBackend(await openDatabase());
     const legacy = typeof localStorage === "undefined" ? undefined : localStorage;
-    const { storage, migration } = await DurableKeyValueStorage.open(backend, legacy);
+    const { storage, migration } = await withinLoadTimeout(DurableKeyValueStorage.open(backend, legacy));
     if (typeof BroadcastChannel !== "undefined") {
       const channel = new BroadcastChannel(CHANNEL);
       channel.onmessage = (event: MessageEvent<{ changes?: StorageChange[] }>) => {
@@ -131,6 +143,7 @@ async function openWorkspaceStorage(): Promise<{ storage: WorkspaceStorage; stat
     return { storage, status: { engine: "indexeddb", migration } };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "IndexedDB could not be opened.";
+    console.warn(`Viable workspace storage: ${reason}`);
     showUnavailableBanner(reason);
     return { storage: unavailableStorage(reason), status: { engine: "unavailable", migration: { status: "unavailable" }, fallbackReason: reason } };
   }

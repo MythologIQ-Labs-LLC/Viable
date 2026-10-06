@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("desktop loads guided import and media review UX after workspace lifecycle", async () => {
   const html = await read("apps/desktop/web/index.html");
-  const workspace = html.indexOf("workspace-lifecycle-shell.js");
-  const guided = html.indexOf("guided-import-media-review-shell.js");
+  const workspace = entry.indexOf("workspace-lifecycle-shell.js");
+  const guided = entry.indexOf("guided-import-media-review-shell.js");
   assert.ok(workspace >= 0);
   assert.ok(guided > workspace);
   assert.match(html, /guided-import-media-review\.css/);
