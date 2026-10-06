@@ -18,7 +18,7 @@
 </div>
 
 > [!IMPORTANT]
-> **Public source is not the same thing as a supported product release.** Viable's implemented core is substantial and automatedly validated, but end-user release gates remain open for accessibility, unfamiliar-user acceptance, backup and restore, schema migration, product-wide retention and deletion, installer signing, update and rollback behavior, supported-platform validation, privacy/security review, and operational support.
+> **Public source is not the same thing as a supported product release.** Viable's implemented core is substantial and automatically validated, and the PWA is suitable for local Chromium dogfooding. End-user public-release gates still remain for accessibility, unfamiliar-user acceptance, generalized schema migration/rollback, product-wide recovery/retention, supported-platform validation, public deployment trust, privacy/security review, and operational support. A public code-signing certificate is not a prerequisite for the primary PWA path.
 
 ## What Viable is
 
@@ -115,15 +115,41 @@ That does **not** mean the application is ready for a supported end-user release
 The remaining release-foundation work is tracked primarily in GitHub issue #36 and includes:
 
 - hands-on accessibility and unfamiliar-user acceptance across the major workflows;
-- explicit schema versions and cross-version migration behavior;
-- backup, restore, corruption recovery, retention, and deletion propagation;
-- native dependency minimization and release-artifact license inventory;
-- signed installers and publisher identity;
-- update integrity, interruption, rollback, upgrade, and uninstall behavior;
-- Windows validation and a deliberate macOS packaging/notarization posture;
+- generalized cross-version schema migration and rollback behavior beyond the current v0/v1 foundation;
+- recovery, retention, deletion propagation, and real-browser storage-eviction evidence;
+- public PWA deployment provenance, rollback, and supported-browser/platform validation when external distribution is justified;
+- optional native-channel packaging/trust work where native capabilities earn their place;
 - privacy, security, diagnostics, vulnerability intake, support, and release operations.
 
-Automated validation includes npm high/critical dependency auditing, Rust dependency advisory scanning, repository and reachable-history secret scanning, pinned GitHub Actions, deterministic tests, coverage enforcement, and native package validation. Those checks provide evidence about an artifact. They do not substitute for the remaining release gates.
+Automated validation includes npm high/critical dependency auditing, Rust dependency advisory scanning, repository and reachable-history secret scanning, pinned GitHub Actions, deterministic tests, coverage enforcement, real-browser PWA smoke validation, and native package validation. Those checks provide evidence about an artifact. They do not substitute for the remaining release gates.
+
+## Try the current PWA locally
+
+Viable is ready for persistent local dogfooding in a Chromium desktop browser. Public hosting is not required.
+
+Prerequisites for the PWA path are Node.js 22 or newer and npm.
+
+```bash
+git clone https://github.com/MythologIQ-Labs-LLC/Viable.git
+cd Viable
+npm ci
+npm run pwa:selfhost
+```
+
+Then open **http://localhost:4175**.
+
+Important persistence rules:
+
+- Keep using the exact `http://localhost:4175` origin. Browser storage is origin-bound and Viable deliberately refuses to move silently to another port.
+- Normal application updates replace the PWA shell, not the IndexedDB workspace.
+- Viable's service worker caches application files only. It does not store, proxy, or delete workspace data.
+- Export a `viable.workspace-backup` before meaningful upgrade experiments or other destructive testing.
+- Do not clear this site's browser storage unless you intend to remove the local Viable profile.
+- If IndexedDB cannot be opened, Viable fails closed rather than showing a possibly stale legacy `localStorage` copy.
+- An update confirmed in one tab does not force-reload other open tabs; each tab reloads only after its own confirmation.
+- Chromium is the current evidence-backed dogfood path. Firefox is progressing through cross-browser validation; WebKit/Safari still has an unresolved restore/reload automation finding.
+
+The governing distribution decision is [ADR-0010](docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md).
 
 ## Architecture and governance
 
@@ -184,6 +210,10 @@ Useful individual commands:
 ```bash
 npm run build
 npm test
+npm run pwa:build
+npm run pwa:serve
+npm run pwa:selfhost
+npm run pwa:smoke
 npm run desktop:web:check
 npm run desktop:bundle
 ```
