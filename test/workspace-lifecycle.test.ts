@@ -3,9 +3,11 @@ import test from "node:test";
 import {
   PRODUCT_ACTIVE_KEY,
   WORKSPACE_CONTEXTS,
+  WORKSPACE_STORAGE_SCHEMA_VERSION,
   WorkspaceLifecycleService,
   type KeyValueStorage,
 } from "../src/workspace-lifecycle/workspace-lifecycle-service.js";
+import { CURRENT_WORKSPACE_SCHEMA_VERSION, readWorkspaceJson, writeWorkspaceJson } from "../apps/desktop/ui/local-storage-json.js";
 
 class MemoryStorage implements KeyValueStorage {
   private readonly values = new Map<string, string>();
@@ -217,4 +219,62 @@ test("corrupt context is previewed and exportable as quarantine without destruct
   assert.equal(quarantine.format, "viable.workspace-quarantine");
   assert.equal(quarantine.entries[0]?.raw, "{broken-json");
   assert.deepEqual(storage.entries(), before);
+});
+
+// Regression: stores write a { schemaVersion, workspace } envelope (PR #62),
+// but the lifecycle service parsed values as legacy unwrapped objects, so every
+// current workspace looked corrupt and backup/deletion were blocked.
+function seedEnvelopedWorkspace(storage: MemoryStorage, workspaceId: string): void {
+  for (const descriptor of WORKSPACE_CONTEXTS) {
+    writeWorkspaceJson(storage, `${descriptor.prefix}${workspaceId}`, descriptor.label, contextValue(descriptor.name, workspaceId));
+  }
+  storage.setItem(PRODUCT_ACTIVE_KEY, workspaceId);
+}
+
+test("lifecycle envelope version matches the store adapters' current schema version", () => {
+  assert.equal(WORKSPACE_STORAGE_SCHEMA_VERSION, CURRENT_WORKSPACE_SCHEMA_VERSION);
+});
+
+test("workspaces saved by the real store adapters are present, backed up unwrapped, and restored as current envelopes", () => {
+  const source = new MemoryStorage();
+  seedEnvelopedWorkspace(source, "ws-current");
+  const service = new WorkspaceLifecycleService(source, now);
+
+  const preview = service.inspect("ws-current");
+  assert.equal(preview.hasCorruptData, false);
+  assert.ok(preview.contexts.every((context) => context.status === "present"));
+
+  const backup = JSON.parse(service.createBackup("ws-current")) as { contexts: Record<string, Record<string, unknown>> };
+  assert.equal(backup.contexts.product?.id, "ws-current");
+  assert.equal("schemaVersion" in (backup.contexts.product ?? {}), false, "backups carry domain values, not storage envelopes");
+
+  const target = new MemoryStorage();
+  new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(backup), "empty_profile");
+  const stored = JSON.parse(target.getItem("viable.product-workspace.ws-current") ?? "{}") as { schemaVersion?: number };
+  assert.equal(stored.schemaVersion, CURRENT_WORKSPACE_SCHEMA_VERSION);
+  const readBack = readWorkspaceJson<{ id: string }>(target, "viable.product-workspace.ws-current", "Product workspace", { field: "id", expected: "ws-current" }, { arrays: ["claims"] });
+  assert.equal(readBack?.id, "ws-current");
+});
+
+test("workspace deletion works for workspaces saved in the current envelope", () => {
+  const storage = new MemoryStorage();
+  seedEnvelopedWorkspace(storage, "ws-delete");
+  const service = new WorkspaceLifecycleService(storage, now);
+  service.deleteWorkspace("ws-delete");
+  assert.equal(service.knownWorkspaceIds().has("ws-delete"), false);
+});
+
+test("unsupported future envelope versions are corrupt and quarantinable, never treated as valid", () => {
+  const storage = new MemoryStorage();
+  seedEnvelopedWorkspace(storage, "ws-future");
+  const key = "viable.signals-inbox.ws-future";
+  const future = JSON.stringify({ schemaVersion: WORKSPACE_STORAGE_SCHEMA_VERSION + 1, workspace: contextValue("signals", "ws-future") });
+  storage.setItem(key, future);
+  const service = new WorkspaceLifecycleService(storage, now);
+  const signals = service.inspect("ws-future").contexts.find((context) => context.name === "signals");
+  assert.equal(signals?.status, "corrupt");
+  assert.throws(() => service.createBackup("ws-future"), /backup is blocked/);
+  const quarantine = JSON.parse(service.exportQuarantine("ws-future")) as { entries: Array<{ raw: string; issue: string }> };
+  assert.equal(quarantine.entries[0]?.raw, future);
+  assert.match(quarantine.entries[0]?.issue ?? "", /unsupported workspace schema version 2/);
 });

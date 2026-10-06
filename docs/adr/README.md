@@ -27,6 +27,7 @@ ADRs answer **why a boundary exists**. The PRD defines required outcomes, the ar
 | [ADR-0007](0007-icp-hypothesis-and-validation-authority.md) | ICP hypotheses and validation belong to Product Core and cannot be silently rewritten downstream | Accepted |
 | [ADR-0008](0008-public-source-licensing-and-release-boundary.md) | Public source licensing and repository visibility remain distinct from supported product release | Proposed |
 | [ADR-0009](0009-deterministic-publishing-and-capability-routed-setup.md) | Automated publishing is deterministic and provider-specific setup is evidence-gated | Proposed |
+| [ADR-0010](0010-pwa-first-distribution-and-runtime-capabilities.md) | The PWA is the primary mainstream runtime; native runtime is a capability extension; no code-signing prerequisite | Accepted |
 
 ## Required ADR sections
 

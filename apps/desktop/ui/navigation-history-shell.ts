@@ -26,20 +26,21 @@ function writeHistory(nav: string, mode: "push" | "replace"): void {
   if (mode === "push") history.pushState(state, "", url); else history.replaceState(state, "", url);
 }
 
-function restoreFromHistory(): void {
+// Only history events (initial load, back/forward, hash edits) navigate from
+// the URL. A page shell updating aria-current is navigation the person already
+// made; it is recorded in history, never "corrected" from a stale hash. Doing
+// the latter trapped people on a page (e.g. Workspace) because aria-current
+// changes before history can be written.
+function restoreFromHistory(): boolean {
   const nav = hashNav();
   if (!nav) {
     const current = currentNav();
     if (current) writeHistory(current, "replace");
-    return;
+    return Boolean(current);
   }
   const button = targetButton(nav);
-  if (!button) {
-    const current = currentNav();
-    if (current) writeHistory(current, "replace");
-    return;
-  }
-  if (currentNav() === nav) return;
+  if (!button) return false;
+  if (currentNav() === nav) return true;
   applyingHistory = true;
   button.click();
   queueMicrotask(() => {
@@ -47,31 +48,33 @@ function restoreFromHistory(): void {
     const actual = currentNav();
     if (actual !== nav && actual) writeHistory(actual, "replace");
   });
+  return true;
 }
 
-function queueRestore(): void {
+// Record the page the person is on whenever navigation state changes.
+function recordCurrent(): void {
+  if (applyingHistory) return;
+  const current = currentNav();
+  if (current && hashNav() !== current) writeHistory(current, "push");
+}
+
+// The sidebar is rendered asynchronously by several shells. Until the initial
+// URL has been applied, retry when navigation appears; afterwards only record.
+let initialApplied = false;
+function onNavigationMutation(): void {
   if (queued) return;
   queued = true;
   queueMicrotask(() => {
     queued = false;
-    restoreFromHistory();
+    if (!initialApplied) {
+      initialApplied = restoreFromHistory();
+      return;
+    }
+    recordCurrent();
   });
 }
 
-document.addEventListener("click", (event) => {
-  const target = event.target;
-  if (!(target instanceof Element)) return;
-  const button = target.closest<HTMLButtonElement>("button[data-nav]:not(:disabled)");
-  const nav = button?.dataset.nav;
-  if (!button || !nav || applyingHistory) return;
-  queueMicrotask(() => {
-    if (currentNav() !== nav) return;
-    if (hashNav() === nav) return;
-    writeHistory(nav, "push");
-  });
-});
-
-window.addEventListener("popstate", restoreFromHistory);
-window.addEventListener("hashchange", restoreFromHistory);
-new MutationObserver(queueRestore).observe(sidebar ?? document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-current"] });
-queueRestore();
+window.addEventListener("popstate", () => { restoreFromHistory(); });
+window.addEventListener("hashchange", () => { restoreFromHistory(); });
+new MutationObserver(onNavigationMutation).observe(sidebar ?? document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-current"] });
+onNavigationMutation();
