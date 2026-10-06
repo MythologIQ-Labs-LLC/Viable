@@ -2,11 +2,12 @@ import {
   PRODUCT_ACTIVE_KEY,
   WORKSPACE_CONTEXTS,
   WorkspaceLifecycleService,
+  workspaceScopedKeys,
   type WorkspaceImportPreview,
   type WorkspaceScopePreview,
 } from "../../../src/workspace-lifecycle/workspace-lifecycle-service.js";
 import { decodeStoredWorkspace } from "../../../src/workspace-lifecycle/workspace-storage-schema.js";
-import { workspaceStorage } from "./workspace-storage.js";
+import { purgeLegacyWorkspaceRecords, workspaceStorage } from "./workspace-storage.js";
 
 const lifecycle = new WorkspaceLifecycleService(workspaceStorage);
 const sidebar = document.querySelector<HTMLElement>("#sidebar");
@@ -344,6 +345,9 @@ async function deleteDurably(workspaceId: string): Promise<void> {
   try {
     lifecycle.deleteWorkspace(workspaceId);
     await workspaceStorage.commit();
+    // Only after the authoritative deletion is durable: the pre-migration
+    // legacy copy must not silently retain the deleted workspace.
+    purgeLegacyWorkspaceRecords(workspaceScopedKeys(workspaceId), { key: PRODUCT_ACTIVE_KEY, value: workspaceId });
     selectedWorkspaceId = undefined;
     quarantineExportedFor = undefined;
     pendingImport = undefined;

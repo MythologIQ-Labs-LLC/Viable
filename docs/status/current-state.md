@@ -77,7 +77,7 @@ Persistence rules for dogfood profiles:
 ### Workspace storage authority (PRs #119, #126)
 
 - Authoritative workspace data lives in **IndexedDB** in both the PWA and the native webview, through `DurableKeyValueStorage`. Reads come from a snapshot loaded at startup. Writes commit as atomic, durable transactions. A failed commit reverts the snapshot.
-- Existing `localStorage` data is migrated once and verified; the legacy copy is left untouched as a recovery source.
+- Existing `localStorage` data is migrated once and verified; the legacy copy is kept as a recovery source, except that deleting a workspace also removes that workspace's legacy records once the IndexedDB deletion is durable (#36). Legacy copies of workspaces deleted before this change are not purged automatically, because after an IndexedDB eviction they may be the only recovery source.
 - Changes made in one tab reach other open tabs through `BroadcastChannel`.
 - **Fail closed:** whenever the runtime exposes IndexedDB and it cannot be opened, Viable shows a visible error and refuses writes rather than serving a possibly stale `localStorage` copy. `localStorage` is used only where the runtime does not expose IndexedDB at all.
 - All seven workspace stores await a durable commit before reporting success.
