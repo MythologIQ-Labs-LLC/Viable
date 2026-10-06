@@ -8,7 +8,8 @@ function writeWorkspaceHistory(): void {
   const url = new URL(location.href);
   url.hash = "workspace";
   const state = { ...(history.state && typeof history.state === "object" ? history.state : {}), viableNav: "workspace" };
-  history.pushState(state, "", url);
+  // Browsers may refuse rapid history writes (WebKit throws after 100 in 10 s).
+  try { history.pushState(state, "", url); } catch { /* entry skipped; navigation unaffected */ }
 }
 
 document.addEventListener("click", (event) => {
