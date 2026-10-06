@@ -1,5 +1,6 @@
 import {
   DurableKeyValueStorage,
+  purgeLegacyWorkspaceCopy,
   type DurableStorageBackend,
   type MigrationReport,
   type StorageChange,
@@ -9,8 +10,9 @@ import {
 //
 // Authoritative workspace data lives in IndexedDB (transactional, large
 // quota) in both the PWA and the desktop webview. Existing localStorage data
-// is migrated once and verified; the legacy copy is kept untouched as a
-// recovery source. Once a browser exposes IndexedDB, failure to open it is
+// is migrated once and verified; the legacy copy is kept as a recovery source
+// until the person deletes that workspace, which purges its legacy records too
+// (#36) so deletion never silently retains data. Once a browser exposes IndexedDB, failure to open it is
 // treated as an authority failure and Viable fails closed rather than risking
 // stale localStorage becoming authoritative again.
 
@@ -154,3 +156,16 @@ const opened = await openWorkspaceStorage();
 /** The one storage every workspace store and the lifecycle service use. */
 export const workspaceStorage: WorkspaceStorage = opened.storage;
 export const workspaceStorageStatus: WorkspaceStorageStatus = opened.status;
+
+/**
+ * After a workspace deletion has been durably committed to IndexedDB, removes
+ * that workspace's leftover pre-migration localStorage copy. Without this the
+ * legacy copy would silently retain deleted data and could resurrect it if the
+ * browser later evicted IndexedDB. In the localStorage fallback the deletion
+ * itself already removed these keys, and when storage is unavailable nothing
+ * was deleted, so both are no-ops. Returns how many legacy entries were removed.
+ */
+export function purgeLegacyWorkspaceRecords(keys: readonly string[], pointer: Readonly<{ key: string; value: string }>): number {
+  if (opened.status.engine !== "indexeddb" || typeof localStorage === "undefined") return 0;
+  return purgeLegacyWorkspaceCopy(localStorage, keys, pointer);
+}

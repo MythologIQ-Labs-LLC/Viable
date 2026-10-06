@@ -4,6 +4,7 @@ import {
   DurableKeyValueStorage,
   DurableStorageCommitError,
   MIGRATION_MARKER_KEY,
+  purgeLegacyWorkspaceCopy,
   type DurableStorageBackend,
   type StorageChange,
 } from "../src/runtime/durable-key-value-storage.js";
@@ -158,4 +159,32 @@ test("storage enumerates keys like Storage for the workspace lifecycle service",
   const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
   assert.ok(keys.includes("viable.product-workspace.ws"));
   assert.equal(storage.key(99), null);
+});
+
+class RemovableLegacyStorage {
+  constructor(readonly values: Record<string, string>) {}
+  getItem(key: string): string | null { return this.values[key] ?? null; }
+  removeItem(key: string): void { delete this.values[key]; }
+}
+
+test("purging a deleted workspace removes only its legacy records and leaves other workspaces untouched", () => {
+  const legacy = new RemovableLegacyStorage({
+    "viable.product-workspace.ws": "a",
+    "viable.campaign-workspace.ws": "b",
+    "viable.product-workspace.other": "c",
+    "viable.theme": "dark",
+  });
+  const removed = purgeLegacyWorkspaceCopy(legacy, ["viable.product-workspace.ws", "viable.campaign-workspace.ws", "viable.signals-inbox.ws"]);
+  assert.equal(removed, 2);
+  assert.deepEqual(legacy.values, { "viable.product-workspace.other": "c", "viable.theme": "dark" });
+});
+
+test("purging removes the legacy active pointer only when it still names the deleted workspace", () => {
+  const pointer = { key: "viable.product-workspace.active", value: "ws" };
+  const naming = new RemovableLegacyStorage({ "viable.product-workspace.active": "ws" });
+  assert.equal(purgeLegacyWorkspaceCopy(naming, [], pointer), 1);
+  assert.deepEqual(naming.values, {});
+  const other = new RemovableLegacyStorage({ "viable.product-workspace.active": "other" });
+  assert.equal(purgeLegacyWorkspaceCopy(other, [], pointer), 0);
+  assert.deepEqual(other.values, { "viable.product-workspace.active": "other" });
 });

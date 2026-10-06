@@ -654,6 +654,15 @@ async function run() {
       check(/2 saved records were copied/.test(migrationText), "runtime panel reports the migration");
       const legacyKept = await upgrade.evaluate(() => localStorage.getItem("viable.product-workspace.active"));
       check(legacyKept === "legacy-ws", "legacy storage copy is left untouched as a recovery source");
+
+      // Deleting the workspace must not leave it behind in the legacy copy (#36).
+      upgrade.on("dialog", (dialog) => void dialog.accept());
+      await upgrade.check('[data-workspace-delete] input[name="scopeConfirmed"]');
+      await upgrade.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
+      await upgrade.click('[data-workspace-delete] button[type="submit"]');
+      await upgrade.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
+      const legacyLeft = await upgrade.evaluate(() => ["viable.product-workspace.legacy-ws", "viable.product-workspace.active"].filter((key) => localStorage.getItem(key) !== null));
+      check(legacyLeft.length === 0, `deleting a migrated workspace also removes its legacy storage copy${legacyLeft.length ? ` (left: ${legacyLeft.join(", ")})` : ""}`);
       await upgradeContext.close();
     });
 

@@ -72,3 +72,18 @@ test("every workspace store persists through the shared durable storage and awai
   );
   assert.match(storage, /await withinLoadTimeout\(DurableKeyValueStorage\.open\(/, "loading saved data is bounded so startup can never hang");
 });
+
+test("workspace deletion purges the legacy localStorage copy only after the IndexedDB deletion is durable", async () => {
+  const lifecycle = await read("apps/desktop/ui/workspace-lifecycle-shell.ts");
+  assert.match(
+    lifecycle,
+    /lifecycle\.deleteWorkspace\(workspaceId\);\s*await workspaceStorage\.commit\(\);[\s\S]*?purgeLegacyWorkspaceRecords\(workspaceScopedKeys\(workspaceId\), \{ key: PRODUCT_ACTIVE_KEY, value: workspaceId \}\);[\s\S]*?announce\("Product-wide local workspace deletion completed"\)/,
+    "the legacy copy must be purged after the commit and before deletion is announced",
+  );
+  const storage = await read("apps/desktop/ui/workspace-storage.ts");
+  assert.match(
+    storage,
+    /export function purgeLegacyWorkspaceRecords[\s\S]*?if \(opened\.status\.engine !== "indexeddb"[\s\S]*?return 0;/,
+    "the purge runs only when IndexedDB is the authority; otherwise localStorage is the authority or nothing was deleted",
+  );
+});

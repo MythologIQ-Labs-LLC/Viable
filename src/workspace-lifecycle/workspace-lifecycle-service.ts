@@ -122,6 +122,11 @@ type ParsedContext = Readonly<{
   issue?: string;
 }>;
 
+/** Every storage key that holds one workspace's scoped records. */
+export function workspaceScopedKeys(workspaceId: string): readonly string[] {
+  return WORKSPACE_CONTEXTS.map((descriptor) => `${descriptor.prefix}${workspaceId}`);
+}
+
 export class WorkspaceLifecycleService {
   constructor(
     private readonly storage: KeyValueStorage,
@@ -300,7 +305,7 @@ export class WorkspaceLifecycleService {
   deleteWorkspace(workspaceId: string): WorkspaceScopePreview {
     requireWorkspaceId(workspaceId);
     const preview = this.inspect(workspaceId);
-    const keys = WORKSPACE_CONTEXTS.map((descriptor) => `${descriptor.prefix}${workspaceId}`);
+    const keys = workspaceScopedKeys(workspaceId);
     const snapshot = new Map<string, string | null>(keys.map((key) => [key, this.storage.getItem(key)]));
     snapshot.set(PRODUCT_ACTIVE_KEY, this.storage.getItem(PRODUCT_ACTIVE_KEY));
     try {
