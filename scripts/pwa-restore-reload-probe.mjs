@@ -24,6 +24,8 @@ const served = resolve(process.cwd(), "dist-pwa-probe");
 const ORIGIN = "http://localhost:4175";
 const BROWSER = process.env.PWA_BROWSER ?? "webkit";
 const RUNS = Number(process.env.PROBE_RUNS ?? 3);
+// PROBE_VARIANTS (regex over variant names) and PROBE_SERVICE_WORKERS
+// ("allow,block") narrow a run.
 const ENGINES = { chromium, firefox, webkit };
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -105,6 +107,26 @@ const idbKeys = (page) => page.evaluate(() => new Promise((resolveKeys, rejectKe
   open.onerror = () => rejectKeys(open.error);
 }));
 
+// The smoke's navigation phase: every view-to-view transition, paced to stay
+// under WebKit's history-write limit, then Back.
+async function navigateAllTransitions(page, limit = Infinity) {
+  const views = await page.$$eval("nav button[data-nav]", (buttons) => buttons.map((button) => button.dataset.nav));
+  let transitions = 0;
+  for (const from of views) {
+    for (const to of views) {
+      if (from === to || transitions >= limit) continue;
+      transitions += 1;
+      await page.waitForTimeout(120);
+      await page.click(`nav button[data-nav="${from}"]`, { noWaitAfter: true });
+      await page.waitForTimeout(120);
+      await page.click(`nav button[data-nav="${to}"]`, { noWaitAfter: true });
+      await page.waitForFunction((nav) => location.hash === `#${nav}`, to, { timeout: 4000 }).catch(() => undefined);
+    }
+  }
+  await page.goBack();
+  await page.waitForTimeout(300);
+}
+
 // Every variant starts from a service-worker-controlled page with a saved
 // workspace (unless noted) and ends with the reload under test.
 const VARIANTS = {
@@ -150,6 +172,22 @@ const VARIANTS = {
     await downloadBackup(page, path);
     await deleteWorkspace(page);
     await restore(page, path);
+  },
+  "72 view transitions + Back, reload (no restore)": async ({ page }) => { await navigateAllTransitions(page); },
+  "72 view transitions + Back, then full restore, reload": async ({ page, path }) => {
+    await navigateAllTransitions(page);
+    await downloadBackup(page, path);
+    await deleteWorkspace(page);
+    await restore(page, path);
+  },
+  "10 view transitions + Back, reload": async ({ page }) => { await navigateAllTransitions(page, 10); },
+  "pushState x150 (no app navigation), reload": async ({ page }) => {
+    await page.evaluate(async () => {
+      for (let index = 0; index < 150; index += 1) {
+        try { history.pushState(null, "", `#probe-${index}`); } catch { /* throttled */ }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 150));
+      }
+    });
   },
   "full, reload via goto instead of reload": async ({ page, path }) => {
     await downloadBackup(page, path);
@@ -203,8 +241,10 @@ await cp(source, served, { recursive: true });
 const server = await startServer();
 const report = { browser: BROWSER, runsPerVariant: RUNS, variants: [] };
 try {
-  for (const serviceWorkers of ["allow", "block"]) {
+  const only = process.env.PROBE_VARIANTS ? new RegExp(process.env.PROBE_VARIANTS) : undefined;
+  for (const serviceWorkers of (process.env.PROBE_SERVICE_WORKERS ?? "allow,block").split(",")) {
     for (const [name, body] of Object.entries(VARIANTS)) {
+      if (only && !only.test(name)) continue;
       const label = `${name} [service workers: ${serviceWorkers}]`;
       const runs = [];
       for (let run = 0; run < RUNS; run += 1) runs.push(await runVariant(name, body, { serviceWorkers }));

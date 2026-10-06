@@ -251,8 +251,9 @@ jobs:
       - name: Run ${{ matrix.browser }} restore/reload reproducer (diagnostic)
         # Manual runs only: isolates each step of the restore -> reload
         # sequence that crashed Playwright's Linux WebKit renderer (#124).
-        # Diagnostic evidence, never a gate.
-        if: github.event_name == 'workflow_dispatch'
+        # Diagnostic evidence, never a gate. Firefox passes the smoke, so the
+        # reproducer runs for WebKit only.
+        if: github.event_name == 'workflow_dispatch' && matrix.browser == 'webkit'
         timeout-minutes: 25
         continue-on-error: true
         env:
