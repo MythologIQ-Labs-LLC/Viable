@@ -262,6 +262,9 @@ async function run() {
       await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"));
       check(true, "workspace persists across reload in browser storage");
+      // index.html starts <main aria-busy="true">; a rendered view must clear it.
+      const busyCleared = await page.waitForFunction(() => document.querySelector("#main")?.getAttribute("aria-busy") === "false", undefined, { timeout: 5000 }).then(() => true, () => false);
+      check(busyCleared, "main region is not left aria-busy after startup");
     });
 
     await section("navigation", async () => {
