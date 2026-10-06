@@ -218,9 +218,10 @@ jobs:
   pwa-cross-browser:
     # Real-browser PWA validation in Firefox and WebKit (Safari's engine) with
     # Playwright's matched engine builds. Chromium runs in the validate job on
-    # every pull request; this heavier matrix runs automatically only on pushes
-    # to main to conserve Actions minutes, and on manual dispatch.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # every pull request; this heavier matrix runs automatically on main, on
+    # manual dispatch, and on this cross-browser implementation branch so its
+    # diagnostic/control changes are exact-head validated before merge.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'pwa/cross-browser-reload-fix')
     runs-on: ubuntu-latest
     # Manual runs also execute the restore/reload reproducer below.
     timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 45 || 20 }}
