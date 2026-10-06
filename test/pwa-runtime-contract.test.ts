@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path: string) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
@@ -41,10 +41,11 @@ test("PWA build derives immutable build identity from shipped content and keeps 
 });
 
 test("every workspace store persists through the shared durable storage and awaits the commit", async () => {
-  const stores = [
-    "activation-learning", "campaign-workspace", "product-workspace", "repository-growth",
-    "signals-inbox", "video-production", "website-watch",
-  ];
+  // Discovered, not listed: a new store added without workspaceStorage must fail here.
+  const stores = (await readdir(new URL("../../apps/desktop/ui/", import.meta.url)))
+    .map((file) => /^local-storage-(.+)-store\.ts$/.exec(file)?.[1])
+    .filter((name): name is string => Boolean(name));
+  assert.ok(stores.length >= 8, `expected every workspace store, found ${stores.join(", ")}`);
   for (const name of stores) {
     const source = await read(`apps/desktop/ui/local-storage-${name}-store.ts`);
     assert.doesNotMatch(source, /\blocalStorage\b/, `${name} store must not bypass workspace storage`);
