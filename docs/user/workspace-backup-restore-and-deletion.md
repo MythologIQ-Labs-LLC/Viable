@@ -20,6 +20,19 @@ The Workspace screen inspects all seven contexts before backup, restore, reset, 
 
 The former Product-header reset control was misleading because it removed only Product Core and its active pointer while leaving downstream stores intact. The Product workflow now routes destructive workspace management to the dedicated Workspace surface instead.
 
+### Machine-local provider connections
+
+Connected-provider metadata is intentionally outside the seven portable workspace contexts. It contains an opaque reference to a credential held by the operating system, so copying that reference into a backup would not recreate usable authority on another machine and could misrepresent what the backup contains.
+
+When connected-provider metadata exists for a workspace:
+
+- normal workspace backup and recovery-point export still cover the seven portable contexts;
+- replace-current restore and product-wide deletion are blocked;
+- the Workspace screen directs the person to disconnect providers in Calendar first;
+- disconnect removes the operating-system credential before removing the local connection record.
+
+After the providers are disconnected, the destructive workspace action can proceed normally. Restore never recreates a connected account.
+
 ## Backup
 
 `Download workspace backup` produces one JSON file containing the seven workspace context slots. Each slot contains that context's local data or `null` when the context is absent.
@@ -89,7 +102,9 @@ Successful restore writes the contexts from the backup, restores the active work
 
 Replacement is allowed only when the profile contains the same workspace ID and no competing workspace ID. Viable will not silently combine or overwrite a different local workspace.
 
-A recovery-point decision is required first (see **Recovery points**). The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
+Any connected providers must be disconnected first. Provider credentials and their machine-local connection records are deliberately not restored from portable backups.
+
+A recovery-point decision is required next (see **Recovery points**). The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
 
 The replacement operation does not imply review, approval, publication, delivery, or measurement. It restores previously stored local state.
 
@@ -105,7 +120,7 @@ Before confirmation, Viable shows:
 - what remains outside workspace deletion;
 - what is anonymized.
 
-The user must make a recovery-point decision, explicitly review the scope, and type `DELETE`. A final desktop confirmation follows.
+Connected providers must be disconnected first. The user must then make a recovery-point decision, explicitly review the scope, and type `DELETE`. A final desktop confirmation follows.
 
 Deletion removes:
 
