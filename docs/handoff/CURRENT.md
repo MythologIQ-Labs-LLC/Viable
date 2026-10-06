@@ -4,44 +4,45 @@
 
 This is the restart entrypoint for Viable work. It preserves the context required to continue without relying on conversation memory.
 
-Detailed authority remains in the PRD, accepted ADRs, domain architecture, current state, roadmap, open decisions, integration assessments, review records, GitHub issues, and merged pull requests.
+Implementation truth lives in [`docs/status/current-state.md`](../status/current-state.md). This handoff says where work stands and what to do next. If they disagree, the status record and the repository win.
 
-## Repository state
+## Repository state (2026-10-06)
 
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- Latest merged implementation PR: #70 at `7cc5a5da72f99e03ea8069347e9ad8f1bfc01181`
-- Automated viability review: `docs/reviews/viability-sweep-2026-07-16.md`
-- Release-foundation issue: #36
-- Current maturity: all six initial internal product slices and Website Watch Stage 1 are implemented and automatedly validated on `main`
-- Human acceptance remains open for issues #2, #5, #6, #3, #4, #7, and #29
-- ViMax execution remains open under issue #4
-- Backup, restore, migration, product-wide retention, dependency minimization, signing, updates, rollback, platform validation, and operational support are tracked under issue #36
-- Signals destination materialization is machine-complete through PRs #66–#70; issue #5 remains open for documentation reconciliation and human acceptance
-- Immediate priority: complete human acceptance and release foundations without creating duplicate product authority or another invented foundational slice
+- `main` at review: `aebe800ccba927baebdf4383425b7eacb0916abc` (PR #128, localhost PWA dogfood documentation)
+- Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
+- Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
+- Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
+- Human acceptance: **none completed**. #79 is the last open child of the UX umbrella #81
+- Live provider proof: **none completed**. LinkedIn member publishing (#107) is implemented on draft PR #109 and waits on a human-owned live publication
+- Release foundations: #36, re-scoped by ADR-0010. A code-signing certificate is not a prerequisite
+
+## Open pull requests and their boundaries
+
+| PR | What it is | What remains |
+|---|---|---|
+| #124 | Firefox/WebKit startup (single module graph), bounded storage load, throttled-history tolerance, `aria-busy` startup fix | Reconciled with `main`; Chromium and Firefox smoke pass. The WebKit reload crash reproduces on an app-free page (`pushState` ×10, Back, reload), so it is an engine defect in Playwright's Linux WebKit, and the smoke diagnoses it in-run. Do not claim Safari support without a hand test on real Safari. |
+| #129 | Public GitHub reads work in every runtime (unbound `fetch`); native CSP `connect-src`/`media-src` (#114 O5) | Exact-head CI and Desktop validation, then merge |
+| #109 | LinkedIn member publishing proof (native-only) | On current `main`, with provider connections persisted through `workspaceStorage` and `commit()`. Remaining: **one human-owned live publication** with a human-generated token and consent. Never substitute mocked evidence. |
+| #112 | Discoverability strategy on channel variants (#110) | Hands-on UX review; real-content dogfood after a stable LinkedIn path. Do not expand. |
+| #93 | Acceptance runbooks and templates | Its 2026-09-25 candidate is obsolete; superseded by a current candidate record |
+| Dependabot #95, #96, #111, #121 | Dependency bumps | #111 needs Rust 1.90 (`tauri-build` 2.7.1) and fails the pinned 1.88 baseline; it waits for a deliberate baseline decision |
 
 ## Read before acting
 
-Read these in order:
-
 1. `README.md`
-2. `docs/handoff/CURRENT.md`
-3. `docs/product/PRD.md`
-4. `docs/product/icp-discovery-and-validation.md`
-5. `docs/adr/README.md`
+2. `docs/status/current-state.md`
+3. `docs/handoff/CURRENT.md`
+4. `docs/adr/README.md`, especially ADR-0001, ADR-0005, ADR-0009, and ADR-0010
+5. `docs/product/PRD.md`
 6. `docs/architecture/viable-platform.md`
-7. `docs/architecture/icp-domain.md`
-8. `docs/architecture/repository-growth-domain.md`
-9. `docs/architecture/video-production-domain.md`
-10. `docs/architecture/activation-and-learning-domain.md`
-11. `docs/architecture/website-watch-domain.md`
-12. `docs/status/current-state.md`
-13. `docs/reviews/viability-sweep-2026-07-16.md`
-14. `docs/roadmap/initial-build-sequence.md`
-15. `docs/decisions/open-decisions.md`
-16. the relevant integration assessment and third-party notice
-17. the selected GitHub issue and all linked merged pull requests
+7. `docs/architecture/content-inventory-and-automated-publishing.md`
+8. `docs/reviews/pwa-runtime-roadmap-review-2026-10-05.md`
+9. `docs/acceptance/` (when present on `main`) for the human acceptance program
+10. `docs/decisions/open-decisions.md`
+11. the selected GitHub issue and every linked pull request
 
 The repository and current GitHub state are authoritative. Conversation history may explain intent but cannot override accepted documents.
 
@@ -82,131 +83,59 @@ Viable is not a social scheduler, content generator, event monitor, repository s
 - Provider content and imported manifests remain untrusted data.
 - Core workflows remain useful without hosted Viable infrastructure or a required LLM.
 - Viable does not support spam, fake growth, surveillance, unsupported claims, bypassed access, or manufactured adoption.
+- No provider secret in browser JavaScript, workspace data, logs, exports, or fixtures.
+- No silent upload, no silent publication, no automatic retry after an ambiguous provider dispatch.
+- No hosted Viable dependency and no CoreForge dependency.
 
-## Initial build and extension state
+## Workstream state
 
-| Sequence | Issue | Workstream | State |
-|---|---|---|---|
-| Foundation | #1 | Sanitized Event Radar migration | Implemented and closed |
-| Slice 1 | #2 | Product Truth, ICP, Assessment | Implemented; human acceptance open |
-| Slice 2 | #5 | Signals Inbox | Implemented; human acceptance open |
-| Slice 3 | #6 | Campaign Brief and Canonical Asset | Implemented; human acceptance open |
-| Slice 4 | #3 | Repository Growth and Launch | Implemented; human acceptance open |
-| Slice 5 | #4 | Video Production and ViMax package | Stage 1 implemented; execution and human acceptance open |
-| Slice 6 | #7 | Calendar, Activation, Outcomes, Learning | Implemented; human acceptance open |
-| Signals extension | #29 | Website Watch and Webdog-compatible import | Stage 1 implemented and hardened; human acceptance open |
-| Release foundation | #36 | Storage, migration, dependency, installer, update, and support guarantees | Open |
+| Workstream | Issue | State |
+|---|---|---|
+| Sanitized Event Radar migration | #1 | Implemented and closed |
+| Product Truth, ICP, Assessment | #2 | Implemented; human acceptance via #81 journeys |
+| Signals Inbox | #5 | Implemented; live GitHub collection fixed on #129; human acceptance via #81 |
+| Campaign Brief and Canonical Asset | #6 | Implemented; human acceptance via #81 |
+| Repository Growth and Launch | #3 | Implemented; live GitHub collection fixed on #129; human acceptance via #81 |
+| Video Production and ViMax package | #4 | Stage 1 implemented; ViMax execution and human acceptance open |
+| Calendar, Activation, Outcomes, Learning | #7 | Implemented; human acceptance via #81 |
+| Website Watch Stage 1 | #29 | Implemented and hardened; human acceptance via #81 |
+| UX completion | #81 (#72–#80) | All children merged; #79 hands-on acceptance and the demo gate remain |
+| Publishing foundation | #97 (#98, #99, #100, #101, #106) | Inventory, scheduler, and vault merged; decisions closed |
+| LinkedIn live proof | #107 / #109 | Implemented on draft; human live proof open |
+| Discoverability | #110 / #112 | Implemented on draft; hands-on review open |
+| PWA runtime | #114 | Foundation, IndexedDB, cross-browser harness, localhost self-host, and update hardening merged; O5 resolved on #129; O2/O3/O4 open or deferred |
+| Release foundations | #36 | Open; see the classification in the status record |
 
-Do not restart issues #7 or #29 as unimplemented slices. Their automated core and desktop journeys are merged.
+Do not restart any of these as unimplemented slices.
 
-## Automated viability baseline
+## Human gates
 
-PR #35 performed the current pre-human viability sweep.
+These cannot be completed by automation and must not be marked complete because code exists:
 
-### Repository and build integrity
+- keyboard-only operation of the primary journeys;
+- operation at 200% zoom;
+- status understandable without color or motion;
+- unfamiliar-user journeys with recorded participant role, environment, findings, and remediation;
+- the LinkedIn live publication (token and consent are the developer's own).
 
-- core compilation removes `dist` before building;
-- desktop web compilation removes generated output before building;
-- generated output remains ignored and must not be tracked;
-- package, Tauri, and Cargo versions are checked for alignment;
-- Node and Rust runtime contracts are checked;
-- local Markdown links are checked for existence and repository containment;
-- `@ts-ignore`, focused tests, and skipped tests are rejected by the viability gate;
-- Content Security Policy directives are checked and unsafe inline or eval permissions are rejected.
-
-### Security and dependency gates
-
-- tracked working-tree text files are scanned rather than committed `HEAD` blobs;
-- Slack, GitHub, AWS, Google, OpenAI, Anthropic, npm, GitLab, and private-key signatures are covered;
-- matched secret values are never printed;
-- npm high and critical audit findings fail CI;
-- GitHub Actions are pinned to full commit revisions;
-- validation checkouts do not persist credentials;
-- weekly bounded Dependabot proposals cover npm, Cargo, and GitHub Actions.
-
-### Coverage and deterministic tests
-
-Observed during the sweep:
-
-| Metric | Observed | Enforced floor |
-|---|---:|---:|
-| Lines | 88.69% | 85% |
-| Branches | 62.44% | 55% |
-| Functions | 89.81% | 85% |
-
-Coverage floors apply to reusable core source. Passing them does not replace evidence-quality review or human journey acceptance.
-
-### Desktop persistence and recovery
-
-All seven desktop workspace stores now:
-
-- validate workspace identity;
-- validate required minimum collections and fields;
-- reject malformed, mismatched, or incomplete saved data before it reaches authority services;
-- preserve malformed or incompatible saved values rather than silently rewriting or deleting them;
-- surface storage-read, quota, serialization, and incomplete-removal failures explicitly.
-
-Additional recovery behavior:
-
-- startup and unhandled asynchronous failures render a visible recovery state;
-- Campaign and Studio load failures clear busy state and expose retry behavior;
-- partial Product workspace deletion preserves the active identity needed to retry cleanup.
-
-This is minimum structural integrity. It is not a schema-version, migration, backup, or restore guarantee.
-
-### Exact-head validation
-
-PR #35 was validated at `041193349de518e708b8e80378e4de9a9f46d5ad`:
-
-- CI run #118 passed repository viability, working-tree secret scanning, npm dependency audit, strict core and desktop TypeScript, complete deterministic tests, and enforced coverage floors;
-- Desktop run #62 passed exact Rust 1.88 formatting and tests, clean desktop web compilation, Tauri bundle construction, and Debian package inspection.
-
-Shared `src/**` changes now trigger native desktop validation.
-
-## Website Watch boundary
-
-Website Watch Stage 1 provides provider-neutral watched sites, targets, source health, snapshots, bounded observations, generated-analysis separation, named review, proposed work, Calendar planning, retention, deletion, and strict Webdog-compatible manual import.
-
-Stage 1 does not crawl websites, call Context.dev, connect to a live Webdog service, run a worker, import live screenshots, open a public webhook listener, copy browser sessions, access private pages, execute AI triage, send notifications, publish, or mutate Product Core automatically.
-
-## Open human and live-execution gates
-
-Issues #2, #3, #5, #6, #7, and #29 remain open for hands-on keyboard and assistive-technology review, unfamiliar-user completion, and remediation.
-
-Issue #4 additionally remains open for actual ViMax execution and Windows and Linux ViMax runtime validation.
-
-Automated semantics, coverage, focus styling, responsive styling, reduced motion, persistence checks, deterministic tests, and native packaging do not replace human review.
-
-## Release-foundation work
-
-Issue #36 owns the remaining machine-verifiable release foundations:
-
-- explicit schema versions and migration fixtures;
-- product-wide backup and restore;
-- corruption quarantine and malformed-record export;
-- product-wide retention and deletion propagation;
-- Rust dependency minimization and advisory scanning;
-- signed installers and publisher identity;
-- update integrity, interruption, rollback, upgrade, and uninstall behavior;
-- Windows validation and macOS packaging decision;
-- supported-platform evidence;
-- diagnostic export, vulnerability intake, support, and rollback documentation.
-
-Do not manually edit generated lockfiles. Cargo dependency changes require Cargo-generated lockfile updates and exact-head validation.
+The acceptance runbooks and the current candidate record live under `docs/acceptance/`.
 
 ## Next priorities
 
-1. Complete and remediate human acceptance for issues #2, #5, #6, #3, #4, #7, and #29.
-2. Progress issue #36 without expanding product scope.
-3. Use Viable's Product and ICP workflow to select and validate Viable's narrower launch ICP.
-4. Decide connected publishing, analytics, search, CRM, Context.dev, and live Webdog adapters from current product evidence.
-5. Define Relationships and Sales authority before implementing contacts, leads, organizations, and opportunities.
-6. Reopen ViMax execution only when its machine-safe contract and operating-system validation plan exist.
+1. Land #129 and settle #124 so Chromium dogfood has live GitHub evidence and Firefox/WebKit status is truthful.
+2. Run the #79/#81 human acceptance on the pinned candidate, then fix only P0/P1 findings in narrow PRs.
+3. Perform the human-owned LinkedIn live proof on #109's exact validated head.
+4. Progress #36 items that block dogfood. Leave public-hosting work until external distribution is justified.
+5. Only then revisit #112 sequencing, connected metrics, and additional providers.
 
-Direct publishing and live website collection must not precede human acceptance of the complete manual evidence and activation loop.
+No new broad feature tranche precedes these.
+
+## Engineering rules that keep recurring
+
+- Do not manually edit generated lockfiles. Cargo dependency changes require Cargo-generated lockfiles and exact-head Desktop validation on Rust 1.88.
+- Never weaken CSP, storage authority, credential handling, or the smoke suite to obtain green CI. Measure first. #129 is the model: runtime evidence, then the narrowest change, then a static invariant.
+- Injected test doubles can hide runtime-only defects. Exercise production defaults (for example the global `fetch` receiver rule) at least once.
 
 ## Release posture
 
-Viable is not ready for external release.
-
-A passing compiler, coverage threshold, dependency audit, or Debian package does not prove accessibility, unfamiliar-user success, signed distribution, safe upgrades, backup recovery, supported-platform behavior, provider execution, or operational support readiness.
+Viable is ready for local Chromium dogfooding at `http://localhost:4175`. It is not ready for external release. Passing compilers, coverage, audits, browser smoke, and native packaging do not prove accessibility, unfamiliar-user success, provider execution, supported-platform behavior, or operational readiness.

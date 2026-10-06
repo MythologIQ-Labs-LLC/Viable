@@ -73,6 +73,8 @@ Viable makes those distinctions explicit and reviewable.
 | Video Production | Provider-neutral video briefs and packages, ViMax compatibility packet, artifact import, and named review |
 | Calendar and Activation | Destination records, timing, destination-bound review, manual activation packages, and outcome evidence |
 | Analytics and Learning | Baselines, explicit metric-evidence states, retrospectives, attribution uncertainty, and learning ledger |
+| Publishing foundation | Publication inventory bound to exact named-human-approved sources, a deterministic scheduler and execution ledger with no automatic retry after an ambiguous dispatch, and a native OS credential vault. Connected LinkedIn publishing is implemented on a draft PR and is **not** live-proven |
+| Runtime | Local-first PWA (primary) with IndexedDB workspace authority, user-confirmed updates, portable backup/restore, and a runtime capability panel; native Tauri shell for the credential vault and connected publishing |
 
 The implemented workflows are local-first and designed to remain useful without mandatory hosted Viable infrastructure or a required LLM.
 
@@ -147,7 +149,7 @@ Important persistence rules:
 - Do not clear this site's browser storage unless you intend to remove the local Viable profile.
 - If IndexedDB cannot be opened, Viable fails closed rather than showing a possibly stale legacy `localStorage` copy.
 - An update confirmed in one tab does not force-reload other open tabs; each tab reloads only after its own confirmation.
-- Chromium is the current evidence-backed dogfood path. Firefox is progressing through cross-browser validation; WebKit/Safari still has an unresolved restore/reload automation finding.
+- Chromium is the current evidence-backed dogfood path. Firefox passes the full automated PWA smoke with the pending startup fix (PR #124), but no person has dogfooded it yet. Safari is not supported. Playwright's WebKit build has a reload defect that reproduces without any Viable code, and no real Safari has been tested.
 
 The governing distribution decision is [ADR-0010](docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md).
 
