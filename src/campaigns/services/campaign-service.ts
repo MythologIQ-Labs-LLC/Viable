@@ -13,7 +13,9 @@ import type {
   ManualExportPackage,
   ReviewComment,
 } from "../domain/campaign.js";
+import type { DiscoverabilityBrief } from "../domain/discoverability.js";
 import type { CampaignWorkspaceStore } from "../ports/campaign-workspace-store.js";
+import { assessDiscoverability, discoverabilityConflicts, normalizeDiscoverabilityBrief } from "./discoverability-assessment.js";
 
 type Clock = () => Date;
 type IdFactory = () => string;
@@ -224,9 +226,17 @@ export class CampaignService {
     });
   }
 
-  async createVariant(workspaceId: string, assetId: string, channel: ChannelKind, body: string, constraints: readonly string[]): Promise<CampaignWorkspace> {
+  async createVariant(
+    workspaceId: string,
+    assetId: string,
+    channel: ChannelKind,
+    body: string,
+    constraints: readonly string[],
+    discoverability?: DiscoverabilityBrief,
+  ): Promise<CampaignWorkspace> {
     requireText(body, "Channel variant body");
     if (constraints.length === 0) throw new Error("Channel constraints are required");
+    const brief = discoverability ? normalizeDiscoverabilityBrief(discoverability) : undefined;
     const [product, workspace] = await Promise.all([this.requiredProduct(workspaceId), this.load(workspaceId)]);
     const asset = required(workspace.assets, assetId, "Canonical asset");
     if (asset.status !== "approved") throw new Error("Channel variants require an approved canonical asset");
@@ -236,7 +246,7 @@ export class CampaignService {
     this.validateReferences(product, asset.claimReferences, asset.evidenceIds, campaign.channels);
     if (workspace.variants.some((item) => item.canonicalAssetId === assetId && item.channel === channel)) throw new Error("A variant already exists for this channel");
     const now = this.clock().toISOString();
-    const variant: ChannelVariant = { id: this.createId(), workspaceId, canonicalAssetId: assetId, channel, body, constraints: clean(constraints), version: 1, status: "draft", createdAt: now, updatedAt: now };
+    const variant: ChannelVariant = { id: this.createId(), workspaceId, canonicalAssetId: assetId, channel, body, constraints: clean(constraints), ...(brief ? { discoverability: brief } : {}), version: 1, status: "draft", createdAt: now, updatedAt: now };
     return this.persist({ ...workspace, variants: [...workspace.variants, variant], updatedAt: now });
   }
 
@@ -260,6 +270,10 @@ export class CampaignService {
       if (campaign.status !== "approved") throw new Error("Variant approval requires current approved campaign authority");
       this.validateCampaignAuthority(product, campaign);
       this.validateReferences(product, asset.claimReferences, asset.evidenceIds, campaign.channels);
+      if (variant.discoverability) {
+        const conflicts = discoverabilityConflicts(assessDiscoverability(variant.channel, variant.body, variant.discoverability, this.clock()));
+        if (conflicts.length > 0) throw new Error(`Variant approval is blocked by a discoverability conflict: ${conflicts.map((item) => item.message).join(" ")}`);
+      }
     }
     const now = this.clock().toISOString();
     return this.persist({

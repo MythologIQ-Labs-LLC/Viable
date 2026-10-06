@@ -131,3 +131,5 @@ td span, td small { display: block; margin-top: .35rem; color: var(--muted); lin
 .tag-list span { border: 1px solid #526471; border-radius: 99rem; padding: .22rem .48rem; color: var(--muted); font-size: .72rem; }
 .limitations { display: grid; gap: .55rem; color: var(--muted); line-height: 1.5; }
 @media (max-width: 72rem) { .source-forms, .health-grid, .signal-cards { grid-template-columns: 1fr; } }
+.discoverability { margin-top: .6rem; }
+.discoverability-findings { list-style: none; padding: 0; display: grid; gap: .4rem; }
