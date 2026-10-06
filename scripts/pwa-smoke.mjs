@@ -30,6 +30,7 @@ const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
 const ENGINE_CONTROL_PATH = "/__engine-control.html";
 const ENGINE_CONTROL_SW_PATH = "/__engine-control-sw.js";
 let engineControlSwVersion = 1;
+let engineControlPrecache = [ENGINE_CONTROL_PATH];
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -60,7 +61,10 @@ function startServer() {
     if (url.pathname === ENGINE_CONTROL_SW_PATH) {
       response.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/" }).end(`
 const CACHE = "viable-engine-control-v${engineControlSwVersion}";
-self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.add("${ENGINE_CONTROL_PATH}"))));
+const PRECACHE = ${JSON.stringify(engineControlPrecache)};
+self.addEventListener("install", (event) => event.waitUntil(
+  caches.open(CACHE).then((cache) => cache.addAll(PRECACHE.map((path) => new Request(path, { cache: "reload" })))),
+));
 self.addEventListener("activate", (event) => event.waitUntil((async () => {
   const names = await caches.keys();
   await Promise.all(names.filter((name) => name.startsWith("viable-engine-control-v") && name !== CACHE).map((name) => caches.delete(name)));
@@ -222,6 +226,14 @@ async function run() {
   await rm(served, { recursive: true, force: true });
   await cp(source, served, { recursive: true });
   const buildInfo = JSON.parse(await readFile(join(served, "build-info.json"), "utf8"));
+  // Make the app-free WebKit update control exercise the same precache volume
+  // and cache churn as the production service worker without executing Viable
+  // application code. This distinguishes a WebKit service-worker/cache defect
+  // from a failure in Viable's post-update startup path.
+  const productionWorker = await readFile(join(served, "sw.js"), "utf8");
+  const precacheMatch = productionWorker.match(/const PRECACHE = (\\[[^\\n]+\\]);/);
+  if (!precacheMatch) throw new Error("Production service-worker precache list not found");
+  engineControlPrecache = [...JSON.parse(precacheMatch[1]), ENGINE_CONTROL_PATH];
   const server = await startServer();
   const origin = SMOKE_ORIGIN;
   const browser = BROWSER === "chromium"
