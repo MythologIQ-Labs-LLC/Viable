@@ -30,6 +30,9 @@ export class NativeLinkedInProviderClient implements LinkedInNativeProviderPort 
   }
 
   async disconnect(input: Readonly<{ credentialReference: string }>): Promise<void> {
+    if (!input.credentialReference.startsWith("viable://credential/linkedin/")) {
+      throw new Error("LinkedIn credential reference is invalid");
+    }
     const result = await this.requiredInvoke()<Readonly<{ reference: string; present: boolean }>>("credential_delete", {
       reference: input.credentialReference,
     });
