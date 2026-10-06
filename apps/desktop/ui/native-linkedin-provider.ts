@@ -29,6 +29,13 @@ export class NativeLinkedInProviderClient implements LinkedInNativeProviderPort 
     });
   }
 
+  async disconnect(input: Readonly<{ credentialReference: string }>): Promise<void> {
+    const result = await this.requiredInvoke()<Readonly<{ reference: string; present: boolean }>>("credential_delete", {
+      reference: input.credentialReference,
+    });
+    if (result.present) throw new Error("LinkedIn credential could not be removed from the native vault");
+  }
+
   async openSetupPage(destination: "linkedin_developer_apps" | "linkedin_token_generator"): Promise<void> {
     await this.requiredInvoke()<void>("open_external_destination", { destination });
   }
