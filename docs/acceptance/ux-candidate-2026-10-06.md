@@ -32,19 +32,15 @@ npm run pwa:selfhost
 |---|---|
 | Candidate commit | `fee77c834372cbe967c77f6b86ad79d6638aeafe` (branch `acceptance/candidate-2026-10-06`) |
 | Candidate tree | `137c2e5b7c2d9908b5de2cc9a04f68569f190dd5` |
-| Composition | `main` at `aebe800` (#128) + PR #129 at `b94f042` + PR #124 at `7984a60`, merged without conflicts |
+| Composition | Frozen integration candidate: `main` at `aebe800` (#128) + #129 at `b94f042` + #124 at `7984a60`. Both PRs are now merged to `main` (#124 → `88bbf408`, #129 → `0e2e9ba`). |
 | PWA build identity | `1bd83169cbba5396031e60329beb309bcbce2e6acc9c11995ab6ea76e0415200` (content hash, shown in Workspace → Runtime) |
 | Accepted environment | Production PWA via `npm run pwa:selfhost` at `http://localhost:4175`, Chromium desktop browser |
 | Exploratory only | Firefox, Safari/WebKit, and the native Tauri shell. Results are recorded but do not count toward acceptance |
 | Starting seed | `ux-acceptance-seed-v2` (`crc32:c9f2ee2d`) |
 
-The candidate is an integration branch because #124 and #129 had not merged into `main` when this record was written. If both merge unchanged, `main` carries the same application code. Before using `main` instead, confirm that this prints nothing:
+The candidate was frozen before #124 and #129 merged. Both are now on `main`. The final #129 merged unchanged from the candidate composition. #124 continued only in its validation harness after `7984a60`: comparing `7984a60...65fd274` changes only `.github/workflows/ci.yml` and `scripts/pwa-smoke.mjs`; no shipped application file changed.
 
-```bash
-git diff --stat fee77c834372cbe967c77f6b86ad79d6638aeafe origin/main -- apps src scripts package.json package-lock.json
-```
-
-If it prints anything, keep testing the candidate commit, or create a superseding record.
+Therefore the frozen PWA artifact remains application-equivalent to the merged runtime work. After this acceptance PR merges, current `main` may be used for the human run **only if Workspace → Runtime reports the same PWA build identity `1bd83169cbba…`**. If the build identity differs, use the frozen candidate commit or create a superseding candidate record.
 
 ## What changed since the 2026-09-25 candidate
 
@@ -62,10 +58,10 @@ If it prints anything, keep testing the candidate commit, or create a supersedin
 | `npm run validate` on the candidate commit | pass: 311 tests; coverage 86.77% lines, 67.18% branches, 89.30% functions |
 | Chromium PWA smoke on the candidate commit | pass, including the new `aria-busy` check |
 | Rust fmt and tests on the candidate commit | pass |
-| CI dispatch on the candidate commit (run 37430207753) | `validate` (including the Chromium smoke) pass; Firefox full smoke pass; WebKit fails only on offline reload and the update reload, plus the recorded engine limitation, as on PR #124 |
+| CI dispatch on the candidate commit (run 37430207753) | `validate` (including the Chromium smoke) pass; Firefox full smoke pass. The candidate predates #124's final harness-only classification of the WebKit reload findings; shipped application code is unchanged. |
 | Seed restore on the candidate build (Chromium) | restored; all 9 views render the seed with 0 page or console errors; `aria-busy` cleared on every view |
 | PR #129 exact head `b94f042` | CI, Desktop (Rust 1.88, Tauri bundle, `.deb`), CodeQL, Security audit all pass |
-| PR #124 exact head `7984a60` | CI, Desktop, and CodeQL pass; Firefox full smoke passes; WebKit: one engine limitation plus offline/update reload failures (see PR #124) |
+| PR #124 final exact head `65fd274` | Core CI and Desktop pass; Firefox full smoke passes; WebKit smoke passes with four documented Playwright/Linux-WebKit limitations. App-free controls reproduce the history reload, offline-emulation reload, and controller-change update reload findings. Safari remains unsupported pending real-Safari evidence. |
 
 These checks establish the machine baseline only. They do not satisfy #79 or #81.
 
