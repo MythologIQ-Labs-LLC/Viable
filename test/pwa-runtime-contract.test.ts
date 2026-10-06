@@ -59,6 +59,16 @@ test("every workspace store persists through the shared durable storage and awai
   assert.match(lifecycle, /new WorkspaceLifecycleService\(workspaceStorage\)/);
   const storage = await read("apps/desktop/ui/workspace-storage.ts");
   assert.match(storage, /durability: "strict"/);
-  assert.match(storage, /if \(markerSet\(\) \|\| error instanceof StorageLoadTimeout\)/, "a migrated profile, or a load that timed out mid-migration, must fail closed rather than read stale localStorage");
+  assert.doesNotMatch(storage, /ENGINE_MARKER|markerSet/, "IndexedDB authority must not depend on a best-effort localStorage marker");
+  assert.match(
+    storage,
+    /catch \(error\)[\s\S]*showUnavailableBanner\(reason\)[\s\S]*engine: "unavailable"/,
+    "any IndexedDB open failure must fail closed rather than read a possibly stale localStorage copy",
+  );
+  assert.equal(
+    storage.match(/storage: liveLocalStorage/g)?.length,
+    1,
+    "localStorage fallback is allowed only when IndexedDB is not exposed by the runtime",
+  );
   assert.match(storage, /await withinLoadTimeout\(DurableKeyValueStorage\.open\(/, "loading saved data is bounded so startup can never hang");
 });

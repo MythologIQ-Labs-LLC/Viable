@@ -51,9 +51,15 @@ LinkedIn's API rejects browser-origin requests through CORS. Its standard author
 
 A public code-signing certificate is never a prerequisite for Viable to be usable by ordinary people. If a certificate becomes available, it is an optional improvement to native distribution, not a release gate.
 
-### 2. The PWA is the primary mainstream runtime
+### 2. The PWA is the primary runtime, not necessarily a cloud-hosted runtime
 
-An installable, local-first Progressive Web App served from an HTTPS origin is Viable's primary cross-platform distribution for Windows, macOS, and Linux. Ordinary browser use remains valid where installation is unavailable.
+An installable, local-first Progressive Web App is Viable's primary cross-platform runtime for Windows, macOS, and Linux. Ordinary browser use remains valid where installation is unavailable.
+
+PWA-first does **not** mean cloud-hosted-first.
+
+Before external demand justifies a public distribution surface, the default Viable rollout is a production-build PWA served by each developer or trusted tester on their own stable loopback localhost origin. The canonical self-host origin is **`http://localhost:4175`**, started with **`npm run pwa:selfhost`**. Public HTTPS hosting is a later distribution decision, not a prerequisite for development, dogfooding, trusted testing, or demand validation.
+
+For public network distribution, the PWA must be served from a controlled HTTPS origin and satisfy decision 10.
 
 ### 3. No "Viable Lite"
 
@@ -90,6 +96,10 @@ Native-only status must name the concrete platform limitation.
 ### 6. Local-first is invariant
 
 - Web delivery does not make data server-authoritative.
+- A local self-hosted PWA on loopback is a first-class pre-demand runtime, not a temporary fake deployment.
+- Each tester should normally serve their own local instance. Ordinary HTTP on another machine's private-LAN address is not treated as equivalent to loopback localhost.
+- Browser storage is origin-bound. A persisted test profile therefore uses one stable canonical localhost origin; the local server must fail clearly rather than silently change hostname or port when that origin is unavailable.
+- Moving later from localhost to a public HTTPS origin is a cross-origin migration. The portable versioned backup/restore contract is the supported data-transfer path; browser storage is never assumed to move automatically between origins.
 - No Viable-hosted account or database is introduced by this decision.
 - Local workspace data is never transmitted merely because the UI is web-delivered.
 - Native and browser runtimes have separate storage origins. The **portable versioned backup** is the interchange contract; no runtime reads another runtime's storage internals.
@@ -117,7 +127,8 @@ Native-only status must name the concrete platform limitation.
 
 | Channel | Status | Trust boundary |
 |---|---|---|
-| PWA on an HTTPS origin | **Primary mainstream** (all desktop OSes) | HTTPS origin identity plus deployment provenance (decision 10) |
+| Self-hosted PWA on loopback localhost | **Default pre-demand dogfood / trusted-test runtime** | Local machine + build provenance; no public infrastructure required |
+| PWA on a public HTTPS origin | **Primary mainstream public distribution** (all desktop OSes) | HTTPS origin identity plus deployment provenance (decision 10) |
 | Microsoft Store MSIX (Windows native) | **Candidate**, pending a proof of concept that packages the Tauri app as MSIX | Store certification and Microsoft-managed signing |
 | Microsoft Store MSI/EXE | **Not cert-free**: requires developer Authenticode signing | Developer certificate |
 | Direct GitHub native artifacts | **Development / advanced / archival only** | Checksums and build provenance, labeled honestly as unsigned |
@@ -127,7 +138,9 @@ Documentation must never instruct users to disable SmartScreen, Smart App Contro
 
 ### 10. PWA deployment trust contract
 
-Production PWA deployment requires:
+Local dogfood and trusted testing may run on loopback localhost without a public host. That stage must preserve the same local-first data and update invariants, use a stable origin, and never imply that the app is publicly deployed.
+
+Public production PWA deployment requires:
 
 - HTTPS only;
 - a strict CSP and security headers equal to or stricter than the Tauri CSP;
@@ -153,7 +166,7 @@ Public documentation and product pages on the origin may be indexable for discov
 - Two runtimes must be validated, and capability differences must be designed and explained.
 - Browser storage can be evicted. Durable-storage requests, quota visibility, and backup guidance become product requirements.
 - Connected publishing is unavailable to PWA-only users until a provider passes the provider test or the native runtime reaches them through a cert-free channel.
-- Hosting, deployment, and service-worker update discipline become new operational responsibilities.
+- Public hosting and deployment become operational responsibilities once external distribution is justified. They are intentionally not prerequisites for pre-demand dogfood/testing.
 
 ## Alternatives considered
 
@@ -184,7 +197,9 @@ Rejected. It silently weakens the credential promise made by the native vault bo
 - Request durable storage. Surface persistence and quota state, and guide users to back up.
 - Move authoritative browser persistence to IndexedDB in a dedicated slice. This first makes `WorkspaceLifecycleService` asynchronous; the domain store ports are already asynchronous.
 - Add real-browser smoke validation to CI.
-- Choose a production origin and host, then add deployment provenance and rollback.
+- Provide a stable local self-host path for dogfood/trusted testing. Implemented contract: `npm run pwa:selfhost` builds the production shell and serves it at `http://localhost:4175`; if that origin is occupied, startup fails clearly instead of selecting another port.
+- Choose a public production origin and host only when external distribution is justified, then add deployment provenance and rollback.
+- Validate localhost → public-origin migration through the portable backup/restore contract before asking existing testers to move.
 - Run a Microsoft Store MSIX proof of concept for the Tauri runtime as an independent track.
 - Re-scope issue #36: installer signing is no longer a mainstream release gate.
 
