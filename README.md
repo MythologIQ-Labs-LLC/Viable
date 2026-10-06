@@ -149,7 +149,7 @@ Important persistence rules:
 - Do not clear this site's browser storage unless you intend to remove the local Viable profile.
 - If IndexedDB cannot be opened, Viable fails closed rather than showing a possibly stale legacy `localStorage` copy.
 - An update confirmed in one tab does not force-reload other open tabs; each tab reloads only after its own confirmation.
-- Chromium is the current evidence-backed dogfood path. Firefox passes the full automated PWA smoke with the pending startup fix (PR #124), but no person has dogfooded it yet. Safari is not supported. Playwright's WebKit build has a reload defect that reproduces without any Viable code, and no real Safari has been tested.
+- Chromium is the current evidence-backed dogfood path. Firefox passes the full automated PWA smoke after merged PR #124, but no person has dogfooded it yet. Safari is not supported. Playwright's Linux WebKit smoke passes only with documented engine/harness limitations reproduced on app-free controls (history reload, offline emulation, and service-worker update reload); no real Safari has been tested.
 
 The governing distribution decision is [ADR-0010](docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md).
 
