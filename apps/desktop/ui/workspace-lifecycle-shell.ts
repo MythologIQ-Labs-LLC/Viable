@@ -5,6 +5,7 @@ import {
   type WorkspaceImportPreview,
   type WorkspaceScopePreview,
 } from "../../../src/workspace-lifecycle/workspace-lifecycle-service.js";
+import { decodeStoredWorkspace } from "../../../src/workspace-lifecycle/workspace-storage-schema.js";
 import { workspaceStorage } from "./workspace-storage.js";
 
 const lifecycle = new WorkspaceLifecycleService(workspaceStorage);
@@ -51,10 +52,10 @@ function productName(workspaceId: string): string {
   const raw = workspaceStorage.getItem(`${product.prefix}${workspaceId}`);
   if (!raw) return workspaceId;
   try {
-    // Stored values carry the { schemaVersion, workspace } envelope; legacy values do not.
-    const stored = JSON.parse(raw) as { schemaVersion?: unknown; workspace?: unknown };
-    const parsed = (stored && typeof stored === "object" && "schemaVersion" in stored ? stored.workspace : stored) as { product?: { identity?: { name?: unknown } } } | undefined;
-    const name = parsed?.product?.identity?.name;
+    // Only retained schema versions are read; newer or invalid envelopes show the ID.
+    const decoded = decodeStoredWorkspace(JSON.parse(raw));
+    if (decoded.status !== "decoded") return workspaceId;
+    const name = (decoded.workspace as { product?: { identity?: { name?: unknown } } } | null)?.product?.identity?.name;
     return typeof name === "string" && name.trim() ? name : workspaceId;
   } catch {
     return workspaceId;
@@ -116,15 +117,16 @@ function backupSection(preview: WorkspaceScopePreview): string {
 
 function restoreSection(): string {
   const preview = pendingImport;
+  const quarantineBlocked = Boolean(preview?.requiresQuarantineExport && quarantineExportedFor !== preview.backup.workspaceId);
   return `<section class="panel" aria-labelledby="restore-heading">
     <div class="section-heading"><div><p class="eyebrow">Restore</p><h3 id="restore-heading">Restore a Viable workspace backup</h3></div></div>
     <p class="guidance">Choose a backup file. Viable validates format, version, checksum, context identity, required shapes, and credential-like fields before enabling any mutation.</p>
     <label>Workspace backup file<input type="file" accept="application/json,.json" data-workspace-import></label>
     ${importFailure ? `<section class="state error" role="alert" tabindex="-1" data-workspace-import-error><strong>Backup was not accepted.</strong><span>${escapeHtml(importFailure)} No local workspace data was changed.</span></section>` : ""}
-    ${preview ? `<section class="state ${preview.conflict ? "warning" : "offline"}" data-workspace-import-preview><div><strong>Backup validated for ${escapeHtml(productNameFromBackup(preview))}.</strong><p>Workspace ID: ${escapeHtml(preview.backup.workspaceId)} · created ${escapeHtml(new Date(preview.backup.createdAt).toLocaleString())}</p>${preview.conflict ? `<p>${escapeHtml(preview.conflict)}</p>` : ""}</div></section>
+    ${preview ? `<section class="state ${preview.conflict ? "warning" : "offline"}" data-workspace-import-preview><div><strong>Backup validated for ${escapeHtml(productNameFromBackup(preview))}.</strong><p>Workspace ID: ${escapeHtml(preview.backup.workspaceId)} · created ${escapeHtml(new Date(preview.backup.createdAt).toLocaleString())}</p>${preview.conflict ? `<p>${escapeHtml(preview.conflict)}</p>` : ""}${quarantineBlocked ? `<p data-workspace-restore-quarantine>The current workspace contains corrupt or newer-version data that this restore would overwrite. Export quarantine data above before replacing it.</p>` : ""}</div></section>
       <div class="actions">
         <button type="button" data-workspace-action="restore-empty" ${preview.canRestoreIntoEmptyProfile ? "" : "disabled"}>Restore into empty profile</button>
-        <button type="button" data-workspace-action="restore-replace" ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile ? "" : "disabled"}>Replace current workspace from backup</button>
+        <button type="button" data-workspace-action="restore-replace" ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile && !quarantineBlocked ? "" : "disabled"}>Replace current workspace from backup</button>
       </div>` : ""}
   </section>`;
 }
@@ -237,7 +239,7 @@ async function performRestore(mode: "empty_profile" | "replace_current"): Promis
   if (!window.confirm(wording)) return;
   actionFailure = undefined;
   try {
-    const restored = lifecycle.restoreBackup(pendingImportText, mode);
+    const restored = lifecycle.restoreBackup(pendingImportText, mode, { quarantineExported: quarantineExportedFor === pendingImport.backup.workspaceId });
     // Restore is only reported once every restored context is durable.
     await workspaceStorage.commit();
     selectedWorkspaceId = restored.workspaceId;
