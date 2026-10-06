@@ -187,6 +187,94 @@ test("failed local connection persistence cleans up the newly stored vault crede
   assert.equal(connections.value, undefined);
 });
 
+test("successful token replacement stages a new vault slot and retires the old credential after local commit", async () => {
+  const activation = new ActivationStore();
+  const connections = connectedStore();
+  const native = new NativeProvider();
+  const service = new LinkedInMemberConnectionService(
+    activation,
+    connections,
+    native,
+    () => new Date(NOW),
+    () => "replacement-slot",
+  );
+
+  const result = await service.connectWithDeveloperPortalToken({
+    workspaceId: WORKSPACE_ID,
+    destinationId: destination.id,
+    accessToken: "replacement-token",
+  });
+
+  assert.equal(result.kind, "connected");
+  if (result.kind !== "connected") return;
+  assert.equal(result.connection.id, "connection-1", "logical connection identity stays stable");
+  assert.equal(result.connection.credentialReference, "viable://credential/linkedin/replacement-slot/access_token");
+  assert.deepEqual(native.disconnectInputs, [{
+    credentialReference: "viable://credential/linkedin/connection-1/access_token",
+  }]);
+  assert.deepEqual(result.connection.supersededCredentialReferences, undefined);
+});
+
+test("replacement metadata save failure cleans only the staged credential and preserves the old connection record", async () => {
+  const activation = new ActivationStore();
+  const connections = connectedStore();
+  const before = structuredClone(connections.value);
+  connections.throwOnSave = true;
+  const native = new NativeProvider();
+  const service = new LinkedInMemberConnectionService(
+    activation,
+    connections,
+    native,
+    () => new Date(NOW),
+    () => "replacement-failed-save",
+  );
+
+  await assert.rejects(() => service.connectWithDeveloperPortalToken({
+    workspaceId: WORKSPACE_ID,
+    destinationId: destination.id,
+    accessToken: "replacement-token",
+  }), /connection save failure/);
+
+  assert.deepEqual(connections.value, before);
+  assert.deepEqual(native.disconnectInputs, [{
+    credentialReference: "viable://credential/linkedin/replacement-failed-save/access_token",
+  }]);
+  assert.notEqual(
+    native.disconnectInputs[0]?.credentialReference,
+    before?.connections[0]?.credentialReference,
+    "the old working vault reference is never deleted when replacement metadata fails to save",
+  );
+});
+
+test("failed cleanup of an old replacement credential remains explicit metadata for later retry", async () => {
+  const activation = new ActivationStore();
+  const connections = connectedStore();
+  const native = new NativeProvider();
+  native.throwOnDisconnect = true;
+  const service = new LinkedInMemberConnectionService(
+    activation,
+    connections,
+    native,
+    () => new Date(NOW),
+    () => "replacement-cleanup-pending",
+  );
+
+  const result = await service.connectWithDeveloperPortalToken({
+    workspaceId: WORKSPACE_ID,
+    destinationId: destination.id,
+    accessToken: "replacement-token",
+  });
+
+  assert.equal(result.kind, "connected");
+  if (result.kind !== "connected") return;
+  assert.deepEqual(result.connection.supersededCredentialReferences, [
+    "viable://credential/linkedin/connection-1/access_token",
+  ]);
+  assert.deepEqual(connections.value?.connections[0]?.supersededCredentialReferences, [
+    "viable://credential/linkedin/connection-1/access_token",
+  ]);
+});
+
 test("connection bootstrap rejects non-LinkedIn destinations before native secret handling", async () => {
   const activation = new ActivationStore({
     ...workspace(),
