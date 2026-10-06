@@ -40,7 +40,7 @@ class ActivationStore implements ActivationLearningStore {
 }
 
 class ConnectionStore implements ProviderConnectionStore {
-  value?: ProviderConnectionWorkspace;
+  value: ProviderConnectionWorkspace | undefined;
   throwOnSave = false;
   throwOnDelete = false;
   async load(id: string): Promise<ProviderConnectionWorkspace | undefined> { return id === WORKSPACE_ID ? this.value : undefined; }
