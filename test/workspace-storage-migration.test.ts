@@ -330,8 +330,10 @@ test("engine migration copies legacy representations verbatim and never resurrec
 test("the Workspace screen gates replace-restore on quarantine export and reads names only from retained versions", async () => {
   const shell = await readFile("apps/desktop/ui/workspace-lifecycle-shell.ts", "utf8");
   assert.match(shell, /requiresQuarantineExport && quarantineExportedFor !== preview\.backup\.workspaceId/);
-  assert.match(shell, /!quarantineBlocked \? "" : "disabled"/);
+  assert.match(shell, /!quarantineBlocked && !localConnectionBlocked \? "" : "disabled"/);
   assert.match(shell, /const target = pendingImport\.backup\.workspaceId;/);
+  assert.match(shell, /preview\?\.requiresLocalConnectionDisconnect/);
+  assert.match(shell, /data-workspace-restore-connections/);
   assert.match(shell, /restoreBackup\(pendingImportText, mode, \{\s*quarantineExported: quarantineExportedFor === target,/);
   assert.match(shell, /decodeStoredWorkspace\(JSON\.parse\(raw\)\)/);
 });
