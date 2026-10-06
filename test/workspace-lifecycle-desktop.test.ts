@@ -46,7 +46,7 @@ test("backup and restore use generated files and a file picker rather than JSON 
   assert.match(shell, /type=\\?"file\\?"/);
   assert.match(shell, /accept=\\?"application\/json,\.json\\?"/);
   assert.match(shell, /lifecycle\.previewImport\(text\)/);
-  assert.match(shell, /lifecycle\.restoreBackup\(pendingImportText, mode\)/);
+  assert.match(shell, /lifecycle\.restoreBackup\(pendingImportText, mode[,)]/);
   assert.match(shell, /URL\.createObjectURL/);
   assert.doesNotMatch(shell, /<textarea[^>]*data-workspace-import/);
 });

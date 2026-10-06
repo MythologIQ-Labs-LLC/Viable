@@ -78,13 +78,21 @@ for (const path of storageFiles) {
 }
 
 const storageBoundary = await read("apps/desktop/ui/local-storage-json.ts");
-requireCondition(storageBoundary.includes("CURRENT_WORKSPACE_SCHEMA_VERSION = 1"), "Workspace persistence must declare an explicit current schema version");
-requireCondition(storageBoundary.includes("LEGACY_WORKSPACE_SCHEMA_VERSION = 0"), "Workspace persistence must retain an explicit legacy-version boundary");
-requireCondition(storageBoundary.includes("schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace writes must persist the current schema version");
+const storageSchema = await read("src/workspace-lifecycle/workspace-storage-schema.ts");
+requireCondition(storageSchema.includes("CURRENT_WORKSPACE_SCHEMA_VERSION = 1"), "Workspace persistence must declare an explicit current schema version");
+requireCondition(storageSchema.includes("LEGACY_WORKSPACE_SCHEMA_VERSION = 0"), "Workspace persistence must retain an explicit legacy-version boundary");
+requireCondition(storageSchema.includes("RETAINED_WORKSPACE_SCHEMA_VERSIONS"), "Workspace persistence must list every retained schema version and its migration path");
+requireCondition(storageSchema.includes("schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace writes must persist the current schema version");
+requireCondition(storageSchema.includes("version > CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace reads must fail closed on unsupported future schema versions");
 requireCondition(
-  storageBoundary.includes("schemaVersion > CURRENT_WORKSPACE_SCHEMA_VERSION")
+  storageBoundary.includes("decodeStoredWorkspace") && storageBoundary.includes("encodeStoredWorkspace")
     && storageBoundary.includes("Use a compatible Viable version or restore a compatible backup before retrying."),
-  "Workspace reads must fail closed on unsupported future schema versions",
+  "Workspace store adapters must read and write through the shared storage schema contract",
+);
+const lifecycleService = await read("src/workspace-lifecycle/workspace-lifecycle-service.ts");
+requireCondition(
+  lifecycleService.includes("decodeStoredWorkspace") && lifecycleService.includes("encodeStoredWorkspace"),
+  "The workspace lifecycle service must read and write through the shared storage schema contract",
 );
 
 for (const path of gitFiles("src/**/*.ts", "apps/**/*.ts", "test/**/*.ts")) {

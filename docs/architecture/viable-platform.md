@@ -509,6 +509,8 @@ The target default is a transactional local database suitable for:
 
 SQLite remains the expected standalone implementation unless superseded by ADR.
 
+The current local storage schema versions, forward migration, rollback, and unsupported-version behavior are defined in [Workspace storage schema](workspace-storage-schema.md).
+
 ### 12.2 Workspace files
 
 Large or portable artifacts may use a managed workspace file area:
