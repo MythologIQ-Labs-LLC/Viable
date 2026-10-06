@@ -35,6 +35,16 @@ export const WORKSPACE_CONTEXTS = [
   { name: "websiteWatch", label: "Website Watch", prefix: "viable.website-watch.", identityField: "workspaceId", recordFields: ["sources", "sourceHealth", "sites", "targets", "snapshots", "observations", "generatedAnalyses"], requiredArrays: ["sources", "sourceHealth", "sites", "targets", "snapshots", "observations", "generatedAnalyses"], optionalArrays: [], requiredStrings: ["updatedAt"], requiredRecords: [], optionalRecords: [] },
 ] as const;
 
+/**
+ * Workspace-local records that are intentionally excluded from portable
+ * backups because they contain machine-specific connection references.
+ * A workspace cannot be deleted or replaced while one exists; the person
+ * must disconnect the provider first so its vault credential is also removed.
+ */
+export const WORKSPACE_LOCAL_CONNECTION_RECORDS = [
+  { name: "providerConnections", label: "Connected provider metadata", prefix: "viable.provider-connections." },
+] as const;
+
 export type WorkspaceContextName = typeof WORKSPACE_CONTEXTS[number]["name"];
 export type WorkspaceContextStatus = "present" | "absent" | "corrupt";
 
@@ -57,6 +67,7 @@ export type WorkspaceScopePreview = Readonly<{
   active: boolean;
   retainedOutsideWorkspace: readonly string[];
   anonymized: readonly string[];
+  localConnectionBlockers: readonly Readonly<{ label: string; key: string }>[];
 }>;
 
 export type WorkspaceBackupPayload = Readonly<{
@@ -83,6 +94,8 @@ export type WorkspaceImportPreview = Readonly<{
    * data to be exported to quarantine first.
    */
   requiresQuarantineExport: boolean;
+  /** Machine-local provider state must be disconnected before replacement. */
+  requiresLocalConnectionDisconnect: boolean;
   conflict?: string;
 }>;
 
@@ -161,6 +174,9 @@ export class WorkspaceLifecycleService {
   inspect(workspaceId: string): WorkspaceScopePreview {
     requireWorkspaceId(workspaceId);
     const contexts = WORKSPACE_CONTEXTS.map((descriptor) => this.readContext(workspaceId, descriptor));
+    const localConnectionBlockers = WORKSPACE_LOCAL_CONNECTION_RECORDS
+      .map((descriptor) => ({ label: descriptor.label, key: `${descriptor.prefix}${workspaceId}` }))
+      .filter((descriptor) => this.storage.getItem(descriptor.key) !== null);
     return {
       workspaceId,
       contexts: contexts.map((context) => ({
@@ -181,6 +197,7 @@ export class WorkspaceLifecycleService {
         "Non-workspace operating-system or browser preferences",
       ],
       anonymized: [],
+      localConnectionBlockers,
     };
   }
 
@@ -296,7 +313,9 @@ export class WorkspaceLifecycleService {
     const canRestoreIntoEmptyProfile = currentWorkspaceIds.length === 0 && !currentActiveWorkspaceId;
     const otherWorkspaceIds = currentWorkspaceIds.filter((id) => id !== backup.workspaceId);
     const canReplaceCurrentWorkspace = otherWorkspaceIds.length === 0 && (!currentActiveWorkspaceId || currentActiveWorkspaceId === backup.workspaceId);
-    const requiresQuarantineExport = currentWorkspaceIds.includes(backup.workspaceId) && this.inspect(backup.workspaceId).hasCorruptData;
+    const targetPreview = currentWorkspaceIds.includes(backup.workspaceId) ? this.inspect(backup.workspaceId) : undefined;
+    const requiresQuarantineExport = targetPreview?.hasCorruptData ?? false;
+    const requiresLocalConnectionDisconnect = (targetPreview?.localConnectionBlockers.length ?? 0) > 0;
     const conflict = canRestoreIntoEmptyProfile || canReplaceCurrentWorkspace
       ? undefined
       : currentActiveWorkspaceId && currentActiveWorkspaceId !== backup.workspaceId
@@ -309,6 +328,7 @@ export class WorkspaceLifecycleService {
       canRestoreIntoEmptyProfile,
       canReplaceCurrentWorkspace,
       requiresQuarantineExport,
+      requiresLocalConnectionDisconnect,
       ...(conflict ? { conflict } : {}),
     };
   }
@@ -323,6 +343,9 @@ export class WorkspaceLifecycleService {
     }
     if (mode === "replace_current" && preview.requiresQuarantineExport && !options.quarantineExported) {
       throw new Error("The current workspace contains corrupt or newer-version data that this restore would overwrite. Export quarantine data before replacing it.");
+    }
+    if (mode === "replace_current" && preview.requiresLocalConnectionDisconnect) {
+      throw new Error("Disconnect connected providers before replacing this workspace. This prevents a restored workspace from inheriting machine-local account authority.");
     }
     if (mode === "replace_current") this.requireRecoveryPointDecision(backup.workspaceId, options.recoveryPoint, "replacing it from a backup");
 
@@ -350,8 +373,11 @@ export class WorkspaceLifecycleService {
 
   deleteWorkspace(workspaceId: string, options: DestructiveOptions = {}): WorkspaceScopePreview {
     requireWorkspaceId(workspaceId);
-    this.requireRecoveryPointDecision(workspaceId, options.recoveryPoint, "deleting it");
     const preview = this.inspect(workspaceId);
+    if (preview.localConnectionBlockers.length) {
+      throw new Error("Disconnect connected providers before deleting this workspace. Their machine-local account state is not part of a portable recovery point.");
+    }
+    this.requireRecoveryPointDecision(workspaceId, options.recoveryPoint, "deleting it");
     const keys = workspaceScopedKeys(workspaceId);
     const snapshot = new Map<string, string | null>(keys.map((key) => [key, this.storage.getItem(key)]));
     snapshot.set(PRODUCT_ACTIVE_KEY, this.storage.getItem(PRODUCT_ACTIVE_KEY));
@@ -378,7 +404,7 @@ export class WorkspaceLifecycleService {
     for (let index = 0; index < this.storage.length; index += 1) {
       const key = this.storage.key(index);
       if (!key || key === PRODUCT_ACTIVE_KEY) continue;
-      for (const descriptor of WORKSPACE_CONTEXTS) {
+      for (const descriptor of [...WORKSPACE_CONTEXTS, ...WORKSPACE_LOCAL_CONNECTION_RECORDS]) {
         if (!key.startsWith(descriptor.prefix)) continue;
         const id = key.slice(descriptor.prefix.length);
         if (id) ids.add(id);
