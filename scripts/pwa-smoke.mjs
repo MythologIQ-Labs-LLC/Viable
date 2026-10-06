@@ -28,6 +28,7 @@ const SMOKE_PORT = 4175;
 const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
 // An app-free page used to tell an engine defect from a Viable defect.
 const ENGINE_CONTROL_PATH = "/__engine-control.html";
+const ENGINE_CONTROL_SW_PATH = "/__engine-control-sw.js";
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -53,6 +54,20 @@ function startServer() {
     const url = new URL(request.url ?? "/", "http://localhost");
     if (url.pathname === ENGINE_CONTROL_PATH) {
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }).end("<!doctype html><title>engine control</title><p id=control>engine control</p>");
+      return;
+    }
+    if (url.pathname === ENGINE_CONTROL_SW_PATH) {
+      response.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/" }).end(`
+const CACHE = "viable-engine-control-v1";
+self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.add("${ENGINE_CONTROL_PATH}"))));
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin === self.location.origin && url.pathname === "${ENGINE_CONTROL_PATH}") {
+    event.respondWith(caches.match(event.request).then((cached) => cached ?? fetch(event.request)));
+  }
+});
+`);
       return;
     }
     const path = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname));
@@ -253,6 +268,31 @@ async function run() {
       await isolated.close().catch(() => undefined);
     }
   }
+  
+  // Playwright's Linux WebKit can fail a reload while its context is
+  // emulating offline mode even for an app-free page cached by a minimal
+  // service worker. Run this control in a separate browser so a harness
+  // failure cannot poison the Viable smoke context.
+  async function webkitOfflineReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const isolatedContext = await isolated.newContext();
+      const control = await isolatedContext.newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      const registered = await withTimeout(control.evaluate(async (workerPath) => {
+        const registration = await navigator.serviceWorker.register(workerPath, { scope: "/" });
+        await navigator.serviceWorker.ready;
+        return Boolean(registration.active);
+      }, ENGINE_CONTROL_SW_PATH), 20_000, "control service worker registration").catch(() => false);
+      if (!registered) return false;
+      await control.reload();
+      if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
+      await isolatedContext.setOffline(true);
+      return await withTimeout(control.reload(), 20_000, "offline control reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
 
   let support = {};
   const storageAccessReport = {};
@@ -426,14 +466,19 @@ async function run() {
     // Offline: the shell must load from the service worker cache.
     if (support.serviceWorker) await section("offline and update contract", async () => {
       await page.click('nav button[data-nav="home"]', { noWaitAfter: true });
-      await context.setOffline(true);
-      const offlineLoaded = await reload(page).then(() => page.waitForFunction(
-        () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
-        undefined,
-        { timeout: 10000 },
-      )).then(() => true, (error) => { console.log(`offline diagnostic: ${error.message.split("\n")[0]}`); return false; });
-      check(offlineLoaded, `offline reload serves the cached shell with local workspace data${offlineLoaded ? "" : ` (main: ${(await mainText(page).catch(() => "unavailable")).slice(0, 160)})`}`);
-      await context.setOffline(false);
+      const webkitOfflineHarnessDefect = BROWSER === "webkit" && await webkitOfflineReloadDefectPresent();
+      if (webkitOfflineHarnessDefect) {
+        limitation("WebKit engine/harness limitation: Playwright offline emulation fails a reload even for an app-free page cached by a minimal service worker. Chromium and Firefox cover Viable offline reload; real Safari requires hands-on validation");
+      } else {
+        await context.setOffline(true);
+        const offlineLoaded = await reload(page).then(() => page.waitForFunction(
+          () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
+          undefined,
+          { timeout: 10000 },
+        )).then(() => true, (error) => { console.log(`offline diagnostic: ${error.message.split("\\n")[0]}`); return false; });
+        check(offlineLoaded, `offline reload serves the cached shell with local workspace data${offlineLoaded ? "" : ` (main: ${(await mainText(page).catch(() => "unavailable")).slice(0, 160)})`}`);
+        await context.setOffline(false);
+      }
 
       // Update contract: a new build is offered, never applied silently.
       // A second open tab stands in for unsaved work. Origin-wide service-worker
