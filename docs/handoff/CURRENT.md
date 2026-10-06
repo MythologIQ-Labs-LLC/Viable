@@ -27,7 +27,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 | #129 | Public GitHub reads work in every runtime (unbound `fetch`); native CSP `connect-src`/`media-src` (#114 O5) | Exact-head CI and Desktop validation, then merge |
 | #109 | LinkedIn member publishing proof (native-only) | On current `main`, with provider connections persisted through `workspaceStorage` and `commit()`. Remaining: **one human-owned live publication** with a human-generated token and consent. Never substitute mocked evidence. |
 | #112 | Discoverability strategy on channel variants (#110) | Hands-on UX review; real-content dogfood after a stable LinkedIn path. Do not expand. |
-| #93 | Acceptance runbooks and templates | Its 2026-09-25 candidate is obsolete; superseded by a current candidate record |
+| #93 | Acceptance runbooks, seed `ux-acceptance-seed-v2`, candidate record 2026-10-06 | Merge it, then run the human gates against candidate `fee77c8` (or `main`, once it is shown to be equivalent) |
 | Dependabot #95, #96, #111, #121 | Dependency bumps | #111 needs Rust 1.90 (`tauri-build` 2.7.1) and fails the pinned 1.88 baseline; it waits for a deliberate baseline decision |
 
 ## Read before acting
@@ -118,7 +118,7 @@ These cannot be completed by automation and must not be marked complete because 
 - unfamiliar-user journeys with recorded participant role, environment, findings, and remediation;
 - the LinkedIn live publication (token and consent are the developer's own).
 
-The acceptance runbooks and the current candidate record live under `docs/acceptance/`.
+The acceptance runbooks, the seed, and the current candidate record live under `docs/acceptance/` (PR #93). The facilitator starts at `docs/acceptance/ux-candidate-2026-10-06.md` → **Start here**.
 
 ## Next priorities
 

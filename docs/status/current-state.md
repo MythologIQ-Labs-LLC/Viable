@@ -273,7 +273,7 @@ Coverage floors apply to reusable core source. They do not prove user comprehens
 | #129 | Restore public GitHub reads in every runtime (unbound `fetch` defect) and add the native `connect-src`/`media-src` the UI needs (#114 O5) | Draft; validated locally and measured in the native webview |
 | #109 | LinkedIn member publishing proof | Draft; on current `main` with IndexedDB-backed provider connections; waits on the human live-proof gate |
 | #112 | Discoverability strategy on channel variants (#110) | Draft; on current `main`; hands-on UX review and real-content dogfood remain; sequenced behind a stable LinkedIn path |
-| #93 | Human acceptance runbooks and evidence templates | Being superseded by a current candidate record; its 2026-09-25 candidate predates the PWA runtime |
+| #93 | Human acceptance runbooks, the deterministic `ux-acceptance-seed-v2`, and the 2026-10-06 candidate record | Reconciled with the PWA runtime; pins candidate `fee77c8` (`main` + #129 + #124, PWA build `1bd83169cbba`); supersedes the 2026-09-25 candidate |
 
 ## Remaining gates
 
@@ -286,7 +286,7 @@ No other machine-verifiable blocker to Chromium localhost dogfood is known.
 
 ### Human gates (cannot be satisfied by automation)
 
-- **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. Runbooks live in `docs/acceptance/`.
+- **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. The current candidate is commit `fee77c8` (branch `acceptance/candidate-2026-10-06`, PWA build `1bd83169cbba`). Its record, runbooks, and seed are in `docs/acceptance/` on PR #93; start with `ux-candidate-2026-10-06.md`.
 - **#107 / #109:** one developer-owned LinkedIn publication with a human-generated token and consent.
 - **#112 / #110:** hands-on review of the discoverability fieldset and dogfood against real content, after a stable LinkedIn path exists.
 - Slice-level acceptance for #2, #3, #4, #5, #6, #7, and #29 is carried by the #81 demo acceptance journeys.
