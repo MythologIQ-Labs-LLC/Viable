@@ -31,7 +31,20 @@ What happens next:
 - only after successful validation is the token written to the operating-system credential vault;
 - Viable workspace storage keeps only non-secret metadata: the opaque credential reference, member URN, required scopes, status, and optional expiry.
 
-If validation fails, an existing working connection and its stored token are left unchanged.
+If validation fails, an existing working connection and its stored token are left unchanged. If native validation succeeds but the local connection record cannot be saved, Viable makes a best-effort attempt to remove the newly stored vault credential instead of leaving an unreferenced token behind.
+
+## Disconnect LinkedIn
+
+Use **Disconnect** on the connected LinkedIn destination before deleting or replacing its Viable workspace.
+
+Disconnect is ordered deliberately:
+
+1. remove the access token from the operating-system credential vault;
+2. only after that succeeds, remove the local non-secret connection record.
+
+If vault removal fails, the local connection record remains so Viable does not falsely claim the account has been disconnected. If the local record removal fails after the token is gone, the remaining record points to a missing credential and connected publishing fails closed until the connection is repaired or disconnected again.
+
+Provider connection metadata is machine-local capability state. It is **not** included in portable workspace backups or recovery points, and restoring a workspace never recreates LinkedIn account authority.
 
 ## Run the live proof
 
