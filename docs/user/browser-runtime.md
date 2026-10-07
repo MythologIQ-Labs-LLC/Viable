@@ -32,6 +32,8 @@ Browsers can clear site data under storage pressure or after long inactivity, un
 - Installing Viable (browser menu → *Install* or *Add to Dock*) and using it regularly also helps.
 - **Back up regularly.** Use **Workspace → Backup** to download a `viable.workspace-backup` file. The same file restores into the browser or the desktop runtime. It is the only way data moves between them, because each runtime has its own separate storage.
 
+If the browser does clear Viable's data, Viable opens as a new, empty profile. It cannot tell that data was cleared rather than never created, so it cannot warn you afterwards. Restore your latest backup with **Workspace → Restore → Restore into empty profile**. If the browser refuses to save a change (for example, when it is out of space), Viable says the change could not be saved and keeps the previous saved version; nothing is partially saved.
+
 ### Storage engine and upgrades
 
 - **Existing data:** if you used Viable before IndexedDB storage, your existing data is copied into IndexedDB the first time the new version opens. The Runtime panel reports how many records were copied. The original copy is left untouched.
