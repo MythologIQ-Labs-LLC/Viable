@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { describeRuntimeCapabilities, type RuntimeObservation } from "../src/runtime/runtime-capabilities.js";
 
@@ -69,4 +70,11 @@ test("fallback storage engine is reported as limited in every runtime", () => {
 
 test("unavailable storage after migration is reported as unavailable, never as working", () => {
   assert.equal(state({ ...browser, storageEngine: "unavailable" }).durable_local_storage, "unavailable");
+});
+
+
+test("desktop runtime panel reports the merged LinkedIn transport instead of a stale feature flag", async () => {
+  const shell = await readFile("apps/desktop/ui/runtime-capabilities-shell.ts", "utf8");
+  assert.match(shell, /linkedInTransport: native,/);
+  assert.doesNotMatch(shell, /LINKEDIN_TRANSPORT_IN_THIS_BUILD/);
 });
