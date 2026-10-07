@@ -10,9 +10,6 @@ import { workspaceStorageStatus } from "./workspace-storage.js";
 
 type BuildInfo = Readonly<{ buildId: string; version: string; commit: string }>;
 
-// The native LinkedIn transport ships with PR #109; flip this when it merges.
-const LINKEDIN_TRANSPORT_IN_THIS_BUILD = false;
-
 const vault = new NativeCredentialVaultClient();
 const main = document.querySelector<HTMLElement>("#main");
 let observation: RuntimeObservation | undefined;
@@ -71,7 +68,7 @@ async function refresh(): Promise<void> {
     observation = {
       runtime: native ? "native" : "browser",
       credentialVault: vaultState,
-      linkedInTransport: native && LINKEDIN_TRANSPORT_IN_THIS_BUILD,
+      linkedInTransport: native,
       storagePersistence: persistence,
       storageEngine: workspaceStorageStatus.engine,
       offlineShell: Boolean(navigator.serviceWorker?.controller),
