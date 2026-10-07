@@ -830,6 +830,17 @@ async function run() {
       };
       const liveText = async () => (await journey.locator("#live-region").textContent()) ?? "";
       const focusedText = () => journey.evaluate(() => (document.activeElement?.textContent ?? "").replace(/\s+/g, " ").trim());
+      // Diagnostic (#149): the journey page's own disclosure state, which the
+      // section failure line (it describes the main smoke page) cannot show.
+      const disclosureState = () => withTimeout(journey.evaluate(() => JSON.stringify({
+        hash: location.hash,
+        nav: document.querySelector('nav button[aria-current="page"]')?.dataset.nav,
+        disclosures: [...document.querySelectorAll("#main details")].map((details) => ({
+          summary: (details.querySelector("summary")?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40),
+          open: details.open,
+          height: Math.round(details.querySelector("summary")?.getBoundingClientRect().height ?? -1),
+        })).filter((entry) => /Manage evidence sources|Advanced: raw JSON/.test(entry.summary)),
+      })), 5_000, "journey disclosure state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
       try {
         await journey.goto(`${origin}/`);
         await settled(journey);
@@ -888,8 +899,22 @@ async function run() {
         await go("signals");
         const advanced = journey.locator("summary", { hasText: "Advanced: raw JSON adapter imports" }).first();
         const sources = journey.locator("summary", { hasText: "Manage evidence sources" }).first();
-        if (!(await advanced.isVisible())) await sources.click();
-        await advanced.click();
+        // Open disclosures by their own state, not by visibility: WebKit gives
+        // a summary nested in a closed <details> a layout box, so Playwright
+        // reports it visible though it cannot be clicked (#149; app-free
+        // control below).
+        const openDisclosure = async (summary) => {
+          if (!(await summary.evaluate((element) => element.parentElement?.open === true))) await summary.click();
+        };
+        await openDisclosure(sources);
+        await openDisclosure(advanced);
+        if (BROWSER === "webkit") {
+          const control = await journeyContext.newPage();
+          await control.setContent("<details><summary>outer</summary><details><summary id=nested>nested</summary><p>body</p></details></details>");
+          const nestedVisible = await control.locator("#nested").isVisible();
+          await control.close();
+          console.log(`  engine control: a summary nested in a closed <details> reports visible=${nestedVisible} (app-free page)`);
+        }
         const raw = journey.locator('form[data-form="signals-manual-import"]');
         await raw.locator('textarea[name="payload"]').fill(malformed);
         await raw.locator('button[type="submit"]').click();
@@ -915,6 +940,9 @@ async function run() {
         await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
         await go("home");
         check(await journey.locator('form[data-form="create-workspace"]').isVisible() && !((await journey.locator("#main").textContent()) ?? "").includes("Ledgerly"), "Home stops showing a deleted workspace without a reload");
+      } catch (error) {
+        console.log(`  journey page state at failure: ${await disclosureState()} live="${(await liveText().catch(() => "")).slice(0, 120)}"`);
+        throw error;
       } finally {
         await journeyContext.close();
       }
