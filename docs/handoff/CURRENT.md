@@ -121,11 +121,11 @@ These cannot be completed by automation and must not be marked complete because 
 - unfamiliar-user journeys with recorded participant role, environment, findings, and remediation;
 - the LinkedIn live publication (token and consent are the developer's own).
 
-The acceptance runbooks, deterministic seed, and current candidate record are merged under `docs/acceptance/`. The facilitator starts at `docs/acceptance/ux-candidate-2026-10-07b.md` → **Start here**.
+The acceptance runbooks, deterministic seed, and current candidate record are merged under `docs/acceptance/`. The facilitator starts at `docs/acceptance/ux-candidate-2026-10-07c.md` → **Start here**.
 
 ## Next priorities
 
-1. Run the #79/#81 human acceptance on `ux-candidate-2026-10-07b.md` (`faffc1e`, build `7cc740dd951b`). It includes the #145 QA remediation and the #146/#147 follow-ups. Then fix only reproducible P0/P1 findings in narrow PRs.
+1. Run the #79/#81 human acceptance on `ux-candidate-2026-10-07c.md` (`7285d0d`, build `d8047c019a59`). It includes the #145 QA remediation, the #146/#147 follow-ups, and the P3 fixes #157–#161. Then fix only reproducible P0/P1 findings in narrow PRs.
 2. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
 3. Progress the remaining #36 durable-storage/recovery and operational-readiness work through the active bounded slices (currently #144). Leave public-hosting work until external distribution is justified.
 4. After the LinkedIn proof is stable, complete the #112 hands-on discoverability review and real-content dogfood.
