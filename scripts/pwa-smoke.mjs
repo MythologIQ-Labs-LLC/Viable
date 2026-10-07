@@ -821,7 +821,8 @@ async function run() {
       const journeyContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
       const journey = await journeyContext.newPage();
       journey.on("pageerror", (error) => errors.push(`journey pageerror: ${error.message}`));
-      journey.on("dialog", (dialog) => void dialog.accept());
+      const journeyDialogs = [];
+      journey.on("dialog", (dialog) => { journeyDialogs.push(dialog.message()); void dialog.accept(); });
       const seedPath = resolve(process.cwd(), "docs/acceptance/seed/ux-acceptance-seed-v2.json");
       const malformed = await readFile(resolve(process.cwd(), "docs/acceptance/seed/malformed-signals-import.json"), "utf8");
       const go = async (view) => {
@@ -897,6 +898,20 @@ async function run() {
         await settled(journey);
         const rawPayload = journey.locator('form[data-form="signals-manual-import"] textarea[name="payload"]');
         check(/failed/i.test(await liveText()) && await rawPayload.isVisible() && (await rawPayload.inputValue()) === malformed, "a rejected import is reported as failed and keeps the pasted payload visible");
+
+        // Actions that ask for a value use inline, labelled forms (#147).
+        const dialogsBefore = journeyDialogs.length;
+        const competitor = journey.locator("#main article", { hasText: "Competitor announces automatic receipt capture" }).first();
+        await competitor.getByRole("button", { name: "Tag", exact: true }).click();
+        const tagPanel = journey.locator("[data-inline-input]");
+        const tagField = tagPanel.locator('input[name="tags"]');
+        const fieldFocused = await tagField.evaluate((input) => input === document.activeElement).catch(() => false);
+        await tagField.fill("smoke-tag");
+        await tagPanel.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Signal tags updated"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        const tagged = ((await journey.locator("#main article", { hasText: "Competitor announces automatic receipt capture" }).first().textContent()) ?? "").includes("smoke-tag");
+        check(fieldFocused && tagged && journeyDialogs.length === dialogsBefore, "tagging a signal uses an inline form, not a browser dialog, and records the tag");
 
         await journey.setViewportSize({ width: 640, height: 360 });
         for (const view of ["product", "studio", "workspace"]) {
