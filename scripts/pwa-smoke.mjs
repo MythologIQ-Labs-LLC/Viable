@@ -854,36 +854,39 @@ async function run() {
         const [file] = await Promise.all([evict.waitForEvent("download"), evict.click('[data-workspace-action="backup"]')]);
         await file.saveAs(backupPath);
 
-        // Eviction: the browser clears this origin's storage while Viable is closed.
-        await evict.goto(`${origin}${ENGINE_CONTROL_PATH}`);
-        // "blocked" is not an outcome: the previous app page can still hold its
-        // connection in the back/forward cache (Firefox), and the deletion
-        // completes once that connection goes away. Wait for the real result.
-        const cleared = await evict.evaluate(() => new Promise((done) => {
+        // Eviction: the browser clears this origin's storage while Viable is
+        // closed. Close the app page first: a page merely navigated away from
+        // can keep its IndexedDB connection alive in the back/forward cache
+        // (Firefox), which blocks the deletion. The rest continues on a new
+        // page without the seeding script.
+        await evict.close();
+        const after = await evictContext.newPage();
+        after.on("pageerror", (error) => errors.push(`eviction pageerror: ${error.message}`));
+        after.on("dialog", (dialog) => void dialog.accept());
+        await after.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+        const cleared = await after.evaluate(() => new Promise((done) => {
           localStorage.clear();
-          let blocked = false;
           const timer = setTimeout(() => done("still blocked after 15s"), 15000);
           const request = indexedDB.deleteDatabase("viable-workspace");
-          request.onsuccess = () => { clearTimeout(timer); done(blocked ? "cleared (after a blocked event)" : "cleared"); };
+          request.onsuccess = () => { clearTimeout(timer); done("cleared"); };
           request.onerror = () => { clearTimeout(timer); done(`error: ${request.error?.name}`); };
-          request.onblocked = () => { blocked = true; };
         }));
-        check(cleared.startsWith("cleared"), `origin storage cleared to simulate eviction (${cleared})`);
-        await evict.goto(`${origin}/`);
-        const freshStart = await evict.waitForFunction(() => {
+        check(cleared === "cleared", `origin storage cleared to simulate eviction (${cleared})`);
+        await after.goto(`${origin}/`);
+        const freshStart = await after.waitForFunction(() => {
           const text = document.body?.textContent ?? "";
           return document.querySelector("#main form") && !text.includes("Eviction product") && !/could not (be )?open/i.test(text);
         }, undefined, { timeout: 10000 }).then(() => true, () => false);
         check(freshStart, "after eviction Viable starts as a clean, empty profile without errors or stale data");
 
-        await evict.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
-        await evict.waitForSelector("[data-workspace-import]", { timeout: 10000 });
-        await evict.setInputFiles("[data-workspace-import]", backupPath);
-        await evict.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
-        await evict.click('[data-workspace-action="restore-empty"]');
-        await evict.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
-        await reload(evict);
-        const restored = await evict.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Eviction product"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        await after.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+        await after.waitForSelector("[data-workspace-import]", { timeout: 10000 });
+        await after.setInputFiles("[data-workspace-import]", backupPath);
+        await after.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+        await after.click('[data-workspace-action="restore-empty"]');
+        await after.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        await reload(after);
+        const restored = await after.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Eviction product"), undefined, { timeout: 10000 }).then(() => true, () => false);
         check(restored, "a backup restores the workspace after eviction and survives reload");
       } finally {
         await rm(backupPath, { force: true });
