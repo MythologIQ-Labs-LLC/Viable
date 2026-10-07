@@ -130,6 +130,7 @@ Human acceptance evidence is deliberately separate from automated CI and impleme
 ## Status and reviews
 
 - [Current state](status/current-state.md)
+- [Local dogfood QA and remediation, 2026-10-07](reviews/local-dogfood-qa-2026-10-07.md)
 - [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
 - [Documentation verification, 2026-07-15](reviews/documentation-verification-2026-07-15.md)
 - [Documentation verification closure, 2026-07-15](reviews/documentation-verification-closure-2026-07-15.md)
