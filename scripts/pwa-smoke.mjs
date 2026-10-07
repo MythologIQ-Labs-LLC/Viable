@@ -772,10 +772,8 @@ async function run() {
         await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
         check((await storedName()) === "Replace newer", "restoring the recovery point undoes the replacement");
 
-        // Corrupt stored data fails closed at startup without being changed.
-        // Known gap (#36): that startup failure also hides the Workspace
-        // screen's quarantine export, so the replace-over-corrupt gate is
-        // covered only by deterministic tests until recovery is reachable.
+        // Corrupt stored data fails closed at startup without being changed,
+        // and recovery mode makes the Workspace screen reachable (#36).
         await idb("put", "viable.signals-inbox.replace-ws", "{corrupt");
         await reload(replace);
         const failedClosed = await replace.waitForFunction(() => /could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 10000 }).then(() => true, () => false);
@@ -783,6 +781,30 @@ async function run() {
           failedClosed && (await idb("get", "viable.signals-inbox.replace-ws")) === "{corrupt" && (await storedName()) === "Replace newer",
           "corrupt stored data fails closed at startup and nothing is changed",
         );
+        await replace.click('[data-startup-action="recover"]');
+        await replace.waitForSelector("[data-workspace-recovery-mode]", { timeout: 10000 });
+        check(true, "startup failure offers workspace recovery mode");
+
+        await chooseBackup(originalPath);
+        const gated = await replace.locator("[data-workspace-restore-quarantine]").isVisible() && await replace.locator('[data-workspace-action="restore-replace"]').isDisabled();
+        check(gated, "in recovery mode, replacing corrupt data is blocked until quarantine is exported");
+        const quarantinePath = await download('[data-workspace-action="quarantine"]', "replace-quarantine");
+        paths.push(quarantinePath);
+        const quarantine = JSON.parse(await readFile(quarantinePath, "utf8"));
+        check(quarantine.entries?.some((entry) => entry.raw === "{corrupt"), "quarantine export preserves the unreadable raw record");
+
+        await chooseBackup(originalPath);
+        const pointBlocked = await replace.locator('section[aria-labelledby="restore-heading"] [data-workspace-action="recovery-point"]').isDisabled();
+        await replace.check("[data-workspace-restore-decline]");
+        await replace.click('[data-workspace-action="restore-replace"]');
+        await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        check(
+          pointBlocked && (await storedName()) === "Replace original" && (await idb("get", "viable.signals-inbox.replace-ws")) === undefined,
+          "recovery mode replaces the corrupt workspace from a backup after an explicit decision",
+        );
+        await replace.click('[data-workspace-action="reload-app"]');
+        const recovered = await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original") && !/could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 15000 }).then(() => true, () => false);
+        check(recovered, "after recovery, Viable starts normally");
       } finally {
         for (const path of paths) await rm(path, { force: true });
         await replaceContext.close();

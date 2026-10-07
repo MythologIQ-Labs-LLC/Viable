@@ -46,6 +46,10 @@ A quarantine file preserves the raw unreadable value, its local key, owning cont
 
 Because quarantine preserves raw local bytes as text, it may contain whatever the damaged local record contained. Treat the exported file as sensitive local data and store it accordingly.
 
+### Recovery mode
+
+If stored workspace data is unreadable, Viable cannot start and shows **The local workspace could not be opened**. Nothing is changed. Choose **Open workspace recovery** to run only the Workspace screen. From there you can export quarantine data, restore a backup (replace the current workspace), or delete the workspace, with every safeguard on this page still in force. Choose **Reload Viable** when you are done.
+
 Viable blocks destructive workspace deletion while corrupt context exists until quarantine has been exported during the current Workspace recovery session. This avoids turning a deletion button into the final destroyer of the only recoverable copy.
 
 ## Recovery points
