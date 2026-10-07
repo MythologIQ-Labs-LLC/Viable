@@ -830,6 +830,17 @@ async function run() {
       };
       const liveText = async () => (await journey.locator("#live-region").textContent()) ?? "";
       const focusedText = () => journey.evaluate(() => (document.activeElement?.textContent ?? "").replace(/\s+/g, " ").trim());
+      // Diagnostic (#149): the journey page's own disclosure state, which the
+      // section failure line (it describes the main smoke page) cannot show.
+      const disclosureState = () => withTimeout(journey.evaluate(() => JSON.stringify({
+        hash: location.hash,
+        nav: document.querySelector('nav button[aria-current="page"]')?.dataset.nav,
+        disclosures: [...document.querySelectorAll("#main details")].map((details) => ({
+          summary: (details.querySelector("summary")?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40),
+          open: details.open,
+          height: Math.round(details.querySelector("summary")?.getBoundingClientRect().height ?? -1),
+        })).filter((entry) => /Manage evidence sources|Advanced: raw JSON/.test(entry.summary)),
+      })), 5_000, "journey disclosure state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
       try {
         await journey.goto(`${origin}/`);
         await settled(journey);
@@ -888,7 +899,10 @@ async function run() {
         await go("signals");
         const advanced = journey.locator("summary", { hasText: "Advanced: raw JSON adapter imports" }).first();
         const sources = journey.locator("summary", { hasText: "Manage evidence sources" }).first();
-        if (!(await advanced.isVisible())) await sources.click();
+        const advancedVisible = await advanced.isVisible();
+        console.log(`  journey signals disclosures: ${await disclosureState()} advancedVisible=${advancedVisible}`);
+        if (!advancedVisible) await sources.click();
+        console.log(`  journey signals disclosures after sources: ${await disclosureState()}`);
         await advanced.click();
         const raw = journey.locator('form[data-form="signals-manual-import"]');
         await raw.locator('textarea[name="payload"]').fill(malformed);
@@ -915,6 +929,9 @@ async function run() {
         await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
         await go("home");
         check(await journey.locator('form[data-form="create-workspace"]').isVisible() && !((await journey.locator("#main").textContent()) ?? "").includes("Ledgerly"), "Home stops showing a deleted workspace without a reload");
+      } catch (error) {
+        console.log(`  journey page state at failure: ${await disclosureState()} live="${(await liveText().catch(() => "")).slice(0, 120)}"`);
+        throw error;
       } finally {
         await journeyContext.close();
       }
