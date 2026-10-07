@@ -1,6 +1,6 @@
 # Getting Started
 
-Viable is currently a development-stage desktop application. This page describes the source-development path, not a supported installer experience.
+Viable is currently a pre-release local-first application. The production PWA on the canonical localhost origin is the primary dogfood runtime; the native Tauri runtime exists for capabilities such as the operating-system credential vault and connected provider publishing. This page describes development and dogfood paths, not a supported public installer experience.
 
 ## Requirements
 
@@ -45,7 +45,8 @@ The current user-guide set is authoritative for implemented workflows:
 - [Repository Growth](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/docs/user/repository-growth.md)
 - [Video Production](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/docs/user/video-production.md)
 - [Calendar, Activation, Outcomes, and Learning](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/docs/user/calendar-activation-and-learning.md)
+- [Support, recovery, and known limitations](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/docs/user/support-recovery-known-limitations.md)
 
 ## Important release boundary
 
-A green build or working Debian bundle does not mean the product is ready for general distribution. Human accessibility acceptance, backup/restore, migration behavior, installer signing, supported-platform testing, privacy/security review, update/rollback behavior, and operational support remain separate release gates.
+A green build or working Debian bundle does not mean the product is ready for general distribution. Human accessibility/unfamiliar-user acceptance, supported-platform minimums, public-origin deployment provenance and rollback, interrupted-update handling, any adopted native installation lifecycle, live external-provider proof, and remaining operational release evidence stay separate from implementation completion.

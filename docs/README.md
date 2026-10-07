@@ -112,6 +112,7 @@ Human acceptance evidence is deliberately separate from automated CI and impleme
 - [Video Production in Studio](user/video-production.md)
 - [Calendar, Manual Activation, Outcomes, and Learning](user/calendar-activation-and-learning.md)
 - [Support diagnostics](user/support-diagnostics.md)
+- [Support, recovery, and known limitations](user/support-recovery-known-limitations.md)
 
 ## Wiki pages
 
