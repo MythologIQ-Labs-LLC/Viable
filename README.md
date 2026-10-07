@@ -73,7 +73,7 @@ Viable makes those distinctions explicit and reviewable.
 | Video Production | Provider-neutral video briefs and packages, ViMax compatibility packet, artifact import, and named review |
 | Calendar and Activation | Destination records, timing, destination-bound review, manual activation packages, and outcome evidence |
 | Analytics and Learning | Baselines, explicit metric-evidence states, retrospectives, attribution uncertainty, and learning ledger |
-| Publishing foundation | Publication inventory bound to exact named-human-approved sources, a deterministic scheduler and execution ledger with no automatic retry after an ambiguous dispatch, and a native OS credential vault. Connected LinkedIn publishing is implemented on a draft PR and is **not** live-proven |
+| Publishing foundation | Publication inventory bound to exact named-human-approved sources, a deterministic scheduler and execution ledger with no automatic retry after an ambiguous dispatch, a native OS credential vault, and merged LinkedIn member publishing. The LinkedIn implementation is validated but **not yet live-proven**; #107 remains open for clean-install guidance acceptance and one developer-owned publication |
 | Runtime | Local-first PWA (primary) with IndexedDB workspace authority, user-confirmed updates, portable backup/restore, and a runtime capability panel; native Tauri shell for the credential vault and connected publishing |
 
 The implemented workflows are local-first and designed to remain useful without mandatory hosted Viable infrastructure or a required LLM.
