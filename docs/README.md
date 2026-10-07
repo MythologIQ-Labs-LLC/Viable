@@ -94,7 +94,8 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 ## Human acceptance
 
 - [Acceptance program](acceptance/README.md)
-- [Frozen UX acceptance candidate, 2026-10-07 (current)](acceptance/ux-candidate-2026-10-07.md)
+- [Frozen UX acceptance candidate, 2026-10-07b (current)](acceptance/ux-candidate-2026-10-07b.md)
+- [Frozen UX acceptance candidate, 2026-10-07 (superseded)](acceptance/ux-candidate-2026-10-07.md)
 - [Frozen UX acceptance candidate, 2026-10-06 (superseded)](acceptance/ux-candidate-2026-10-06.md)
 - [Frozen UX acceptance candidate, 2026-09-25 (superseded)](acceptance/ux-candidate-2026-09-25.md)
 - [Accessibility and recovery acceptance runbook](acceptance/accessibility-runbook.md)
