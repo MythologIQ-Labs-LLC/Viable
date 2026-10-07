@@ -151,8 +151,8 @@ function retentionSection(): string {
     <div class="section-heading"><div><p class="eyebrow">Retention</p><h3 id="retention-heading">How long Viable keeps data</h3></div></div>
     <p class="guidance">Viable never deletes or expires data on its own. Data stays until you change, replace, or delete it. Dates such as retention deadlines only make data eligible for a removal that a person runs.</p>
     <details><summary><strong>Review what is kept, where, and for how long</strong></summary>
-      <table><thead><tr><th scope="col">Data</th><th scope="col">Where</th><th scope="col">Kept until</th><th scope="col">Workspace deletion</th></tr></thead>
-      <tbody>${RETENTION_POLICY.map((rule) => `<tr data-retention-rule="${escapeHtml(rule.id)}"><th scope="row">${escapeHtml(rule.data)}</th><td>${escapeHtml(rule.location)}</td><td>${escapeHtml(rule.keptUntil)}</td><td>${escapeHtml(DELETION_EFFECT[rule.workspaceDeletion])}</td></tr>`).join("")}</tbody></table>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Data</th><th scope="col">Where</th><th scope="col">Kept until</th><th scope="col">Workspace deletion</th></tr></thead>
+      <tbody>${RETENTION_POLICY.map((rule) => `<tr data-retention-rule="${escapeHtml(rule.id)}"><th scope="row">${escapeHtml(rule.data)}</th><td>${escapeHtml(rule.location)}</td><td>${escapeHtml(rule.keptUntil)}</td><td>${escapeHtml(DELETION_EFFECT[rule.workspaceDeletion])}</td></tr>`).join("")}</tbody></table></div>
     </details>
   </section>`;
 }

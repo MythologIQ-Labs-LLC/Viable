@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import test from "node:test";
 import { WEBSITE_WATCH_SNAPSHOT_RETENTION_DAYS } from "../src/website-watch/domain/website-watch.js";
 import {
@@ -15,7 +14,8 @@ const read = (path: string) => readFile(path, "utf8");
 async function sourceFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async (entry) => {
-    const path = join(dir, entry.name);
+    // Repository-relative POSIX paths keep the assertions platform-neutral.
+    const path = `${dir}/${entry.name}`;
     if (entry.isDirectory()) return entry.name === "generated" ? [] : sourceFiles(path);
     return path.endsWith(".ts") ? [path] : [];
   }));

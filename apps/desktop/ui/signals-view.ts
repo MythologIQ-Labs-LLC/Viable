@@ -107,6 +107,19 @@ export class SignalsViewController {
     return page === "market" ? this.renderMarket() : this.renderSignals();
   }
 
+  // A collection attempt is recorded in source health whatever its outcome.
+  // Reporting it as done when the source failed would hide that nothing was
+  // imported, so a failed attempt is surfaced as a failure (the form keeps
+  // its values) while the recorded source health stays visible.
+  private collectionOutcome(sourceId: string, success: string): string {
+    const health = this.inbox?.sourceHealth.find((candidate) => candidate.sourceId === sourceId);
+    if (!health) throw new Error("The collection outcome was not recorded, so Viable cannot confirm anything was imported. Check source health and try again");
+    if (health.status === "success") return success;
+    if (health.status === "verified_empty") return `${success}: the source was checked and returned no evidence`;
+    if (health.status === "partial") return `${success} in part: ${health.detail ?? "some records were not imported"}. Source health shows what is missing`;
+    throw new Error(`${health.status.replaceAll("_", " ")}: ${health.detail ?? "the source returned no usable evidence"}. Nothing was imported from this attempt; source health records it`);
+  }
+
   async submit(formElement: HTMLFormElement): Promise<string | undefined> {
     const form = new FormData(formElement);
     const kind = formElement.dataset.form;
@@ -114,20 +127,23 @@ export class SignalsViewController {
     try {
       if (kind === "signals-github") {
         const repository = String(form.get("repository")).trim();
-        const source = new GitHubPublicRepositorySource(`github:${repository.toLocaleLowerCase("en-US")}`, repository, new Date().toISOString());
+        const sourceId = `github:${repository.toLocaleLowerCase("en-US")}`;
+        const source = new GitHubPublicRepositorySource(sourceId, repository, new Date().toISOString());
         this.inbox = await this.service.collect(this.workspaceId, [source]);
-        return "Public GitHub repository evidence collected";
+        return this.collectionOutcome(sourceId, "Public GitHub repository evidence collected");
       }
       if (kind === "signals-event-import") {
         const value = JSON.parse(String(form.get("payload"))) as StoredEventIntelligenceRun;
-        const source = new EventIntelligenceSignalSource(`event-import:${value.run.runId}`, value, new Date().toISOString());
+        const sourceId = `event-import:${value.run.runId}`;
+        const source = new EventIntelligenceSignalSource(sourceId, value, new Date().toISOString());
         this.inbox = await this.service.collect(this.workspaceId, [source]);
-        return "Event Intelligence evidence imported";
+        return this.collectionOutcome(sourceId, "Event Intelligence evidence imported");
       }
       if (kind === "signals-manual-import") {
-        const source = new ManualJsonSignalSource(`manual:${Date.now()}`, String(form.get("payload")), new Date().toISOString());
+        const sourceId = `manual:${Date.now()}`;
+        const source = new ManualJsonSignalSource(sourceId, String(form.get("payload")), new Date().toISOString());
         this.inbox = await this.service.collect(this.workspaceId, [source]);
-        return "Manual evidence import evaluated";
+        return this.collectionOutcome(sourceId, "Manual evidence imported for named review");
       }
       if (kind === "signals-website-site") {
         this.website = await this.websiteService.createSite(this.workspaceId, {
@@ -171,7 +187,7 @@ export class SignalsViewController {
         const signalSource = new WebdogManualSignalSource(sourceId, payload, configuredAt, options);
         this.website = await this.websiteService.collect(this.workspaceId, websiteSource);
         this.inbox = await this.service.collect(this.workspaceId, [signalSource]);
-        return "Webdog website-change evidence imported for named review";
+        return this.collectionOutcome(sourceId, "Webdog website-change evidence imported for named review");
       }
       if (kind === "signals-calendar-follow-up") {
         const signal = this.requiredSignal(String(form.get("signalId")));

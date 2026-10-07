@@ -271,8 +271,8 @@ async function focusPendingTarget(): Promise<void> {
       : main.querySelector<HTMLElement>(`[data-authoritative-record-id="${cssEscape(pendingTarget.recordId)}"]`);
   }
   if (pendingTarget.context === "calendar" && activeNav() === "calendar") {
-    const control = main.querySelector<HTMLElement>(`[data-activation-action][data-id="${cssEscape(pendingTarget.recordId)}"]`);
-    target = control?.closest<HTMLElement>(".calendar-card") ?? null;
+    // Planning entries can have no action controls, so find the card itself.
+    target = main.querySelector<HTMLElement>(`.calendar-card[data-calendar-entry-id="${cssEscape(pendingTarget.recordId)}"]`);
   }
   if (pendingTarget.context === "repository_growth" && main.querySelector('form[data-form="repository-action-status"]')) {
     const input = main.querySelector<HTMLInputElement>(`form[data-form="repository-action-status"] input[name="actionId"][value="${cssEscape(pendingTarget.recordId)}"]`);

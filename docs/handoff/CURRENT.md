@@ -11,7 +11,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `54093163ef6ab62f333a958be103f702ffaeced0` (#124 cross-browser/runtime correctness, #129 public GitHub reads/O5, #93 governed acceptance tooling, #134–#136 workspace retention/recovery work, and #109 LinkedIn member publishing all merged)
+- `main` at review: `379050badeada9f84ff2a9afa8c39b5d3b7e4cb6` (#124, #129, #93, #134–#137, #109, and #139–#143 merged). The 2026-10-07 local-dogfood QA remediation is recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
@@ -23,8 +23,8 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 
 | PR | What it is | What remains |
 |---|---|---|
-| #137 | Browser storage durability and eviction evidence (#36) | Active release-foundation work. Keep it isolated from unrelated product changes; it also owns the current edit to `docs/status/current-state.md`. |
-| Dependabot #95, #96, #111, #121 | Dependency bumps | Triage independently. #111 requires Rust 1.90 (`tauri-build` 2.7.1) and must not raise the pinned 1.88 baseline implicitly. |
+| #144 | Cross-origin migration proof through the portable backup (#36) | Release-foundation evidence. Keep it isolated from product changes. |
+| Dependabot #121 | Development-tooling bumps | Triage independently. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Recently merged convergence work:
 - #109: LinkedIn member publishing implementation is on `main`. Exact-head CI, real-browser PWA smoke, Rust tests, desktop bundle, and Debian package validation passed. #107 stays open for the two human evidence gates.
@@ -125,9 +125,9 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 
 ## Next priorities
 
-1. Run the #79/#81 human acceptance on the governed candidate, then fix only reproducible P0/P1 findings in narrow PRs.
+1. Record a candidate that supersedes `ux-candidate-2026-10-06.md` with the 2026-10-07 QA remediation (its P1 fixes affect the restore step every session starts with), then run the #79/#81 human acceptance on it and fix only reproducible P0/P1 findings in narrow PRs.
 2. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
-3. Progress the remaining #36 durable-storage/recovery and operational-readiness work through the active bounded slices (currently #137). Leave public-hosting work until external distribution is justified.
+3. Progress the remaining #36 durable-storage/recovery and operational-readiness work through the active bounded slices (currently #144). Leave public-hosting work until external distribution is justified.
 4. After the LinkedIn proof is stable, complete the #112 hands-on discoverability review and real-content dogfood.
 5. Keep dependency work separate from product convergence; do not raise the Rust baseline accidentally.
 

@@ -24,6 +24,8 @@ export type HomeAttentionItem = Readonly<{
   state: string;
   owner?: string | undefined;
   timestamp?: string | undefined;
+  /** What the timestamp means when it is not the time the state was recorded. */
+  timestampLabel?: string | undefined;
   evidence: readonly string[];
   target: HomeAttentionTarget;
 }>;
@@ -92,6 +94,7 @@ function addProductAttention(items: HomeAttentionItem[], workspace: ProductWorks
       reason: "This evidence reached its recorded freshness-review date. Recheck it before relying on dependent product or ICP conclusions.",
       state: "stale evidence",
       timestamp: evidence.freshnessReviewAt,
+      timestampLabel: "Freshness review due",
       evidence: [evidence.summary],
       target: { surface: "product", recordKind: "evidence", recordId: evidence.id },
     }));
@@ -125,6 +128,7 @@ function addProductAttention(items: HomeAttentionItem[], workspace: ProductWorks
         state: experiment.status,
         owner: experiment.owner,
         timestamp: experiment.observationEndsAt,
+        timestampLabel: "Observation ends",
         evidence: [...experiment.successCriteria, ...experiment.failureCriteria],
         target: { surface: "product", recordKind: "icp_experiment", recordId: hypothesis.id },
       }));
@@ -144,6 +148,7 @@ function addProductAttention(items: HomeAttentionItem[], workspace: ProductWorks
       state: action.status,
       owner: action.owner,
       timestamp: action.dueAt ?? action.startedAt,
+      timestampLabel: action.dueAt ? "Due" : "Started",
       evidence: action.verification ? [action.verification] : [],
       target: { surface: "product", recordKind: "readiness_action", recordId: action.id },
     }));
@@ -346,6 +351,7 @@ function addRepositoryAttention(items: HomeAttentionItem[], workspace: Repositor
         reason: "This launch room still has required checklist evidence open, so manual launch export remains intentionally blocked.",
         state: room.status,
         timestamp: room.observationStartsAt,
+        timestampLabel: "Observation starts",
         evidence: room.checklist.filter((entry) => entry.required && !entry.complete).map((entry) => entry.label),
         target: { surface: "repository_growth", recordKind: "launch_room", recordId: room.id },
       }));
@@ -359,6 +365,7 @@ function addRepositoryAttention(items: HomeAttentionItem[], workspace: Repositor
         reason: "The launch room is ready, but no manual launch package has been created yet.",
         state: room.status,
         timestamp: room.observationStartsAt,
+        timestampLabel: "Observation starts",
         evidence: room.checklist.filter((entry) => entry.complete).map((entry) => entry.evidence ?? entry.label),
         target: { surface: "repository_growth", recordKind: "launch_room", recordId: room.id },
       }));
@@ -372,6 +379,7 @@ function addRepositoryAttention(items: HomeAttentionItem[], workspace: Repositor
         reason: "The recorded retrospective time has arrived, but this launch room has no retained outcome comparison and learning record yet.",
         state: "learning due",
         timestamp: room.retrospectiveAt,
+        timestampLabel: "Retrospective due",
         evidence: [`Observation window ended ${room.observationEndsAt}`],
         target: { surface: "repository_growth", recordKind: "launch_room", recordId: room.id },
       }));
@@ -491,6 +499,7 @@ function addActivationAttention(items: HomeAttentionItem[], workspace: Activatio
         state: entry.scheduleStatus,
         owner: entry.owner,
         timestamp: entry.startsAt,
+        timestampLabel: "Scheduled for",
         evidence: entry.reviewNote ? [entry.reviewNote] : [],
         target: { surface: "calendar", recordKind: "calendar_entry", recordId: entry.id },
       }));
@@ -508,6 +517,7 @@ function addActivationAttention(items: HomeAttentionItem[], workspace: Activatio
         state: entry.activationStatus,
         owner: entry.owner,
         timestamp: entry.startsAt,
+        timestampLabel: "Scheduled for",
         evidence: entry.source ? [entry.source.title] : [],
         target: { surface: "calendar", recordKind: "calendar_entry", recordId: entry.id },
       }));
@@ -524,6 +534,7 @@ function addActivationAttention(items: HomeAttentionItem[], workspace: Activatio
         state: operation.status,
         owner: entry.owner,
         timestamp: entry.startsAt,
+        timestampLabel: "Scheduled for",
         evidence: [packageRecord.idempotencyKey],
         target: { surface: "calendar", recordKind: "calendar_entry", recordId: entry.id },
       }));
@@ -539,6 +550,7 @@ function addActivationAttention(items: HomeAttentionItem[], workspace: Activatio
         state: "outcome unknown",
         owner: entry.owner,
         timestamp: entry.startsAt,
+        timestampLabel: "Scheduled for",
         evidence: [`Package downloaded ${operation.completedAt ?? operation.updatedAt}`],
         target: { surface: "calendar", recordKind: "calendar_entry", recordId: entry.id },
       }));

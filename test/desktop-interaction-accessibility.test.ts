@@ -37,7 +37,7 @@ test("async form failures restore submitted values and expose a focusable visibl
   assert.match(shell, /Your entered values have been restored/);
   assert.match(shell, /setAttribute\("role", "alert"\)/);
   assert.match(shell, /alert\.tabIndex = -1/);
-  assert.match(shell, /repair\.focus\(\)/);
+  assert.match(shell, /\(repair \?\? alert\)\.focus\(\)/);
   assert.doesNotMatch(shell, /ProductCoreService/);
   assert.doesNotMatch(shell, /\.save\(/);
 });

@@ -6,7 +6,7 @@
 |---|---|
 | Status | Authoritative implementation-status record |
 | Last reviewed | 2026-10-07 |
-| Reviewed against | `main` through `e788430143465d1554c50292413508fa20102fbf` (#109 and #134–#137 included), plus the open human-gated work listed below |
+| Reviewed against | `main` through `379050badeada9f84ff2a9afa8c39b5d3b7e4cb6` (#109, #134–#137, and #139–#143 included), plus the 2026-10-07 local-dogfood QA remediation (`docs/reviews/local-dogfood-qa-2026-10-07.md`) and the open human-gated work listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -278,7 +278,8 @@ Coverage floors apply to reusable core source. They do not prove user comprehens
 | #107 | LinkedIn member publishing proof | Implementation is merged and validated. Clean-install guidance acceptance and one human-owned live publication with a human-generated token and consent remain. |
 | #110 | Discoverability strategy on channel variants | #112 is merged and bounded; real-content dogfood and the later evidence loop remain, sequenced behind the LinkedIn live proof. |
 | #36 | Release foundations | Durable migration/recovery, browser storage durability evidence, operational readiness, and public-release trust remain. Public-hosting work is deferred until external distribution is justified. |
-| #95, #96, #111, #121 | Dependency updates | Triage separately. Do not raise the pinned Rust 1.88 baseline implicitly; #111 requires a deliberate baseline decision. |
+| #144 | Cross-origin migration through the portable backup (#36) | Open, separate from product changes. |
+| #121 | Dependency updates (development tooling) | Triage separately. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Merged convergence work: #124 (cross-browser/runtime correctness), #129 (public GitHub reads and native CSP/O5), and #93 (acceptance runbooks/seed/candidate).
 
@@ -287,6 +288,8 @@ Merged convergence work: #124 (cross-browser/runtime correctness), #129 (public 
 ### Machine-verifiable blockers for routine local dogfood
 
 No known machine-verifiable blocker remains for routine Chromium localhost dogfood. #124 and #129 are merged: the PWA runtime is stable on the supported Chromium path, public GitHub reads work, and startup no longer leaves the main region indefinitely busy.
+
+A machine-driven pass through the production PWA on 2026-10-07 (empty and seeded profiles, every view, the full governed loop, Repository Growth, Video Production, Website Watch, Workspace, and an approximation of 200% zoom) found and fixed P1 defects that the automated suite had not caught: Home showed an empty workspace right after a restore and a deleted workspace right after a delete, stale evidence could not be rechecked, hidden UI stayed visible, and cancelling a review removed the record's review controls. The record, including remaining P2/P3 findings, is `docs/reviews/local-dogfood-qa-2026-10-07.md`. Those defects were present in the frozen 2026-10-06 acceptance candidate, so human sessions should run on a superseding candidate that includes the fixes.
 
 This is a dogfood statement, not a public-release statement. #36 still contains release-foundation work.
 

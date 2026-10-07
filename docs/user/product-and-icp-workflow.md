@@ -37,6 +37,15 @@ A claim begins as proposed. It may be drafted before evidence review is complete
 
 Editing any claim, including an approved claim, creates a new revision in proposed state and clears the prior review metadata. This prevents an old approval from silently carrying across materially different wording, evidence, rationale, or prohibited contexts.
 
+## Rechecking stale evidence
+
+Reviewed evidence that reaches its freshness-review date is marked **Freshness review due** in Product and listed on Home as a blocker. Open it from Home (or find it under **Record and review evidence**) and recheck it:
+
+- **Still valid: set next review** keeps the evidence reviewed. It requires a named reviewer and a next freshness-review date in the future, and records who rechecked it and when. What was observed is not rewritten.
+- **No longer valid: withdraw** marks the evidence rejected. Rejected evidence cannot support a claim, an ICP selection, or a campaign; the existing review and revalidation steps in those workflows refuse it. Withdrawing does not change any approved claim by itself: recheck the claims that cited it and revise or reject them through claim review.
+
+Evidence that has not yet been reviewed is accepted or rejected through ordinary named review first. Generated suggestions cannot be rechecked into evidence.
+
 ICP validation experiments are explicit planning records. Each experiment records the hypothesis under test, method, owner, start and observation-end dates, success criteria, failure criteria, and decision criteria. Creating an experiment does not claim that it ran, succeeded, failed, or produced provider-verified evidence.
 
 ## State behavior

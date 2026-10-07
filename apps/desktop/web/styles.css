@@ -21,11 +21,17 @@
   --focus: #9ee9ff;
 }
 * { box-sizing: border-box; }
+/* Author display rules (form, .actions, ...) must not resurrect elements a
+   workflow deliberately hid with the hidden attribute. */
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 20rem; min-height: 100vh; background: radial-gradient(circle at 82% 6%, #173748 0, transparent 30rem), var(--bg); color: var(--text); }
 button, input, textarea, select { font: inherit; }
 button, summary { cursor: pointer; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible, [tabindex="0"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+/* Records that a workflow focuses for the person (an opened destination, the
+   record an action changed) show where focus landed. */
+#main [tabindex="-1"]:not(section.state):focus { outline: 2px solid var(--focus); outline-offset: 3px; }
 .skip-link { position: fixed; z-index: 20; left: 1rem; top: -5rem; background: #fff; color: #111; padding: .75rem 1rem; border-radius: .5rem; }
 .skip-link:focus { top: 1rem; }
 .shell { display: grid; grid-template-columns: 16.5rem minmax(0, 1fr); min-height: 100vh; }
@@ -45,7 +51,7 @@ nav button:disabled { opacity: .62; cursor: not-allowed; }
 nav button span { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; }
 .local-note { position: absolute; bottom: 1.5rem; left: 1.35rem; right: 1.35rem; padding: .8rem; border: 1px solid var(--line); border-radius: .6rem; display: grid; gap: .2rem; font-size: .75rem; color: var(--muted); }
 .local-note strong { color: var(--text); }
-main { width: 100%; max-width: 96rem; padding: 2.5rem clamp(1.25rem, 4vw, 4rem) 5rem; }
+main { width: 100%; min-width: 0; max-width: 96rem; padding: 2.5rem clamp(1.25rem, 4vw, 4rem) 5rem; }
 .hero { min-height: 18rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; padding-top: 1.5rem; }
 .hero > div > p:last-child { max-width: 48rem; color: var(--muted); font-size: 1.05rem; }
 .hero.compact { min-height: 13rem; }
@@ -112,7 +118,7 @@ td span, td small { display: block; margin-top: .35rem; color: var(--muted); lin
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
 @media (max-width: 72rem) { .metrics { grid-template-columns: repeat(2, 1fr); } .icp-cards, .dimension-list { grid-template-columns: 1fr; } }
 @media (max-width: 52rem) {
-  .shell { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
   aside { position: static; height: auto; padding: 1rem; }
   aside .tagline, .local-note { display: none; }
   nav { grid-template-columns: repeat(2, 1fr); }
