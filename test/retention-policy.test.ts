@@ -33,6 +33,14 @@ test("every retention rule states what, where, until when, and what workspace de
   assert.equal(AUTOMATIC_DELETION, false);
 });
 
+test("provider connection metadata is governed as a deletion blocker, not silently kept or exported", () => {
+  const rule = RETENTION_POLICY.find((candidate) => candidate.id === "provider-connections");
+  assert.ok(rule, "provider connection metadata needs an explicit retention rule");
+  assert.equal(rule.workspaceDeletion, "blocks_deletion");
+  assert.match(rule.keptUntil, /disconnect the provider/i);
+  assert.equal(rule.keptLabel, undefined, "a deletion blocker must not be described as data deletion keeps");
+});
+
 test("the deletion scope preview lists exactly what the policy says deletion keeps", () => {
   const kept = retainedOutsideWorkspaceDeletion();
   for (const rule of RETENTION_POLICY.filter((candidate) => candidate.keptLabel)) assert.ok(kept.includes(rule.keptLabel!), rule.id);

@@ -20,6 +20,19 @@ The Workspace screen inspects all seven contexts before backup, restore, reset, 
 
 The former Product-header reset control was misleading because it removed only Product Core and its active pointer while leaving downstream stores intact. The Product workflow now routes destructive workspace management to the dedicated Workspace surface instead.
 
+### Machine-local provider connections
+
+Connected-provider metadata is intentionally outside the seven portable workspace contexts. It stores non-secret provider authority plus an opaque reference to a credential held by the operating system. Copying that reference into a portable backup would not recreate usable authority on another machine and would misrepresent what the backup contains.
+
+When connected-provider metadata exists for a workspace:
+
+- normal workspace backup and recovery-point export still cover the seven portable contexts;
+- replace-current restore and product-wide deletion are blocked;
+- the Workspace screen directs the person to disconnect providers in Calendar first;
+- disconnect removes the operating-system credential before removing the local connection record.
+
+After the providers are disconnected, the destructive workspace action can proceed normally. Restore never recreates a connected account.
+
 ## Backup
 
 `Download workspace backup` produces one JSON file containing the seven workspace context slots. Each slot contains that context's local data or `null` when the context is absent.
@@ -93,7 +106,9 @@ Successful restore writes the contexts from the backup, restores the active work
 
 Replacement is allowed only when the profile contains the same workspace ID and no competing workspace ID. Viable will not silently combine or overwrite a different local workspace.
 
-A recovery-point decision is required first (see **Recovery points**). The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
+Any connected providers must be disconnected first. Provider credentials and their machine-local connection records are deliberately not restored from portable backups.
+
+A recovery-point decision is required next (see **Recovery points**). The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
 
 The replacement operation does not imply review, approval, publication, delivery, or measurement. It restores previously stored local state.
 
@@ -109,7 +124,7 @@ Before confirmation, Viable shows:
 - what remains outside workspace deletion;
 - what is anonymized.
 
-The user must make a recovery-point decision, explicitly review the scope, and type `DELETE`. A final desktop confirmation follows.
+Connected providers must be disconnected first. The user must then make a recovery-point decision, explicitly review the scope, and type `DELETE`. A final desktop confirmation follows.
 
 Deletion removes:
 
@@ -126,7 +141,7 @@ Deletion retains:
 
 - Viable application files and code;
 - backup, recovery-point, or quarantine files the user already exported outside the app;
-- provider credentials in the operating system's credential vault (desktop only), which are keyed to a provider connection rather than a workspace;
+- provider credentials unrelated to an active workspace connection may remain in the operating system's credential vault; normal connected credentials are removed during the required disconnect step before workspace deletion;
 - unrelated operating-system, browser, or desktop-profile preferences that are not Viable workspace contexts;
 - other explicitly distinct workspace IDs, if abnormal local state contains more than one. The Workspace screen shows those IDs separately rather than combining them.
 
@@ -160,7 +175,8 @@ The Workspace screen shows this policy under **How long Viable keeps data**. Its
 | legacy-copy | Pre-IndexedDB copy left by the one-time storage upgrade as a recovery source | This browser profile (localStorage) | That workspace is deleted. Copies of workspaces deleted before deletion purged them remain until you clear this site's data in the browser. | Removed |
 | migration-marker | Record that the storage upgrade ran (time and record count only) | This browser profile or desktop app (IndexedDB) | The life of the browser profile, so the upgrade never runs twice. | Kept |
 | exported-files | Backups, recovery points and quarantine exports | Files you downloaded, outside Viable | You delete the files. Viable cannot see or remove them. | Kept |
-| provider-credentials | Provider credentials (desktop only) | The operating system's credential vault; never workspace data, browser storage or backups | Removed from the operating system's credential vault. They are keyed to a provider connection, not a workspace. | Kept |
+| provider-connections | Connected-provider metadata: destination authority, opaque credential reference, provider identity and connection status | This browser profile or desktop app (IndexedDB); never contains the provider secret | You disconnect the provider. Workspace replacement and deletion are blocked while this record exists. | Blocks deletion until removed |
+| provider-credentials | Provider credentials (desktop only) | The operating system's credential vault; never workspace data, browser storage or backups | You disconnect the provider or a superseded-credential cleanup completes. Workspace deletion does not directly operate on the credential vault. | Kept |
 | app-shell-cache | Viable's own code and assets for offline use (browser app only) | Service-worker cache | You confirm an update; the previous build's cache is then removed. Contains no workspace data. | Not workspace data |
 | draft-step-position | Which step of a multi-step draft a tab was showing | This browser tab (sessionStorage) | The tab is closed. Contains no draft content. | Not workspace data |
 | browser-eviction | Everything Viable stores in a browser | This browser profile | The browser may clear site data under storage pressure unless it has granted persistent storage. Ask it to keep Viable data from the Workspace screen, and keep backups. | Not workspace data |

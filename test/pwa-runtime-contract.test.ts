@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 // Shell load order lives in the single desktop entry module.
@@ -41,13 +41,16 @@ test("PWA build derives immutable build identity from shipped content and keeps 
   const desktopIndex = await read("apps/desktop/web/index.html");
   assert.doesNotMatch(desktopIndex, /pwa-runtime\.js|manifest\.webmanifest/, "the desktop runtime never registers a service worker");
   assert.match(entry, /runtime-capabilities-shell\.js/);
+  assert.match(entry, /linkedin-connection-shell\.js/);
 });
 
 test("every workspace store persists through the shared durable storage and awaits the commit", async () => {
-  const stores = [
-    "activation-learning", "campaign-workspace", "product-workspace", "repository-growth",
-    "signals-inbox", "video-production", "website-watch",
-  ];
+  // Discovered rather than listed: adding a persisted local store without
+  // routing it through durable workspace storage must fail this contract.
+  const stores = (await readdir(new URL("../../apps/desktop/ui/", import.meta.url)))
+    .map((file) => /^local-storage-(.+)-store\.ts$/.exec(file)?.[1])
+    .filter((name): name is string => Boolean(name));
+  assert.ok(stores.length >= 8, `expected every local workspace-scoped store, found ${stores.join(", ")}`);
   for (const name of stores) {
     const source = await read(`apps/desktop/ui/local-storage-${name}-store.ts`);
     assert.doesNotMatch(source, /\blocalStorage\b/, `${name} store must not bypass workspace storage`);

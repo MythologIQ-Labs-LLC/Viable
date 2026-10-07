@@ -61,15 +61,8 @@ requireCondition(!csp.includes("'unsafe-eval'"), "Tauri CSP must not allow unsaf
 requireCondition(csp.includes("connect-src 'self' ipc: http://ipc.localhost https://api.github.com"), "Tauri CSP connect-src must allow exactly Tauri IPC and https://api.github.com");
 requireCondition(!csp.includes("*"), "Tauri CSP must not use wildcards");
 
-const storageFiles = [
-  "apps/desktop/ui/local-storage-product-workspace-store.ts",
-  "apps/desktop/ui/local-storage-signals-inbox-store.ts",
-  "apps/desktop/ui/local-storage-campaign-workspace-store.ts",
-  "apps/desktop/ui/local-storage-repository-growth-store.ts",
-  "apps/desktop/ui/local-storage-video-production-store.ts",
-  "apps/desktop/ui/local-storage-activation-learning-store.ts",
-  "apps/desktop/ui/local-storage-website-watch-store.ts",
-];
+const storageFiles = gitFiles("apps/desktop/ui/local-storage-*-store.ts");
+requireCondition(storageFiles.length >= 8, `Expected all persisted local workspace stores to be governed; found only ${storageFiles.length}`);
 for (const path of storageFiles) {
   const content = await read(path);
   requireCondition(content.includes("readWorkspaceJson"), `${path} must use shared local-storage integrity validation`);

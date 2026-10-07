@@ -142,6 +142,7 @@ function recoveryPointControls(workspaceId: string, backupBlocked: boolean, decl
 const DELETION_EFFECT: Readonly<Record<string, string>> = {
   removed: "Removed",
   kept: "Kept",
+  blocks_deletion: "Blocks deletion until removed",
   not_workspace_data: "Not workspace data",
 };
 
@@ -172,16 +173,17 @@ function backupSection(preview: WorkspaceScopePreview): string {
 function restoreSection(): string {
   const preview = pendingImport;
   const quarantineBlocked = Boolean(preview?.requiresQuarantineExport && quarantineExportedFor !== preview.backup.workspaceId);
+  const localConnectionBlocked = Boolean(preview?.requiresLocalConnectionDisconnect);
   return `<section class="panel" aria-labelledby="restore-heading">
     <div class="section-heading"><div><p class="eyebrow">Restore</p><h3 id="restore-heading">Restore a Viable workspace backup</h3></div></div>
     <p class="guidance">Choose a backup file. Viable validates format, version, checksum, context identity, required shapes, and credential-like fields before enabling any mutation.</p>
     <label>Workspace backup file<input type="file" accept="application/json,.json" data-workspace-import></label>
     ${importFailure ? `<section class="state error" role="alert" tabindex="-1" data-workspace-import-error><strong>Backup was not accepted.</strong><span>${escapeHtml(importFailure)} No local workspace data was changed.</span></section>` : ""}
-    ${preview ? `<section class="state ${preview.conflict ? "warning" : "offline"}" data-workspace-import-preview><div><strong>Backup validated for ${escapeHtml(productNameFromBackup(preview))}.</strong><p>Workspace ID: ${escapeHtml(preview.backup.workspaceId)} · created ${escapeHtml(new Date(preview.backup.createdAt).toLocaleString())}</p>${preview.conflict ? `<p>${escapeHtml(preview.conflict)}</p>` : ""}${quarantineBlocked ? `<p data-workspace-restore-quarantine>The current workspace contains corrupt or newer-version data that this restore would overwrite. Export quarantine data above before replacing it.</p>` : ""}</div></section>
-      ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile && !quarantineBlocked ? recoveryPointControls(preview.backup.workspaceId, lifecycle.inspect(preview.backup.workspaceId).hasCorruptData, "data-workspace-restore-decline") : ""}
+    ${preview ? `<section class="state ${preview.conflict ? "warning" : "offline"}" data-workspace-import-preview><div><strong>Backup validated for ${escapeHtml(productNameFromBackup(preview))}.</strong><p>Workspace ID: ${escapeHtml(preview.backup.workspaceId)} · created ${escapeHtml(new Date(preview.backup.createdAt).toLocaleString())}</p>${preview.conflict ? `<p>${escapeHtml(preview.conflict)}</p>` : ""}${quarantineBlocked ? `<p data-workspace-restore-quarantine>The current workspace contains corrupt or newer-version data that this restore would overwrite. Export quarantine data above before replacing it.</p>` : ""}${localConnectionBlocked ? `<p data-workspace-restore-connections>Disconnect connected providers in Calendar before replacing this workspace. Portable backups intentionally exclude machine-local account connections.</p>` : ""}</div></section>
+      ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile && !quarantineBlocked && !localConnectionBlocked ? recoveryPointControls(preview.backup.workspaceId, lifecycle.inspect(preview.backup.workspaceId).hasCorruptData, "data-workspace-restore-decline") : ""}
       <div class="actions">
         <button type="button" data-workspace-action="restore-empty" ${preview.canRestoreIntoEmptyProfile ? "" : "disabled"}>Restore into empty profile</button>
-        <button type="button" data-workspace-action="restore-replace" ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile && !quarantineBlocked ? "" : "disabled"}>Replace current workspace from backup</button>
+        <button type="button" data-workspace-action="restore-replace" ${preview.canReplaceCurrentWorkspace && !preview.canRestoreIntoEmptyProfile && !quarantineBlocked && !localConnectionBlocked ? "" : "disabled"}>Replace current workspace from backup</button>
       </div>` : ""}
   </section>`;
 }
@@ -194,16 +196,18 @@ function productNameFromBackup(preview: WorkspaceImportPreview): string {
 
 function deleteSection(preview: WorkspaceScopePreview): string {
   const corruptBlocked = preview.hasCorruptData && quarantineExportedFor !== preview.workspaceId;
+  const connectionBlocked = preview.localConnectionBlockers.length > 0;
   return `<section class="panel danger-zone" aria-labelledby="delete-heading">
     <div class="section-heading"><div><p class="eyebrow">Destructive action</p><h3 id="delete-heading">Delete or reset this workspace</h3></div><span class="pill warning">Local and product-wide</span></div>
-    <p>This removes all seven workspace-scoped contexts and the active workspace pointer from this desktop profile. It does not delete exported backup, recovery-point, or quarantine files outside Viable, provider credentials in the operating system's credential vault, application files, or unrelated desktop/browser preferences. See “How long Viable keeps data” for everything Viable stores. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
+    <p>This removes all seven portable workspace contexts and the active workspace pointer from this desktop profile. Connected provider state is machine-local and must be disconnected first so its operating-system credential and local connection record are removed together. Exported backup, recovery-point, or quarantine files outside Viable, application files, and unrelated desktop/browser preferences remain yours. See “How long Viable keeps data” for everything Viable stores. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
     <details><summary><strong>Review exact deletion scope</strong><span>${preview.totalRecords} counted local records across the contexts below.</span></summary>${scopeTable(preview)}<h4>Retained outside workspace deletion</h4><ul>${preview.retainedOutsideWorkspace.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><h4>Anonymized</h4><p>None. Workspace-scoped records are deleted rather than converted into anonymous copies.</p></details>
     ${corruptBlocked ? `<section class="state warning"><strong>Deletion is blocked until corrupt raw data is exported.</strong><span>Use “Export quarantine data” above. This avoids destroying the only recoverable copy of unreadable local context.</span></section>` : ""}
+    ${connectionBlocked ? `<section class="state warning" data-workspace-connection-blocker><strong>Disconnect connected providers before deletion.</strong><span>Open Calendar → Publication inventory and disconnect each provider first. Portable backups do not carry machine-local account connections.</span></section>` : ""}
     <form data-workspace-delete>
       ${recoveryPointControls(preview.workspaceId, preview.hasCorruptData, 'name="declineRecoveryPoint"')}
       <label class="choice"><input type="checkbox" name="scopeConfirmed" required> I reviewed the product-wide deletion scope above.</label>
       <label>Type DELETE to confirm<input name="confirmation" autocomplete="off" required></label>
-      <button class="danger" type="submit" ${corruptBlocked ? "disabled" : ""}>Delete all workspace-scoped local data</button>
+      <button class="danger" type="submit" ${corruptBlocked || connectionBlocked ? "disabled" : ""}>Delete all workspace-scoped local data</button>
     </form>
   </section>`;
 }

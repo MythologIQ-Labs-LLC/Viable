@@ -670,6 +670,7 @@ Packages are credential free by contract.
 - [Product Requirements Document](../product/PRD.md)
 - [Platform architecture](../architecture/viable-platform.md)
 - [Calendar, Activation, Outcome, and Learning architecture](../architecture/activation-and-learning-domain.md)
+- [LinkedIn member publishing](linkedin-member-publishing.md)
 - [Campaigns and Studio](campaigns-and-studio.md)
 - [Repository Growth](repository-growth.md)
 - [Video Production](video-production.md)

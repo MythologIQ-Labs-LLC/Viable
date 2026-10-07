@@ -44,6 +44,11 @@ test("workspace surface previews all local contexts before destructive deletion"
   assert.match(shell, /const point = lifecycle\.createRecoveryPoint\(target\);\s*downloadText\(filename\("recovery-point", target\), point\.backup\);\s*recoveryPointFor = \{ workspaceId: target, fingerprint: point\.fingerprint \};/);
   assert.match(shell, /Viable keeps no hidden internal copy/);
   assert.match(shell, /preview\.hasCorruptData && quarantineExportedFor !== preview\.workspaceId/);
+  assert.match(shell, /preview\.localConnectionBlockers\.length > 0/);
+  assert.match(shell, /Disconnect connected providers before deletion/);
+  assert.match(shell, /preview\?\.requiresLocalConnectionDisconnect/);
+  assert.match(shell, /data-workspace-restore-connections/);
+  assert.match(shell, /corruptBlocked \|\| connectionBlocked \? "disabled" : ""/);
 });
 
 test("backup and restore use generated files and a file picker rather than JSON authoring", async () => {

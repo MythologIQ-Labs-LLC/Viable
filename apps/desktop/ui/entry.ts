@@ -17,6 +17,7 @@ import "./campaign-shell.js";
 import "./repository-growth-shell.js";
 import "./activation-learning-shell.js";
 import "./credential-vault-status-shell.js";
+import "./linkedin-connection-shell.js";
 import "./ux-completion-shell.js";
 import "./home-attention-shell.js";
 import "./intent-workflow-shell.js";

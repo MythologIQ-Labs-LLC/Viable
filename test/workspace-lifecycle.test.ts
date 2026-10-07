@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PRODUCT_ACTIVE_KEY,
   WORKSPACE_CONTEXTS,
+  WORKSPACE_LOCAL_CONNECTION_RECORDS,
   WORKSPACE_STORAGE_SCHEMA_VERSION,
   WorkspaceLifecycleService,
   type KeyValueStorage,
@@ -277,6 +278,49 @@ test("unsupported future envelope versions are corrupt and quarantinable, never 
   const quarantine = JSON.parse(service.exportQuarantine("ws-future")) as { entries: Array<{ raw: string; issue: string }> };
   assert.equal(quarantine.entries[0]?.raw, future);
   assert.match(quarantine.entries[0]?.issue ?? "", /unsupported workspace schema version 2/);
+});
+
+test("machine-local provider connections are excluded from portable backup and block destructive workspace actions", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const connectionKey = `${WORKSPACE_LOCAL_CONNECTION_RECORDS[0].prefix}workspace-1`;
+  storage.setItem(connectionKey, JSON.stringify({
+    schemaVersion: WORKSPACE_STORAGE_SCHEMA_VERSION,
+    workspace: {
+      workspaceId: "workspace-1",
+      connections: [{
+        credentialReference: "viable://credential/linkedin/connection-1/access_token",
+      }],
+      updatedAt: now().toISOString(),
+    },
+  }));
+  const service = new WorkspaceLifecycleService(storage, now);
+
+  const preview = service.inspect("workspace-1");
+  assert.equal(preview.localConnectionBlockers.length, 1);
+  assert.equal(preview.localConnectionBlockers[0]?.key, connectionKey);
+
+  const backup = service.createBackup("workspace-1");
+  assert.doesNotMatch(backup, /provider-connections|credentialReference|connection-1/);
+  const before = storage.entries();
+
+  assert.throws(
+    () => service.deleteWorkspace("workspace-1", { recoveryPoint: { kind: "declined" } }),
+    /Disconnect connected providers before deleting/,
+  );
+  assert.throws(
+    () => service.restoreBackup(backup, "replace_current", { recoveryPoint: { kind: "declined" } }),
+    /Disconnect connected providers before replacing/,
+  );
+  assert.deepEqual(storage.entries(), before);
+});
+
+test("provider-connection metadata alone keeps a workspace ID discoverable until it is disconnected", () => {
+  const storage = new MemoryStorage();
+  const connectionKey = `${WORKSPACE_LOCAL_CONNECTION_RECORDS[0].prefix}connection-only`;
+  storage.setItem(connectionKey, JSON.stringify({ schemaVersion: 1, workspace: { workspaceId: "connection-only", connections: [], updatedAt: now().toISOString() } }));
+  const service = new WorkspaceLifecycleService(storage, now);
+  assert.equal(service.knownWorkspaceIds().has("connection-only"), true);
 });
 
 test("destructive actions refuse to run without an explicit recovery-point decision", () => {

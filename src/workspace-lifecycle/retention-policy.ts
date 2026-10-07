@@ -9,7 +9,7 @@ import { WEBSITE_WATCH_SNAPSHOT_RETENTION_DAYS } from "../website-watch/domain/w
 // Website Watch retention deadline or a publication-inventory expiry only make
 // something eligible or unavailable; removal is always a person's action.
 
-export type WorkspaceDeletionEffect = "removed" | "kept" | "not_workspace_data";
+export type WorkspaceDeletionEffect = "removed" | "kept" | "blocks_deletion" | "not_workspace_data";
 
 export type RetentionRule = Readonly<{
   id: string;
@@ -72,10 +72,17 @@ export const RETENTION_POLICY: readonly RetentionRule[] = [
     keptLabel: "Backup, recovery-point and quarantine files you exported outside the app",
   },
   {
+    id: "provider-connections",
+    data: "Connected-provider metadata: destination authority, opaque credential reference, provider identity and connection status",
+    location: "This browser profile or desktop app (IndexedDB); never contains the provider secret",
+    keptUntil: "Until you disconnect the provider. Workspace replacement and deletion are blocked while this record exists.",
+    workspaceDeletion: "blocks_deletion",
+  },
+  {
     id: "provider-credentials",
     data: "Provider credentials (desktop only)",
     location: "The operating system's credential vault, never workspace data, browser storage or backups",
-    keptUntil: "Until removed from the operating system's credential vault. They are keyed to a provider connection, not a workspace.",
+    keptUntil: "Until you disconnect the provider or a superseded-credential cleanup completes. Workspace deletion does not directly operate on the credential vault.",
     workspaceDeletion: "kept",
     keptLabel: "Provider credentials in the operating system's credential vault (desktop only)",
   },
