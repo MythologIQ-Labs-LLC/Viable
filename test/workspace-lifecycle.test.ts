@@ -65,7 +65,7 @@ test("workspace preview enumerates every product context and makes retention sco
   assert.equal(preview.totalRecords, 11);
   assert.equal(preview.active, true);
   assert.deepEqual(preview.anonymized, []);
-  assert.match(preview.retainedOutsideWorkspace.join(" "), /User-exported backup files/);
+  assert.match(preview.retainedOutsideWorkspace.join(" "), /Backup, recovery-point and quarantine files you exported outside the app/);
 });
 
 test("backup round-trip validates integrity and restores all contexts into an empty profile", () => {

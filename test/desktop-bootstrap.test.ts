@@ -31,3 +31,16 @@ test("desktop bootstrap handles synchronous and asynchronous failures without cl
   assert.match(bootstrap, /role="alert"/);
   assert.match(bootstrap, /main\.focus\(\)/);
 });
+
+test("a startup failure offers recovery mode that loads only the Workspace screen and changes nothing", async () => {
+  assert.match(bootstrap, /data-startup-action="recover"/);
+  assert.match(bootstrap, /import\("\.\/workspace-lifecycle-shell\.js"\)\s*\.then\(\(shell\) => shell\.openWorkspaceRecovery\(detail\)\)/);
+  assert.match(bootstrap, /Workspace recovery could not be opened/);
+  const shell = await readFile("apps/desktop/ui/workspace-lifecycle-shell.ts", "utf8");
+  const recovery = shell.slice(shell.indexOf("export function openWorkspaceRecovery"), shell.indexOf("function closeWorkspace"));
+  assert.match(recovery, /startupFailure = reason;\s*openWorkspace\(\);/);
+  assert.doesNotMatch(recovery, /setItem|removeItem|commit|delete|restore/, "opening recovery mode must not change stored data");
+  assert.match(shell, /data-workspace-recovery-mode/);
+  // Recovery mode reuses the screen's existing gates rather than bypassing them.
+  assert.doesNotMatch(shell, /startupFailure[^\n]*(quarantineExported|recoveryPoint)/);
+});

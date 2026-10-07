@@ -491,6 +491,8 @@ async function run() {
       check(Boolean(storedKey), "workspace data is committed to IndexedDB");
       const engine = await page.locator("[data-storage-engine]").getAttribute("data-storage-engine");
       check(engine === "indexeddb", `runtime panel reports the IndexedDB storage engine (${engine})`);
+      const retentionRules = await page.locator("[data-workspace-retention] [data-retention-rule]").count();
+      check(retentionRules >= 10, `Workspace screen states the retention policy (${retentionRules} rules)`);
 
       // Browser backup -> delete -> restore round trip (#36), observed from a second tab.
       const second = await context.newPage();
@@ -683,6 +685,130 @@ async function run() {
       const legacyLeft = await upgrade.evaluate(() => ["viable.product-workspace.legacy-ws", "viable.product-workspace.active"].filter((key) => localStorage.getItem(key) !== null));
       check(legacyLeft.length === 0, `deleting a migrated workspace also removes its legacy storage copy${legacyLeft.length ? ` (left: ${legacyLeft.join(", ")})` : ""}`);
       await upgradeContext.close();
+    });
+
+    // Restore into an existing profile (#36): replace-current restore,
+    // driven through the Workspace screen against real IndexedDB.
+    await section("replace-current restore", async () => {
+      const replaceContext = await browser.newContext({ acceptDownloads: true });
+      const replace = await replaceContext.newPage();
+      replace.on("pageerror", (error) => errors.push(`replace pageerror: ${error.message}`));
+      replace.on("dialog", (dialog) => void dialog.accept());
+      const productKey = "viable.product-workspace.replace-ws";
+      const named = (name) => ({ ...backup.contexts.product, id: "replace-ws", product: { ...backup.contexts.product.product, identity: { ...backup.contexts.product.product.identity, name } } });
+      await replace.addInitScript((value) => {
+        if (!localStorage.getItem("viable.product-workspace.active")) {
+          localStorage.setItem("viable.product-workspace.replace-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+          localStorage.setItem("viable.product-workspace.active", "replace-ws");
+        }
+      }, named("Replace original"));
+      const idb = (operation, key, value) => replace.evaluate(([op, k, v]) => new Promise((resolveIdb, rejectIdb) => {
+        const open = indexedDB.open("viable-workspace");
+        open.onerror = () => rejectIdb(open.error);
+        open.onsuccess = () => {
+          const transaction = open.result.transaction("kv", op === "get" ? "readonly" : "readwrite");
+          const request = op === "get" ? transaction.objectStore("kv").get(k) : transaction.objectStore("kv").put(v, k);
+          transaction.oncomplete = () => { open.result.close(); resolveIdb(op === "get" ? request.result : undefined); };
+          transaction.onerror = () => rejectIdb(transaction.error);
+        };
+      }), [operation, key, value]);
+      const storedName = async () => JSON.parse((await idb("get", productKey)) ?? "null")?.workspace?.product?.identity?.name;
+      const openWorkspace = async () => {
+        await replace.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+        await replace.waitForSelector("[data-workspace-import]", { timeout: 10000 });
+      };
+      const download = async (selector, name) => {
+        const [file] = await Promise.all([replace.waitForEvent("download"), replace.click(selector)]);
+        const path = join(served, "..", `dist-pwa-smoke-${name}.json`);
+        await file.saveAs(path);
+        return path;
+      };
+      const chooseBackup = async (path) => {
+        await replace.setInputFiles("[data-workspace-import]", path);
+        await replace.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+      };
+      const paths = [];
+      try {
+        await replace.goto(`${origin}/`);
+        await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original"), undefined, { timeout: 10000 });
+        await openWorkspace();
+        const originalPath = await download('[data-workspace-action="backup"]', "replace-original");
+        paths.push(originalPath);
+
+        // Later work changes the stored workspace after that backup was taken.
+        const current = JSON.parse(await idb("get", productKey));
+        current.workspace.product.identity.name = "Replace newer";
+        await idb("put", productKey, JSON.stringify(current));
+        await reload(replace);
+        await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace newer"), undefined, { timeout: 10000 });
+        await openWorkspace();
+
+        await chooseBackup(originalPath);
+        const replaceEnabled = await replace.locator('[data-workspace-action="restore-replace"]').isEnabled();
+        const emptyDisabled = await replace.locator('[data-workspace-action="restore-empty"]').isDisabled();
+        check(replaceEnabled && emptyDisabled, "a backup of the same workspace offers replace-current, not empty-profile restore");
+
+        await replace.click('[data-workspace-action="restore-replace"]');
+        const refused = await replace.waitForFunction(() => /recovery point/i.test(document.querySelector("[data-workspace-action-error]")?.textContent ?? ""), undefined, { timeout: 5000 }).then(() => true, () => false);
+        check(refused && (await storedName()) === "Replace newer", "replace-current restore without a recovery-point decision is refused and changes nothing");
+
+        const recoveryPath = await download('section[aria-labelledby="restore-heading"] [data-workspace-action="recovery-point"]', "replace-recovery-point");
+        paths.push(recoveryPath);
+        const recovery = JSON.parse(await readFile(recoveryPath, "utf8"));
+        check(recovery.contexts?.product?.product?.identity?.name === "Replace newer", "the recovery point captures the state about to be replaced");
+
+        await replace.click('[data-workspace-action="restore-replace"]');
+        await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        check((await storedName()) === "Replace original", "replace-current restore overwrites the existing workspace durably in IndexedDB");
+        await reload(replace);
+        const survived = await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(survived, "the replaced workspace survives reload");
+
+        // The recovery point undoes the replacement through the same flow.
+        await openWorkspace();
+        await chooseBackup(recoveryPath);
+        await replace.check("[data-workspace-restore-decline]");
+        await replace.click('[data-workspace-action="restore-replace"]');
+        await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        check((await storedName()) === "Replace newer", "restoring the recovery point undoes the replacement");
+
+        // Corrupt stored data fails closed at startup without being changed,
+        // and recovery mode makes the Workspace screen reachable (#36).
+        await idb("put", "viable.signals-inbox.replace-ws", "{corrupt");
+        await reload(replace);
+        const failedClosed = await replace.waitForFunction(() => /could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(
+          failedClosed && (await idb("get", "viable.signals-inbox.replace-ws")) === "{corrupt" && (await storedName()) === "Replace newer",
+          "corrupt stored data fails closed at startup and nothing is changed",
+        );
+        await replace.click('[data-startup-action="recover"]');
+        await replace.waitForSelector("[data-workspace-recovery-mode]", { timeout: 10000 });
+        check(true, "startup failure offers workspace recovery mode");
+
+        await chooseBackup(originalPath);
+        const gated = await replace.locator("[data-workspace-restore-quarantine]").isVisible() && await replace.locator('[data-workspace-action="restore-replace"]').isDisabled();
+        check(gated, "in recovery mode, replacing corrupt data is blocked until quarantine is exported");
+        const quarantinePath = await download('[data-workspace-action="quarantine"]', "replace-quarantine");
+        paths.push(quarantinePath);
+        const quarantine = JSON.parse(await readFile(quarantinePath, "utf8"));
+        check(quarantine.entries?.some((entry) => entry.raw === "{corrupt"), "quarantine export preserves the unreadable raw record");
+
+        await chooseBackup(originalPath);
+        const pointBlocked = await replace.locator('section[aria-labelledby="restore-heading"] [data-workspace-action="recovery-point"]').isDisabled();
+        await replace.check("[data-workspace-restore-decline]");
+        await replace.click('[data-workspace-action="restore-replace"]');
+        await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        check(
+          pointBlocked && (await storedName()) === "Replace original" && (await idb("get", "viable.signals-inbox.replace-ws")) === undefined,
+          "recovery mode replaces the corrupt workspace from a backup after an explicit decision",
+        );
+        await replace.click('[data-workspace-action="reload-app"]');
+        const recovered = await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original") && !/could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 15000 }).then(() => true, () => false);
+        check(recovered, "after recovery, Viable starts normally");
+      } finally {
+        for (const path of paths) await rm(path, { force: true });
+        await replaceContext.close();
+      }
     });
 
     // IndexedDB is the authority whenever the browser exposes it. If opening

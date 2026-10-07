@@ -4,6 +4,7 @@ import {
   encodeStoredWorkspace,
   type RetainedWorkspaceSchemaVersion,
 } from "./workspace-storage-schema.js";
+import { retainedOutsideWorkspaceDeletion } from "./retention-policy.js";
 
 export interface KeyValueStorage {
   readonly length: number;
@@ -36,10 +37,10 @@ export const WORKSPACE_CONTEXTS = [
 ] as const;
 
 /**
- * Workspace-local records that are intentionally excluded from portable
- * backups because they contain machine-specific connection references.
- * A workspace cannot be deleted or replaced while one exists; the person
- * must disconnect the provider first so its vault credential is also removed.
+ * Workspace-local records intentionally excluded from portable backups because
+ * they contain machine-specific connection references. A destructive workspace
+ * action cannot proceed while one exists; disconnect the provider first so the
+ * vault credential and its local connection record are removed together.
  */
 export const WORKSPACE_LOCAL_CONNECTION_RECORDS = [
   { name: "providerConnections", label: "Connected provider metadata", prefix: "viable.provider-connections." },
@@ -191,11 +192,7 @@ export class WorkspaceLifecycleService {
       totalRecords: contexts.reduce((sum, context) => sum + context.recordCount, 0),
       hasCorruptData: contexts.some((context) => context.status === "corrupt"),
       active: this.storage.getItem(PRODUCT_ACTIVE_KEY) === workspaceId,
-      retainedOutsideWorkspace: [
-        "Viable application files and code",
-        "User-exported backup files outside the app",
-        "Non-workspace operating-system or browser preferences",
-      ],
+      retainedOutsideWorkspace: retainedOutsideWorkspaceDeletion(),
       anonymized: [],
       localConnectionBlockers,
     };

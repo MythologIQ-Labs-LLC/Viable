@@ -92,7 +92,11 @@ Persistence rules for dogfood profiles:
 - recovery points (#36): deletion and replace-current restore require either a downloaded recovery point of exactly the current state (an ordinary backup, refused as stale if the workspace changed afterwards) or an explicit choice to continue without one; Viable keeps no internal copy;
 - browser round trip validated in the smoke: backup → deletion refused without a recovery-point decision → recovery point downloaded → delete (seen by a second open tab) → restore the recovery point into an empty profile → reload.
 
-Product-wide retention defaults and browser evidence for replace-current restore are **not** done yet (#36).
+- retention defaults (#36): one stated policy (`src/workspace-lifecycle/retention-policy.ts`), shown on the Workspace screen and in the user guide. Viable never deletes or expires data on its own; Website Watch deadlines (14/90 days/none) only make payloads eligible for a named person's prune. Workspace deletion keeps exported files, the storage-upgrade marker and provider credentials (keyed to a connection, not a workspace), and says so.
+
+- browser evidence for replace-current restore (#36), in its own profile in the smoke: a backup of the same workspace offers replace-current (not empty-profile) restore; without a recovery-point decision it is refused and nothing changes; the recovery point captures the state about to be replaced; the replacement is durable in IndexedDB and survives reload; restoring the recovery point undoes it.
+
+- recovery mode (#36): when stored workspace data is unreadable, startup fails closed without changing anything and offers **Open workspace recovery**, which runs only the Workspace screen. The smoke proves in the browser that replacing corrupt data is blocked until quarantine is exported, the quarantine file preserves the raw record, a backup then replaces the workspace after an explicit decision, and Viable starts normally afterwards.
 
 ### Native runtime and credential vault (PRs #108, #113)
 
@@ -298,7 +302,6 @@ This is a dogfood statement, not a public-release statement. #36 still contains 
 - localhost → public-origin migration through the portable backup;
 - supported browser and OS list with minimum versions, from actual tests, including real Safari before any Safari claim;
 - real storage-eviction and quota evidence per supported browser (#114 O3);
-- product-wide retention defaults; browser evidence for replace-current restore;
 - privacy/security review, diagnostic export, vulnerability intake, support and known-limitations documentation;
 - honest labeling and provenance of any direct native artifacts.
 

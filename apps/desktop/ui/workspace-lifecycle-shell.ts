@@ -7,6 +7,7 @@ import {
   type WorkspaceImportPreview,
   type WorkspaceScopePreview,
 } from "../../../src/workspace-lifecycle/workspace-lifecycle-service.js";
+import { RETENTION_POLICY } from "../../../src/workspace-lifecycle/retention-policy.js";
 import { decodeStoredWorkspace } from "../../../src/workspace-lifecycle/workspace-storage-schema.js";
 import { purgeLegacyWorkspaceRecords, workspaceStorage } from "./workspace-storage.js";
 
@@ -25,6 +26,8 @@ let quarantineExportedFor: string | undefined;
 // The recovery point downloaded in this session; valid only while the
 // workspace's stored state still matches its fingerprint.
 let recoveryPointFor: Readonly<{ workspaceId: string; fingerprint: string }> | undefined;
+// Set when startup failed and only this screen is running (recovery mode).
+let startupFailure: string | undefined;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -136,6 +139,24 @@ function recoveryPointControls(workspaceId: string, backupBlocked: boolean, decl
     </fieldset>`;
 }
 
+const DELETION_EFFECT: Readonly<Record<string, string>> = {
+  removed: "Removed",
+  kept: "Kept",
+  blocks_deletion: "Blocks deletion until removed",
+  not_workspace_data: "Not workspace data",
+};
+
+function retentionSection(): string {
+  return `<section class="panel" aria-labelledby="retention-heading" data-workspace-retention>
+    <div class="section-heading"><div><p class="eyebrow">Retention</p><h3 id="retention-heading">How long Viable keeps data</h3></div></div>
+    <p class="guidance">Viable never deletes or expires data on its own. Data stays until you change, replace, or delete it. Dates such as retention deadlines only make data eligible for a removal that a person runs.</p>
+    <details><summary><strong>Review what is kept, where, and for how long</strong></summary>
+      <table><thead><tr><th scope="col">Data</th><th scope="col">Where</th><th scope="col">Kept until</th><th scope="col">Workspace deletion</th></tr></thead>
+      <tbody>${RETENTION_POLICY.map((rule) => `<tr data-retention-rule="${escapeHtml(rule.id)}"><th scope="row">${escapeHtml(rule.data)}</th><td>${escapeHtml(rule.location)}</td><td>${escapeHtml(rule.keptUntil)}</td><td>${escapeHtml(DELETION_EFFECT[rule.workspaceDeletion])}</td></tr>`).join("")}</tbody></table>
+    </details>
+  </section>`;
+}
+
 function backupSection(preview: WorkspaceScopePreview): string {
   const blocked = preview.hasCorruptData;
   return `<section class="panel" aria-labelledby="backup-heading">
@@ -178,7 +199,7 @@ function deleteSection(preview: WorkspaceScopePreview): string {
   const connectionBlocked = preview.localConnectionBlockers.length > 0;
   return `<section class="panel danger-zone" aria-labelledby="delete-heading">
     <div class="section-heading"><div><p class="eyebrow">Destructive action</p><h3 id="delete-heading">Delete or reset this workspace</h3></div><span class="pill warning">Local and product-wide</span></div>
-    <p>This removes all seven portable workspace contexts and the active workspace pointer from this desktop profile. Connected provider state is machine-local and must be disconnected first so its operating-system credential and local connection record are removed together. Exported backup, recovery-point, or quarantine files outside Viable, application files, and unrelated desktop/browser preferences remain yours. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
+    <p>This removes all seven portable workspace contexts and the active workspace pointer from this desktop profile. Connected provider state is machine-local and must be disconnected first so its operating-system credential and local connection record are removed together. Exported backup, recovery-point, or quarantine files outside Viable, application files, and unrelated desktop/browser preferences remain yours. See “How long Viable keeps data” for everything Viable stores. Nothing is anonymized or silently retained inside a hidden Viable tombstone.</p>
     <details><summary><strong>Review exact deletion scope</strong><span>${preview.totalRecords} counted local records across the contexts below.</span></summary>${scopeTable(preview)}<h4>Retained outside workspace deletion</h4><ul>${preview.retainedOutsideWorkspace.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><h4>Anonymized</h4><p>None. Workspace-scoped records are deleted rather than converted into anonymous copies.</p></details>
     ${corruptBlocked ? `<section class="state warning"><strong>Deletion is blocked until corrupt raw data is exported.</strong><span>Use “Export quarantine data” above. This avoids destroying the only recoverable copy of unreadable local context.</span></section>` : ""}
     ${connectionBlocked ? `<section class="state warning" data-workspace-connection-blocker><strong>Disconnect connected providers before deletion.</strong><span>Open Calendar → Publication inventory and disconnect each provider first. Portable backups do not carry machine-local account connections.</span></section>` : ""}
@@ -191,15 +212,24 @@ function deleteSection(preview: WorkspaceScopePreview): string {
   </section>`;
 }
 
+function recoveryBanner(): string {
+  if (!startupFailure) return "";
+  return `<section class="state warning" role="alert" data-workspace-recovery-mode><div><strong>Recovery mode: only the Workspace screen is running.</strong>
+    <p>Viable could not start: ${escapeHtml(startupFailure)}</p>
+    <p>Nothing has been changed. Export quarantine data to keep a copy of anything unreadable, then restore a backup or delete the workspace. Reload Viable when you are done.</p></div>
+    <button type="button" data-workspace-action="reload-app">Reload Viable</button></section>`;
+}
+
 function renderWorkspace(): void {
   if (!main || !pageOpen) return;
   const ids = knownWorkspaceIds();
   const workspaceId = currentWorkspaceId();
   main.setAttribute("aria-busy", "false");
   if (!workspaceId) {
-    main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>Backup, restore, and local data lifecycle.</h2><p>This desktop profile does not currently contain a Viable workspace.</p></div></header>
+    main.innerHTML = `${recoveryBanner()}<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>Backup, restore, and local data lifecycle.</h2><p>This desktop profile does not currently contain a Viable workspace.</p></div></header>
       ${actionFailure ? `<section class="state error" role="alert"><strong>Workspace action failed.</strong><span>${escapeHtml(actionFailure)}</span></section>` : ""}
       ${restoreSection()}
+      ${retentionSection()}
       <section class="panel" data-runtime-capabilities aria-labelledby="runtime-heading"></section>`;
     activateNavigation();
     main.focus();
@@ -208,7 +238,7 @@ function renderWorkspace(): void {
 
   const preview = lifecycle.inspect(workspaceId);
   selectedWorkspaceId = workspaceId;
-  main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>${escapeHtml(productName(workspaceId))}</h2><p>Manage the complete local workspace without pretending Product Core is the whole application.</p></div><span class="pill ${preview.hasCorruptData ? "warning" : "implemented"}">${preview.hasCorruptData ? "Needs recovery" : "Local workspace"}</span></header>
+  main.innerHTML = `${recoveryBanner()}<header class="hero compact"><div><p class="eyebrow">Workspace</p><h2>${escapeHtml(productName(workspaceId))}</h2><p>Manage the complete local workspace without pretending Product Core is the whole application.</p></div><span class="pill ${preview.hasCorruptData ? "warning" : "implemented"}">${preview.hasCorruptData ? "Needs recovery" : "Local workspace"}</span></header>
     ${workspacePicker(ids, workspaceId)}
     ${actionFailure ? `<section class="state error" role="alert" tabindex="-1" data-workspace-action-error><strong>Workspace action failed.</strong><span>${escapeHtml(actionFailure)}</span></section>` : ""}
     <section class="metrics" aria-label="Workspace lifecycle summary"><article><span>Workspace contexts</span><strong>${preview.contexts.filter((item) => item.status === "present").length}/7</strong><small>${preview.contexts.filter((item) => item.status === "absent").length} absent</small></article><article><span>Counted records</span><strong>${preview.totalRecords}</strong><small>Across workspace-scoped stores</small></article><article><span>Corrupt contexts</span><strong>${preview.contexts.filter((item) => item.status === "corrupt").length}</strong><small>${preview.hasCorruptData ? "Quarantine before deletion" : "No detected corruption"}</small></article><article><span>Active</span><strong>${preview.active ? "Yes" : "No"}</strong><small>${escapeHtml(workspaceId)}</small></article></section>
@@ -216,6 +246,7 @@ function renderWorkspace(): void {
     <section class="panel" aria-labelledby="scope-heading"><div class="section-heading"><div><p class="eyebrow">Scope preview</p><h3 id="scope-heading">What belongs to this workspace</h3></div></div>${scopeTable(preview)}</section>
     ${backupSection(preview)}
     ${restoreSection()}
+    ${retentionSection()}
     ${deleteSection(preview)}`;
   activateNavigation();
   main.focus();
@@ -226,6 +257,17 @@ function openWorkspace(): void {
   actionFailure = undefined;
   activateNavigation();
   renderWorkspace();
+}
+
+/**
+ * Recovery mode: called by the startup guard when Viable could not start,
+ * typically because stored workspace data is unreadable. Only this screen
+ * runs, so the person can export quarantine data, restore, or delete without
+ * developer tools. It changes nothing by itself.
+ */
+export function openWorkspaceRecovery(reason: string): void {
+  startupFailure = reason;
+  openWorkspace();
 }
 
 function closeWorkspace(): void {
@@ -358,6 +400,7 @@ document.addEventListener("click", (event) => {
       announce("Corrupt raw workspace data exported to a quarantine file");
       renderWorkspace();
     }
+    if (action === "reload-app") window.location.reload();
     if (action === "restore-empty") void performRestore("empty_profile");
     if (action === "restore-replace") void performRestore("replace_current");
   } catch (error) {

@@ -10,6 +10,7 @@ import type {
   WebsiteWatchSourceOutcome,
   WebsiteWatchSourceRegistration,
 } from "../domain/website-watch.js";
+import { WEBSITE_WATCH_SNAPSHOT_RETENTION_DAYS } from "../domain/website-watch.js";
 import type { WebsiteWatchSource } from "../ports/website-watch-source.js";
 import {
   assertNoSecretMaterial,
@@ -428,8 +429,8 @@ function allowedAlertKind(value: unknown, index: number): ParsedAlert["kind"] {
 }
 
 function retentionDeadline(now: string, retentionClass: WatchedSite["retentionClass"]): string | undefined {
-  if (retentionClass === "extended") return undefined;
-  const days = retentionClass === "ephemeral" ? 14 : 90;
+  const days = WEBSITE_WATCH_SNAPSHOT_RETENTION_DAYS[retentionClass];
+  if (days === null) return undefined;
   return new Date(Date.parse(now) + days * 86_400_000).toISOString();
 }
 
