@@ -1,6 +1,6 @@
 import type { MarketabilityAssessment, ReadinessAction, ReadinessFinding } from "../domain/assessment.js";
 import type { ProductClaim } from "../domain/claim.js";
-import { isReviewedEvidence, type EvidenceRecord } from "../domain/evidence.js";
+import { isReviewedEvidence, type EvidenceRecheck, type EvidenceRecord } from "../domain/evidence.js";
 import { ICP_DIMENSIONS, type IcpDimension, type IcpHypothesis, type IcpRevision, type ValidationExperiment } from "../domain/icp.js";
 import type { ProductIdentity, ProductTruth } from "../domain/product.js";
 import type { ProductWorkspace } from "../domain/workspace.js";
@@ -103,15 +103,23 @@ export class ProductCoreService {
     if (input.stillValid) {
       const next = Date.parse(input.nextFreshnessReviewAt ?? "");
       if (!Number.isFinite(next) || next <= now.getTime()) throw new Error("Choose a next freshness-review date in the future");
+      if (next > recheckHorizon(now).getTime()) throw new Error("Choose a next freshness-review date within three years");
       nextReview = new Date(next).toISOString();
     }
+    // The original acceptance review stays; each recheck is appended.
+    const recheck: EvidenceRecheck = {
+      by: input.reviewer.trim(),
+      at: now.toISOString(),
+      outcome: nextReview ? "kept" : "withdrawn",
+      previousFreshnessReviewAt: evidence.freshnessReviewAt,
+      ...(nextReview ? { nextFreshnessReviewAt: nextReview } : {}),
+    };
     const rechecked: ProductWorkspace = {
       ...workspace,
       evidence: workspace.evidence.map((candidate): EvidenceRecord => candidate.id !== evidenceId ? candidate : {
         ...candidate,
         ...(nextReview ? { freshnessReviewAt: nextReview } : { reviewStatus: "rejected" }),
-        reviewedBy: input.reviewer.trim(),
-        reviewedAt: now.toISOString(),
+        rechecks: [...(candidate.rechecks ?? []), recheck],
       }),
     };
     return this.persist(nextReview ? rechecked : withdrawDependents(rechecked, evidence));
@@ -400,3 +408,11 @@ function reliesOn(hypothesis: IcpHypothesis, evidenceId: string): boolean {
   return hypothesis.evidenceIds.includes(evidenceId)
     || Object.values(hypothesis.dimensions ?? {}).some((dimension) => dimension.evidenceIds.includes(evidenceId));
 }
+
+/** The furthest a recheck may push the next freshness review (three years). */
+export function recheckHorizon(from: Date): Date {
+  const horizon = new Date(from.getTime());
+  horizon.setUTCFullYear(horizon.getUTCFullYear() + 3);
+  return horizon;
+}
+
