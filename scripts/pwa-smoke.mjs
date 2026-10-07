@@ -913,6 +913,41 @@ async function run() {
         const tagged = ((await journey.locator("#main article", { hasText: "Competitor announces automatic receipt capture" }).first().textContent()) ?? "").includes("smoke-tag");
         check(fieldFocused && tagged && journeyDialogs.length === dialogsBefore, "tagging a signal uses an inline form, not a browser dialog, and records the tag");
 
+        // A two-field inline form must answer the controller's prompts in
+        // order: reviewer, then note (#147).
+        await go("calendar");
+        const fillRequired = async (form) => {
+          for (const field of await form.locator("input[required], textarea[required]").all()) {
+            if (await field.inputValue()) continue;
+            const type = await field.getAttribute("type");
+            if (type === "checkbox") await field.check();
+            else await field.fill(type === "datetime-local" ? "2026-11-02T10:00" : type === "number" ? "1" : type === "time" ? "09:00" : "Smoke Owner");
+          }
+        };
+        const policy = journey.locator('form[data-form="publication-policy"]');
+        await fillRequired(policy);
+        await policy.locator('button[type="submit"]').click();
+        await settled(journey);
+        const stock = journey.locator('form[data-form="publication-inventory-item"]');
+        await fillRequired(stock);
+        await stock.locator('button[type="submit"]').click();
+        await settled(journey);
+        await journey.locator('[data-publication-action="submit-publication-item"]').first().click();
+        await settled(journey);
+        await journey.locator('[data-publication-action="review-publication-item"][data-decision="approved"]').first().click();
+        const reviewPanel = journey.locator("[data-inline-input]");
+        const reviewer = reviewPanel.locator('input[name="actor"]');
+        await journey.waitForFunction(() => document.querySelector('[data-inline-input] input[name="actor"]')?.value === "Morgan Reyes", undefined, { timeout: 5000 }).catch(() => undefined);
+        const prefilled = await reviewer.inputValue();
+        await reviewer.fill("Smoke Reviewer");
+        await reviewPanel.locator('textarea[name="note"]').fill("Smoke review note: content, destination, timing, rights.");
+        await reviewPanel.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("approved and stocked"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        const stocked = (await journey.locator("#main").textContent()) ?? "";
+        check(prefilled === "Morgan Reyes" && stocked.includes("Smoke Reviewer ·") && stocked.includes("Review note: Smoke review note"), `a two-field inline review records reviewer and note in order (prefilled ${prefilled || "nothing"})`);
+        check(journeyDialogs.length === dialogsBefore, "no browser dialog opened for inline-form actions");
+
         await journey.setViewportSize({ width: 640, height: 360 });
         for (const view of ["product", "studio", "workspace"]) {
           await go(view);

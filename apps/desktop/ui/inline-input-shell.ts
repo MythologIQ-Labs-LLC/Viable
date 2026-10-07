@@ -6,28 +6,33 @@
 // controllers and their domain services, including every named-actor check,
 // are unchanged. Named review decisions use contextual-review-shell instead.
 
+import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
+
 const main = document.querySelector<HTMLElement>("#main");
+const productStore = new LocalStorageProductWorkspaceStore();
 const live = document.querySelector<HTMLElement>("#live-region");
 
-type InputField = Readonly<{ name: string; label: string; required: boolean; multiline?: boolean; autocomplete?: string }>;
+// prefillOwner: the controller used to offer the workspace owner as the
+// prompt's default; the field starts with that name for the person to confirm.
+type InputField = Readonly<{ name: string; label: string; required: boolean; multiline?: boolean; autocomplete?: string; prefillOwner?: boolean }>;
 type InputConfig = Readonly<{ heading: string; submitLabel: string; fields: readonly InputField[] }>;
 
-const actor = (label: string): InputField => ({ name: "actor", label, required: true, autocomplete: "name" });
+const actor = (label: string, prefillOwner = false): InputField => ({ name: "actor", label, required: true, autocomplete: "name", prefillOwner });
 
 // Fields are listed in the order the controller asks for them.
 function inputConfig(button: HTMLButtonElement): InputConfig | undefined {
   const signal = button.dataset.signalAction;
   if (signal === "tag") return { heading: "Tag signal", submitLabel: "Save tags", fields: [{ name: "tags", label: "Tags, separated by commas", required: true }] };
-  if (signal === "assign") return { heading: "Assign signal owner", submitLabel: "Assign owner", fields: [actor("Named signal owner")] };
-  if (signal === "website-delete-snapshot") return { heading: "Delete retained snapshot payload", submitLabel: "Delete payload", fields: [actor("Named deletion actor")] };
-  if (signal === "website-prune-retention") return { heading: "Prune expired snapshot payloads", submitLabel: "Prune expired payloads", fields: [actor("Named retention actor")] };
+  if (signal === "assign") return { heading: "Assign signal owner", submitLabel: "Assign owner", fields: [actor("Named signal owner", true)] };
+  if (signal === "website-delete-snapshot") return { heading: "Delete retained snapshot payload", submitLabel: "Delete payload", fields: [actor("Named deletion actor", true)] };
+  if (signal === "website-prune-retention") return { heading: "Prune expired snapshot payloads", submitLabel: "Prune expired payloads", fields: [actor("Named retention actor", true)] };
 
   const repository = button.dataset.repositoryAction;
   // Reopening a checklist item asks nothing; only verification asks for evidence.
   if (repository === "checklist" && button.dataset.complete !== "true") {
     return { heading: "Verify checklist item", submitLabel: "Record verification", fields: [{ name: "evidence", label: "Verification evidence for this checklist item", required: false, multiline: true }] };
   }
-  if (repository === "export") return { heading: "Create manual launch export", submitLabel: "Create and download export", fields: [actor("Named manual export creator")] };
+  if (repository === "export") return { heading: "Create manual launch export", submitLabel: "Create and download export", fields: [actor("Named manual export creator", true)] };
 
   const activation = button.dataset.activationAction;
   if (activation === "cancel-entry") {
@@ -37,9 +42,9 @@ function inputConfig(button: HTMLButtonElement): InputConfig | undefined {
 
   if (button.dataset.publicationAction === "review-publication-item" && button.dataset.decision) {
     return {
-      heading: `Review publication inventory: ${button.textContent?.trim() ?? "decision"}`,
+      heading: `Review publication inventory: ${button.textContent?.trim() || "decision"}`,
       submitLabel: button.textContent?.trim() || "Record review",
-      fields: [actor("Named publication inventory reviewer"), { name: "note", label: "Review note covering exact content, destination, timing policy, rights, accessibility, and disclosures", required: true, multiline: true }],
+      fields: [actor("Named publication inventory reviewer", true), { name: "note", label: "Review note covering exact content, destination, timing policy, rights, accessibility, and disclosures", required: true, multiline: true }],
     };
   }
   return undefined;
@@ -62,7 +67,9 @@ function fieldHtml(field: InputField): string {
 }
 
 function openPanel(button: HTMLButtonElement, config: InputConfig): void {
-  const anchor = button.closest<HTMLElement>(".actions, .checklist, .section-heading, details") ?? button;
+  // Beside the action row when there is one; otherwise directly after the
+  // button (a checklist item, a control inside a disclosure).
+  const anchor = button.closest<HTMLElement>(".actions, .section-heading") ?? button;
   anchor.parentElement?.querySelector(":scope > [data-inline-input]")?.remove();
   const panel = document.createElement("section");
   panel.className = "state review-panel";
@@ -70,12 +77,25 @@ function openPanel(button: HTMLButtonElement, config: InputConfig): void {
   panel.setAttribute("aria-label", config.heading);
   panel.innerHTML = `<h5>${escapeHtml(config.heading)}</h5>
     <form data-inline-input-form>${config.fields.map(fieldHtml).join("")}
-      <div class="actions"><button class="primary" type="submit">${escapeHtml(config.submitLabel)}</button><button type="button" data-inline-input-cancel>Cancel</button></div>
+      <div class="actions"><button class="primary" type="submit">${escapeHtml(config.submitLabel)}</button><button type="button" data-inline-input-cancel>Close without saving</button></div>
     </form>`;
   origins.set(panel, { opener: button, config });
   anchor.insertAdjacentElement("afterend", panel);
   panel.querySelector<HTMLElement>("input, textarea")?.focus();
+  prefillOwner(panel, config);
   announce(`${config.heading} opened.`);
+}
+
+function prefillOwner(panel: HTMLElement, config: InputConfig): void {
+  const names = config.fields.filter((field) => field.prefillOwner).map((field) => field.name);
+  const workspaceId = productStore.activeWorkspaceId();
+  if (!names.length || !workspaceId) return;
+  void productStore.load(workspaceId).then((workspace) => {
+    for (const name of names) {
+      const input = panel.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+      if (input && !input.value && workspace?.createdBy) input.value = workspace.createdBy;
+    }
+  }, () => undefined);
 }
 
 function closePanel(panel: HTMLElement): void {
@@ -138,6 +158,17 @@ document.addEventListener("submit", (event) => {
   if (!panel || !origin?.opener.isConnected) {
     announce("The record changed before this could be saved. Open the action again.");
     panel?.remove();
+    return;
+  }
+  // The browser's required check accepts spaces; a named actor cannot be blank.
+  const blank = origin.config.fields
+    .filter((field) => field.required)
+    .map((field) => form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${field.name}"]`))
+    .find((control) => control && !control.value.trim());
+  if (blank) {
+    blank.setCustomValidity("Enter a value; spaces alone are not accepted.");
+    blank.reportValidity();
+    blank.addEventListener("input", () => blank.setCustomValidity(""), { once: true });
     return;
   }
   const data = new FormData(form);
