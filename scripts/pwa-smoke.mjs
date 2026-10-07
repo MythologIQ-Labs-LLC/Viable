@@ -888,7 +888,10 @@ async function run() {
           await settled(routed);
           await routed.click('[data-repository-action="open"]');
           const opened = await view();
-          await routed.reload();
+          // Reload from inside the page, as the browser's reload does. Playwright's
+          // Firefox page.reload() on a #hash URL adds a history entry (length
+          // 3 -> 4, state reset), so Back would land on the earlier entry.
+          await Promise.all([routed.waitForEvent("load", { timeout: 15000 }), routed.evaluate(() => location.reload())]);
           await routed.waitForSelector('[data-repository-action="return-product"]', { timeout: 10000 }).catch(() => undefined);
           const reloaded = await view();
           await routed.goBack();
