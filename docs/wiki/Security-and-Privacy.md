@@ -35,9 +35,11 @@ The export is created locally and is not uploaded by Viable. Downloading it does
 
 Public visibility does not automatically grant permission to scrape, reproduce, republish, or bypass access controls. Source terms, copyright, robots policies, privacy obligations, and applicable law remain separate constraints.
 
-## Vulnerability reporting
+## Vulnerability reporting and patch handling
 
 Follow [SECURITY.md](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/SECURITY.md). Do not open a public issue containing exploit details or sensitive vulnerability information before coordinated handling.
+
+Viable is pre-release and does not promise a contractual response-time SLA. Validated reports are prioritized by demonstrated impact and reachability. Live credential/data exposure or active exploitation is contained first; exploitable high-impact defects in distributed builds are fixed or the affected build is withdrawn before further promotion; lower-impact findings may follow normal maintenance. Patches require relevant regression coverage and exact-head validation, and exposed credentials are rotated or revoked rather than merely removed from a later commit.
 
 ## Pre-release boundary
 
