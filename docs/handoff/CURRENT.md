@@ -6,28 +6,29 @@ This is the restart entrypoint for Viable work. It preserves the context require
 
 Implementation truth lives in [`docs/status/current-state.md`](../status/current-state.md). This handoff says where work stands and what to do next. If they disagree, the status record and the repository win.
 
-## Repository state (2026-10-06)
+## Repository state (2026-10-07)
 
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `a33537f5a40605c90f21be4fedc2606467e7853d` (#124 cross-browser/runtime correctness, #129 public GitHub reads/O5, and #93 governed acceptance tooling all merged)
+- `main` at review: `54093163ef6ab62f333a958be103f702ffaeced0` (#124 cross-browser/runtime correctness, #129 public GitHub reads/O5, #93 governed acceptance tooling, #134–#136 workspace retention/recovery work, and #109 LinkedIn member publishing all merged)
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
 - Human acceptance: **none completed**. #79 is the last open child of the UX umbrella #81
-- Live read-only integration proof: public GitHub collection is proven in Chromium and the native webview by merged #129. Live publishing proof: **none completed**; LinkedIn member publishing (#107) is implemented on draft PR #109 and waits on a human-owned live publication
+- Live read-only integration proof: public GitHub collection is proven in Chromium and the native webview by merged #129. LinkedIn member publishing implementation is merged by #109 and exact-head validated, but live publishing proof is still **not completed**; #107 remains open for clean-install guidance acceptance and one human-owned live publication
 - Release foundations: #36, re-scoped by ADR-0010. A code-signing certificate is not a prerequisite
 
 ## Open pull requests and their boundaries
 
 | PR | What it is | What remains |
 |---|---|---|
-| #109 | LinkedIn member publishing proof (native-only) | Implementation is green and mergeable. Remaining: **one human-owned live publication** with a human-generated token and consent. Never substitute mocked evidence. |
-| #112 | Discoverability strategy on channel variants (#110) | Green, bounded implementation. Hands-on UX review and real-content dogfood remain after the LinkedIn live proof. Do not expand. |
+| #137 | Browser storage durability and eviction evidence (#36) | Active release-foundation work. Keep it isolated from unrelated product changes; it also owns the current edit to `docs/status/current-state.md`. |
 | Dependabot #95, #96, #111, #121 | Dependency bumps | Triage independently. #111 requires Rust 1.90 (`tauri-build` 2.7.1) and must not raise the pinned 1.88 baseline implicitly. |
 
 Recently merged convergence work:
+- #109: LinkedIn member publishing implementation is on `main`. Exact-head CI, real-browser PWA smoke, Rust tests, desktop bundle, and Debian package validation passed. #107 stays open for the two human evidence gates.
+- #112: bounded discoverability strategy is on `main`; #110 stays open for real-content dogfood and the later evidence loop.
 - #124: Firefox/WebKit startup, bounded storage load, throttled-history tolerance, and the `aria-busy` startup fix. Chromium and Firefox pass; Playwright Linux WebKit passes with controlled engine/harness limitations. Safari remains unsupported pending a real-Safari hand test.
 - #129: production-default public GitHub reads work in Chromium and native; O5 is resolved with the narrow native CSP required for `api.github.com` and media review.
 - #93: governed human-acceptance runbooks, deterministic seed, and the 2026-10-06 candidate record are now on `main`.
@@ -103,8 +104,8 @@ Viable is not a social scheduler, content generator, event monitor, repository s
 | Website Watch Stage 1 | #29 | Implemented and hardened; human acceptance via #81 |
 | UX completion | #81 (#72–#80) | All children merged; #79 hands-on acceptance and the demo gate remain |
 | Publishing foundation | #97 (#98, #99, #100, #101, #106) | Inventory, scheduler, and vault merged; decisions closed |
-| LinkedIn live proof | #107 / #109 | Implemented on draft; human live proof open |
-| Discoverability | #110 / #112 | Implemented on draft; hands-on review open |
+| LinkedIn live proof | #107 / #109 | Implementation merged and validated; clean-install guidance acceptance and human live publication remain open |
+| Discoverability | #110 / #112 | Bounded implementation merged; real-content dogfood and evidence-loop work remain open |
 | PWA runtime | #114 | Foundation, IndexedDB, cross-browser harness, localhost self-host, update hardening, and O5 are merged; O2/O3/O4 remain open or deferred |
 | Release foundations | #36 | Open; see the classification in the status record |
 
@@ -125,8 +126,8 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 ## Next priorities
 
 1. Run the #79/#81 human acceptance on the governed candidate, then fix only reproducible P0/P1 findings in narrow PRs.
-2. Perform the human-owned LinkedIn live proof on #109's exact validated head.
-3. Progress the remaining #36 durable-storage/recovery and operational-readiness work. Leave public-hosting work until external distribution is justified.
+2. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
+3. Progress the remaining #36 durable-storage/recovery and operational-readiness work through the active bounded slices (currently #137). Leave public-hosting work until external distribution is justified.
 4. After the LinkedIn proof is stable, complete the #112 hands-on discoverability review and real-content dogfood.
 5. Keep dependency work separate from product convergence; do not raise the Rust baseline accidentally.
 
