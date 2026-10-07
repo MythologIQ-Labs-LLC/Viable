@@ -872,6 +872,33 @@ async function run() {
         const walked = [await step("back"), await step("back"), await step("forward"), await step("forward")];
         check(walked.join(",") === "signals,product,signals,home", `Back and Forward return to the exact previous pages (${walked.join(" → ")})`);
 
+        // Repository Growth has its own address inside Product (#146). A fresh
+        // tab keeps the reload clear of earlier Back/Forward entries.
+        const routed = await journeyContext.newPage();
+        routed.on("pageerror", (error) => errors.push(`journey pageerror: ${error.message}`));
+        try {
+          const view = async () => {
+            await settled(routed);
+            return `${await routed.evaluate(() => location.hash)}|${(await routed.locator("#main .hero .eyebrow").first().textContent())?.trim()}`;
+          };
+          await routed.goto(`${origin}/`);
+          await settled(routed);
+          await routed.click('nav button[data-nav="product"]', { noWaitAfter: true });
+          await settled(routed);
+          await routed.click('[data-repository-action="open"]');
+          const opened = await view();
+          await routed.reload();
+          await routed.waitForSelector('[data-repository-action="return-product"]', { timeout: 10000 }).catch(() => undefined);
+          const reloaded = await view();
+          await routed.goBack();
+          await routed.waitForSelector('[data-repository-action="open"]', { timeout: 10000 }).catch(() => undefined);
+          const back = await view();
+          check(opened === "#repository-growth|Product · Public repositories" && reloaded === opened && back === "#product|Product workflow",
+            `Repository Growth keeps its address across reload and Back returns to Product (${opened} → ${reloaded} → ${back})`);
+        } finally {
+          await routed.close();
+        }
+
         await journey.click('[data-home-attention-open="product:evidence:evidence-4"]');
         await settled(journey);
         const stale = journey.locator("#main article", { hasText: "Agency pricing objection notes" }).first();

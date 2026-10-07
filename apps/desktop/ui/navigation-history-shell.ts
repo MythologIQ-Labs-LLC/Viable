@@ -14,6 +14,15 @@ function targetButton(nav: string): HTMLButtonElement | undefined {
   return sidebar?.querySelector<HTMLButtonElement>(`button[data-nav="${cssEscape(nav)}"]:not(:disabled)`) ?? undefined;
 }
 
+// Views that live inside a navigation page and own their own URL. Their
+// shell opens and closes them; history only selects the parent page and never
+// overwrites the sub-view's entry with the parent's.
+const SUBVIEW_PARENT: Readonly<Record<string, string>> = { "repository-growth": "product" };
+
+function pageOf(nav: string | undefined): string | undefined {
+  return nav ? SUBVIEW_PARENT[nav] ?? nav : undefined;
+}
+
 function hashNav(): string | undefined {
   const raw = decodeURIComponent(location.hash.replace(/^#/, "")).trim();
   return raw || undefined;
@@ -44,18 +53,19 @@ function restoreFromHistory(): boolean {
     if (current) writeHistory(current, "replace");
     return Boolean(current);
   }
-  const button = targetButton(nav);
+  const page = pageOf(nav)!;
+  const button = targetButton(page);
   if (!button) return false;
-  if (currentNav() === nav) return true;
+  if (currentNav() === page) return true;
   applyingHistory = true;
   button.click();
   // Views reload their workspace before rendering, so aria-current changes
   // after the click resolves. Judging the outcome in a microtask saw the old
   // page and overwrote the entry being restored (Back then cycled).
-  void navigationSettled(nav).then(() => {
+  void navigationSettled(page).then(() => {
     applyingHistory = false;
     const actual = currentNav();
-    if (actual !== nav && actual) writeHistory(actual, "replace");
+    if (actual !== page && actual) writeHistory(actual, "replace");
   });
   return true;
 }
@@ -76,7 +86,7 @@ function navigationSettled(nav: string): Promise<void> {
 function recordCurrent(): void {
   if (applyingHistory) return;
   const current = currentNav();
-  if (current && hashNav() !== current) writeHistory(current, "push");
+  if (current && pageOf(hashNav()) !== current) writeHistory(current, "push");
 }
 
 // The sidebar is rendered asynchronously by several shells. Until the initial

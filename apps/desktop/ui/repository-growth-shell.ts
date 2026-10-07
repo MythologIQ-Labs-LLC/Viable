@@ -7,6 +7,55 @@ const live = document.querySelector<HTMLElement>("#live-region");
 let active = false;
 let controller: RepositoryGrowthViewController | undefined;
 
+// Repository Growth lives inside Product but has its own address, so reload,
+// Back, and Forward keep the person here (navigation-history-shell maps this
+// route to the Product page).
+const ROUTE = "repository-growth";
+const ROUTE_WAIT_MS = 10_000;
+
+function currentRoute(): string {
+  return decodeURIComponent(location.hash.replace(/^#/, "")).trim();
+}
+
+function pushRoute(route: string): void {
+  if (currentRoute() === route) return;
+  const url = new URL(location.href);
+  url.hash = route;
+  const state = { ...(history.state && typeof history.state === "object" ? history.state : {}), viableNav: route };
+  // Browsers may refuse rapid history writes; the view itself already changed.
+  try { history.pushState(state, "", url); } catch { /* entry not recorded */ }
+}
+
+// Opens the view once Product has rendered its entry point (startup and
+// history navigation render Product asynchronously).
+function openFromRoute(): void {
+  const started = Date.now();
+  const attempt = (): void => {
+    if (active || currentRoute() !== ROUTE) return;
+    if (main?.querySelector('[data-repository-action="open"]')) {
+      void open(true).catch(reportOpenFailure);
+      return;
+    }
+    if (Date.now() - started < ROUTE_WAIT_MS) setTimeout(attempt, 50);
+  };
+  attempt();
+}
+
+function syncWithRoute(): void {
+  const route = currentRoute();
+  if (route === ROUTE) { if (!active) openFromRoute(); return; }
+  if (!active) return;
+  active = false;
+  // Leaving to another page is handled by that page's navigation; leaving to
+  // Product needs Product rendered again because its nav button is current.
+  if (route === "product") document.querySelector<HTMLButtonElement>('#sidebar button[data-nav="product"]')?.click();
+}
+
+function reportOpenFailure(error: unknown): void {
+  announce(`Repository growth failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+  if (main) main.setAttribute("aria-busy", "false");
+}
+
 function announce(message: string): void {
   if (live) live.textContent = message;
 }
@@ -22,10 +71,11 @@ function decorateProduct(): void {
   main.querySelector(".hero")?.insertAdjacentElement("afterend", section);
 }
 
-async function open(): Promise<void> {
+async function open(fromHistory = false): Promise<void> {
   if (!main) return;
   const workspaceId = productStore.activeWorkspaceId();
   active = true;
+  if (!fromHistory) pushRoute(ROUTE);
   main.setAttribute("aria-busy", "true");
   if (!workspaceId) {
     main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">Product · Public repositories</p><h2>Create a Product workspace first.</h2><p>Repository growth must remain connected to product truth, reviewed evidence, and approved campaign assets.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Return to Product and create a local workspace before importing a repository.</span></section><button type="button" data-repository-action="return-product">Return to Product</button>`;
@@ -89,12 +139,16 @@ function addHours(value: Date, hours: number): Date {
 
 function returnToProduct(): void {
   active = false;
+  pushRoute("product");
   const productButton = document.querySelector<HTMLButtonElement>('#sidebar button[data-nav="product"]');
   productButton?.click();
 }
 
 new MutationObserver(() => decorateProduct()).observe(main ?? document.body, { childList: true, subtree: true });
 decorateProduct();
+window.addEventListener("popstate", syncWithRoute);
+window.addEventListener("hashchange", syncWithRoute);
+syncWithRoute();
 
 document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
@@ -103,10 +157,7 @@ document.addEventListener("click", (event) => {
   if (action === "open") {
     event.preventDefault();
     event.stopImmediatePropagation();
-    void open().catch((error: unknown) => {
-      announce(`Repository growth failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-      if (main) main.setAttribute("aria-busy", "false");
-    });
+    void open().catch(reportOpenFailure);
     return;
   }
   if (action === "return-product") {
@@ -115,7 +166,13 @@ document.addEventListener("click", (event) => {
     returnToProduct();
     return;
   }
-  if (button.dataset.nav && !button.dataset.repositoryAction) active = false;
+  if (button.dataset.nav && !button.dataset.repositoryAction) {
+    // A person choosing Product from inside Repository Growth leaves the
+    // sub-view; record that so Back returns here. History-driven clicks
+    // already carry the Product address, so pushRoute does nothing for them.
+    if (active && button.dataset.nav === "product") pushRoute("product");
+    active = false;
+  }
   if (!active || !action || !controller) return;
   event.preventDefault();
   event.stopImmediatePropagation();
