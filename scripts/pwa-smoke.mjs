@@ -856,14 +856,19 @@ async function run() {
 
         // Eviction: the browser clears this origin's storage while Viable is closed.
         await evict.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+        // "blocked" is not an outcome: the previous app page can still hold its
+        // connection in the back/forward cache (Firefox), and the deletion
+        // completes once that connection goes away. Wait for the real result.
         const cleared = await evict.evaluate(() => new Promise((done) => {
           localStorage.clear();
+          let blocked = false;
+          const timer = setTimeout(() => done("still blocked after 15s"), 15000);
           const request = indexedDB.deleteDatabase("viable-workspace");
-          request.onsuccess = () => done("cleared");
-          request.onerror = () => done(`error: ${request.error?.name}`);
-          request.onblocked = () => done("blocked");
+          request.onsuccess = () => { clearTimeout(timer); done(blocked ? "cleared (after a blocked event)" : "cleared"); };
+          request.onerror = () => { clearTimeout(timer); done(`error: ${request.error?.name}`); };
+          request.onblocked = () => { blocked = true; };
         }));
-        check(cleared === "cleared", `origin storage cleared to simulate eviction (${cleared})`);
+        check(cleared.startsWith("cleared"), `origin storage cleared to simulate eviction (${cleared})`);
         await evict.goto(`${origin}/`);
         const freshStart = await evict.waitForFunction(() => {
           const text = document.body?.textContent ?? "";
