@@ -1,4 +1,4 @@
-import { ProductCoreService } from "../../../src/product-core/services/product-core-service.js";
+import { ProductCoreService, recheckHorizon } from "../../../src/product-core/services/product-core-service.js";
 import { ICP_DIMENSIONS, type IcpDimension, type IcpHypothesis, type IcpRoles } from "../../../src/product-core/domain/icp.js";
 import type { MarketabilityDimension, ReadinessFinding } from "../../../src/product-core/domain/assessment.js";
 import type { ProductWorkspace } from "../../../src/product-core/domain/workspace.js";
@@ -187,7 +187,7 @@ function evidenceSection(value: ProductWorkspace): string {
       </form>
       <div class="cards">${value.evidence.length ? value.evidence.map((item) => `<article class="record">
         <div class="record-top"><h4>${escapeHtml(item.title)}</h4>${statusPill(item.origin === "generated_suggestion" ? "Generated suggestion" : item.reviewStatus, item.origin === "generated_suggestion" ? "suggested" : item.reviewStatus)}</div>
-        <p>${escapeHtml(item.summary)}</p><small>Confidence: ${item.confidence}. Freshness review: ${humanDate(item.freshnessReviewAt)}.</small>
+        <p>${escapeHtml(item.summary)}</p><small>Confidence: ${item.confidence}. Freshness review: ${humanDate(item.freshnessReviewAt)}.${lastRecheck(item)}</small>
         ${item.reviewStatus !== "rejected" && isStale(item.freshnessReviewAt) ? `<p class="inline-warning"><strong>Freshness review due.</strong> This evidence reached its review date. Recheck it before relying on dependent claims or ICP conclusions.</p>` : ""}
         ${item.reviewStatus === "reviewed" && item.origin !== "generated_suggestion" && isStale(item.freshnessReviewAt) ? recheckEvidenceForm(item.id) : ""}
         <div class="actions">${item.reviewStatus === "suggested" && item.origin !== "generated_suggestion" ? `<button type="button" data-action="review-evidence" data-id="${item.id}">Accept with named review</button>` : ""}${item.reviewStatus === "suggested" ? `<button type="button" data-action="reject-evidence" data-id="${item.id}">Reject</button>` : ""}</div>
@@ -203,13 +203,26 @@ function localDate(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 }
 
+// The most recent named recheck; the original review stays on the record.
+function lastRecheck(item: ProductWorkspace["evidence"][number]): string {
+  const latest = item.rechecks?.at(-1);
+  if (!latest) return "";
+  const outcome = latest.outcome === "kept" ? `kept, next review ${humanDate(latest.nextFreshnessReviewAt)}` : "withdrawn";
+  const count = item.rechecks!.length;
+  return ` Last rechecked ${humanDate(latest.at)} by ${escapeHtml(latest.by)}: ${outcome}${count > 1 ? ` (${count} rechecks)` : ""}.`;
+}
+
 function recheckEvidenceForm(id: string): string {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
+  // A day inside Product Core's horizon: the form submits noon local time,
+  // so the last allowed date must not land past "now + three years".
+  const horizon = recheckHorizon(new Date());
+  horizon.setDate(horizon.getDate() - 1);
   return `<form data-form="recheck-evidence" data-record-id="${escapeHtml(id)}" aria-label="Recheck this evidence">
       <input type="hidden" name="id" value="${escapeHtml(id)}">
       <div class="two"><label>Named evidence reviewer<input name="reviewer" required autocomplete="name"></label>
-      <label>Next freshness review on<input name="nextFreshnessReviewAt" type="date" min="${localDate(tomorrow)}"></label></div>
+      <label>Next freshness review on<input name="nextFreshnessReviewAt" type="date" min="${localDate(tomorrow)}" max="${localDate(horizon)}"></label></div>
       <p class="guidance">Withdrawing returns approved claims that cite this evidence to proposed review, and flags ICP hypotheses that rely on it.</p>
       <div class="actions"><button class="primary" type="submit" name="outcome" value="valid" data-recheck-outcome="valid">Still valid: set next review</button><button type="submit" name="outcome" value="withdraw" data-recheck-outcome="withdraw">No longer valid: withdraw</button></div>
     </form>`;
