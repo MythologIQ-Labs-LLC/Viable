@@ -864,19 +864,39 @@ async function run() {
         after.on("pageerror", (error) => errors.push(`eviction pageerror: ${error.message}`));
         after.on("dialog", (dialog) => void dialog.accept());
         await after.goto(`${origin}${ENGINE_CONTROL_PATH}`);
-        const cleared = await after.evaluate(() => new Promise((done) => {
+        // The deletion request's own events are not the evidence: in Firefox a
+        // just-closed page can hold its connection for a while, so the request
+        // reports "blocked" and completes only later. What matters is the
+        // outcome, checked below after Viable restarts.
+        const deletion = await after.evaluate(() => new Promise((done) => {
           localStorage.clear();
-          const timer = setTimeout(() => done("still blocked after 15s"), 15000);
+          const timer = setTimeout(() => done("pending (connection still held)"), 5000);
           const request = indexedDB.deleteDatabase("viable-workspace");
-          request.onsuccess = () => { clearTimeout(timer); done("cleared"); };
+          request.onsuccess = () => { clearTimeout(timer); done("completed"); };
           request.onerror = () => { clearTimeout(timer); done(`error: ${request.error?.name}`); };
         }));
-        check(cleared === "cleared", `origin storage cleared to simulate eviction (${cleared})`);
+        console.log(`Eviction deletion request: ${deletion}`);
         await after.goto(`${origin}/`);
         const freshStart = await after.waitForFunction(() => {
           const text = document.body?.textContent ?? "";
           return document.querySelector("#main form") && !text.includes("Eviction product") && !/could not (be )?open/i.test(text);
-        }, undefined, { timeout: 10000 }).then(() => true, () => false);
+        }, undefined, { timeout: 20000 }).then(() => true, () => false);
+        const leftover = await after.evaluate(() => new Promise((done) => {
+          const local = Object.keys(localStorage).filter((key) => key.includes("evict-ws"));
+          const open = indexedDB.open("viable-workspace");
+          open.onerror = () => done({ local, indexedDB: [`open failed: ${open.error?.name}`] });
+          open.onsuccess = () => {
+            const db = open.result;
+            if (!db.objectStoreNames.contains("kv")) { db.close(); done({ local, indexedDB: [] }); return; }
+            const keys = db.transaction("kv", "readonly").objectStore("kv").getAllKeys();
+            keys.onsuccess = () => { db.close(); done({ local, indexedDB: keys.result.filter((key) => String(key).includes("evict-ws")) }); };
+            keys.onerror = () => { db.close(); done({ local, indexedDB: ["read failed"] }); };
+          };
+        }));
+        check(
+          !deletion.startsWith("error") && leftover.local.length === 0 && leftover.indexedDB.length === 0,
+          `origin storage cleared to simulate eviction: no evicted record survives (${JSON.stringify(leftover)}; deletion request ${deletion})`,
+        );
         check(freshStart, "after eviction Viable starts as a clean, empty profile without errors or stale data");
 
         await after.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
