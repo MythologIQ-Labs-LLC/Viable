@@ -1,5 +1,7 @@
 # UX Acceptance Candidate — 2026-10-07
 
+> **Superseded** by [UX candidate 2026-10-07b](ux-candidate-2026-10-07b.md). The QA follow-ups #146 and #147 changed the application after this candidate was frozen. No human acceptance results were recorded against it. It is kept unchanged below as history.
+
 ## Purpose
 
 Freeze one integrated Viable build for human accessibility (#79) and unfamiliar-user (#81) acceptance on the PWA-first runtime (ADR-0010).

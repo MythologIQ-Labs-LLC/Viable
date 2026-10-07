@@ -72,3 +72,15 @@ Regression evidence: behavioral checks in the real-browser PWA smoke (section "s
 - Firefox and WebKit were not run locally. The cross-browser matrix runs in CI on `main`.
 - No LinkedIn or other external publication was attempted (#107).
 - The native Tauri runtime was not exercised.
+
+## Follow-up, later on 2026-10-07
+
+This section was added after the record above and leaves it unchanged.
+
+- #146: Repository Growth now has its own address inside Product. Reload, Back, and Forward work (#150).
+- #147: the remaining browser prompts are inline, labelled forms (#152).
+- #149: the WebKit stop in the seeded smoke journeys was a harness issue, not a Viable defect. WebKit gives a summary nested inside a closed `<details>` a layout box, so Playwright reported it visible; an app-free control page reproduces this. The smoke now opens disclosures from their own state (#151).
+- A later harness finding: Playwright's Firefox `page.reload()` on a `#hash` URL adds a history entry, which broke a new smoke check on `main`. Diagnostic runs showed that Viable returns to the right page on Back in Firefox and WebKit, and the check now reloads from inside the page (#153).
+
+The current acceptance candidate is [UX candidate 2026-10-07b](../acceptance/ux-candidate-2026-10-07b.md). The P3 findings listed above remain open.
+
