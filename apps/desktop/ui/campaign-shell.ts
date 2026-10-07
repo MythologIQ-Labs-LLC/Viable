@@ -78,7 +78,7 @@ async function open(target: "campaigns" | "studio"): Promise<void> {
   main.setAttribute("aria-busy", "true");
   try {
     if (!workspaceId) {
-      main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "campaigns" ? "Campaigns" : "Studio"}</p><h2>Create a Product workspace first.</h2><p>Campaign and video authority depend on local Product Core truth, reviewed evidence, and approved claims.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before entering this workflow.</span></section>`;
+      main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "campaigns" ? "Campaigns" : "Studio"}</p><h2>Create a Product workspace first.</h2><p>Campaign and video authority depend on local Product Core truth, reviewed evidence, and approved claims.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before entering this workflow.</span><button class="primary" type="button" data-nav="product">Open Product to create or restore a workspace</button></section>`;
       main.focus();
       return;
     }

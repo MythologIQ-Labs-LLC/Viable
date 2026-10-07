@@ -49,12 +49,27 @@ function restoreFromHistory(): boolean {
   if (currentNav() === nav) return true;
   applyingHistory = true;
   button.click();
-  queueMicrotask(() => {
+  // Views reload their workspace before rendering, so aria-current changes
+  // after the click resolves. Judging the outcome in a microtask saw the old
+  // page and overwrote the entry being restored (Back then cycled).
+  void navigationSettled(nav).then(() => {
     applyingHistory = false;
     const actual = currentNav();
     if (actual !== nav && actual) writeHistory(actual, "replace");
   });
   return true;
+}
+
+const HISTORY_SETTLE_MS = 3000;
+
+function navigationSettled(nav: string): Promise<void> {
+  return new Promise((resolveSettled) => {
+    if (currentNav() === nav) { resolveSettled(); return; }
+    const done = (): void => { observer.disconnect(); clearTimeout(timer); resolveSettled(); };
+    const observer = new MutationObserver(() => { if (currentNav() === nav) done(); });
+    const timer = setTimeout(done, HISTORY_SETTLE_MS);
+    observer.observe(sidebar ?? document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-current"] });
+  });
 }
 
 // Record the page the person is on whenever navigation state changes.

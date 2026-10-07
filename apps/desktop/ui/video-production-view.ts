@@ -69,7 +69,7 @@ export class VideoProductionViewController {
         ${this.importSection()}
         ${this.artifactSection()}
         ${this.variantSection()}
-        <section class="state warning"><strong>Calendar handoff is not implemented.</strong><span>Approved video variants cannot enter scheduling or measurement until issue #7 provides those authoritative records.</span></section>
+        <section class="state"><strong>Next: schedule an approved platform variant in Calendar.</strong><span>An approved video platform variant becomes an approved source in Calendar, where it still needs a destination-bound named review before manual activation. Approval here is not scheduling, publication, or delivery.</span></section>
       </section>`;
   }
 

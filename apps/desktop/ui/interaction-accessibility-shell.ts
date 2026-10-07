@@ -9,6 +9,11 @@ type FormSnapshot = Readonly<{
 
 let pending: FormSnapshot | undefined;
 let queued = false;
+// The record a person was acting on, so focus can return to it when a view
+// re-renders after the action and the focused control no longer exists.
+let focusAnchor: Readonly<{ heading?: string; at: number }> | undefined;
+const FOCUS_ANCHOR_WINDOW_MS = 10_000;
+const RECORD_SELECTOR = "article, .record, .calendar-card";
 let invalidFocusQueued = false;
 
 const escapeHtml = (value: unknown): string => String(value ?? "")
@@ -20,6 +25,9 @@ function cssEscape(value: string): string {
 }
 
 function formLocator(form: HTMLFormElement): string | undefined {
+  // Per-record forms share a data-form value; the record ID keeps a failed
+  // submission from being restored into another record's form.
+  if (form.dataset.form && form.dataset.recordId) return `form[data-form="${cssEscape(form.dataset.form)}"][data-record-id="${cssEscape(form.dataset.recordId)}"]`;
   if (form.dataset.form) return `form[data-form="${cssEscape(form.dataset.form)}"]`;
   if (form.id) return `form#${cssEscape(form.id)}`;
   return undefined;
@@ -178,12 +186,16 @@ function inlineFormFailure(form: HTMLFormElement, message: string): void {
   form.prepend(alert);
 
   const repair = inferRepairControl(form, message);
-  if (repair) {
-    associateError(repair, message);
-    repair.focus();
-  } else {
-    alert.focus();
-  }
+  if (repair) associateError(repair, message);
+  const reveal = (): void => {
+    // A re-render collapses disclosures (and enhancement shells may move the
+    // form into a new one), so open every enclosing disclosure before focusing:
+    // the restored values and the error must be visible where focus lands.
+    for (let details = form.closest("details"); details; details = details.parentElement?.closest("details") ?? null) details.open = true;
+    (repair ?? alert).focus();
+  };
+  reveal();
+  setTimeout(() => { if (form.isConnected) reveal(); }, 0);
 }
 
 function recoverPending(message: string): void {
@@ -208,17 +220,43 @@ function focusVisibleAlert(): void {
   alert.focus();
 }
 
+function rememberFocusAnchor(target: EventTarget | null): void {
+  if (!(target instanceof Element) || !main?.contains(target)) return;
+  const heading = target.closest(RECORD_SELECTOR)?.querySelector("h3, h4, h5")?.textContent?.trim();
+  focusAnchor = { ...(heading ? { heading } : {}), at: Date.now() };
+}
+
+function restoreLostFocus(): void {
+  if (!main || !focusAnchor || Date.now() - focusAnchor.at > FOCUS_ANCHOR_WINDOW_MS) return;
+  const active = document.activeElement;
+  if (active && active !== document.body && active.isConnected) return;
+  const { heading } = focusAnchor;
+  focusAnchor = undefined;
+  const record = heading
+    ? [...main.querySelectorAll<HTMLElement>(RECORD_SELECTOR)].find((candidate) => candidate.querySelector("h3, h4, h5")?.textContent?.trim() === heading)
+    : undefined;
+  const target = record ?? main;
+  if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+  target.focus();
+}
+
 function queueEnhance(): void {
   if (queued) return;
   queued = true;
   queueMicrotask(() => {
     queued = false;
     if (main) ensureProgrammaticLabels(main);
+    restoreLostFocus();
   });
 }
 
+document.addEventListener("click", (event) => {
+  if (event.target instanceof Element && event.target.closest("button")) rememberFocusAnchor(event.target);
+}, true);
+
 document.addEventListener("submit", (event) => {
   const form = event.target;
+  rememberFocusAnchor(form);
   if (!(form instanceof HTMLFormElement) || !shouldOwnRecovery(form)) return;
   pending = snapshot(form);
 }, true);

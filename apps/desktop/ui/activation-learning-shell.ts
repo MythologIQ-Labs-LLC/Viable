@@ -53,7 +53,7 @@ async function open(target: "calendar" | "analytics"): Promise<void> {
   activateNavigation();
   main.setAttribute("aria-busy", "true");
   if (!workspaceId) {
-    main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "calendar" ? "Calendar" : "Analytics"}</p><h2>Create a Product workspace first.</h2><p>Activation and learning must remain connected to local Product Core authority.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before scheduling or measuring work.</span></section>`;
+    main.innerHTML = `<header class="hero compact"><div><p class="eyebrow">${target === "calendar" ? "Calendar" : "Analytics"}</p><h2>Create a Product workspace first.</h2><p>Activation and learning must remain connected to local Product Core authority.</p></div></header><section class="state empty"><strong>No active product workspace.</strong><span>Open Product and create a local workspace before scheduling or measuring work.</span><button class="primary" type="button" data-nav="product">Open Product to create or restore a workspace</button></section>`;
     main.setAttribute("aria-busy", "false");
     main.focus();
     return;

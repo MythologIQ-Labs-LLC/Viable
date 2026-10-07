@@ -80,6 +80,43 @@ export class ProductCoreService {
     });
   }
 
+  /**
+   * Records a named person's recheck of reviewed evidence, typically once it
+   * reaches its freshness-review date. Confirming keeps it reviewed and sets
+   * the next freshness-review date. Withdrawing marks it rejected, returns
+   * approved claims that cite it to proposed review (as an edit would), and
+   * records a contradiction on ICP hypotheses that rely on it; downstream
+   * Campaign, activation, and video revalidation then refuse it as well.
+   */
+  async recheckEvidence(
+    workspaceId: string,
+    evidenceId: string,
+    input: Readonly<{ reviewer: string; stillValid: boolean; nextFreshnessReviewAt?: string }>,
+  ): Promise<ProductWorkspace> {
+    if (!input.reviewer.trim()) throw new Error("A named evidence reviewer is required");
+    const workspace = await this.required(workspaceId);
+    const evidence = workspace.evidence.find((candidate) => candidate.id === evidenceId);
+    if (!evidence) throw new Error("Evidence not found");
+    if (!isReviewedEvidence(evidence)) throw new Error("Only reviewed, non-generated evidence can be rechecked; review it first");
+    const now = this.clock();
+    let nextReview: string | undefined;
+    if (input.stillValid) {
+      const next = Date.parse(input.nextFreshnessReviewAt ?? "");
+      if (!Number.isFinite(next) || next <= now.getTime()) throw new Error("Choose a next freshness-review date in the future");
+      nextReview = new Date(next).toISOString();
+    }
+    const rechecked: ProductWorkspace = {
+      ...workspace,
+      evidence: workspace.evidence.map((candidate): EvidenceRecord => candidate.id !== evidenceId ? candidate : {
+        ...candidate,
+        ...(nextReview ? { freshnessReviewAt: nextReview } : { reviewStatus: "rejected" }),
+        reviewedBy: input.reviewer.trim(),
+        reviewedAt: now.toISOString(),
+      }),
+    };
+    return this.persist(nextReview ? rechecked : withdrawDependents(rechecked, evidence));
+  }
+
   async addClaim(workspaceId: string, claim: Omit<ProductClaim, "id" | "revision" | "status">): Promise<ProductWorkspace> {
     const workspace = await this.required(workspaceId);
     const record: ProductClaim = { ...claim, id: this.createId(), revision: 1, status: "proposed" };
@@ -340,4 +377,26 @@ function validateExperiment(experiment: ValidationExperiment): void {
     throw new Error("Experiment success, failure, and decision criteria are required");
   }
   if (Date.parse(experiment.observationEndsAt) <= Date.parse(experiment.startsAt)) throw new Error("Experiment observation window is invalid");
+}
+
+// Approved claims citing withdrawn evidence lose their approval, exactly as an
+// edit would; ICPs keep their status but carry an explicit contradiction.
+function withdrawDependents(workspace: ProductWorkspace, evidence: EvidenceRecord): ProductWorkspace {
+  const note = `Evidence "${evidence.title}" was withdrawn on recheck; conclusions that relied on it require review`;
+  return {
+    ...workspace,
+    claims: workspace.claims.map((claim): ProductClaim => {
+      if (claim.status !== "approved" || !claim.evidenceIds.includes(evidence.id)) return claim;
+      const { reviewedBy: _reviewedBy, reviewedAt: _reviewedAt, ...unreviewed } = claim;
+      return { ...unreviewed, status: "proposed", revision: claim.revision + 1 };
+    }),
+    icpHypotheses: workspace.icpHypotheses.map((hypothesis) => reliesOn(hypothesis, evidence.id)
+      ? { ...hypothesis, contradictions: [...hypothesis.contradictions, note] }
+      : hypothesis),
+  };
+}
+
+function reliesOn(hypothesis: IcpHypothesis, evidenceId: string): boolean {
+  return hypothesis.evidenceIds.includes(evidenceId)
+    || Object.values(hypothesis.dimensions ?? {}).some((dimension) => dimension.evidenceIds.includes(evidenceId));
 }

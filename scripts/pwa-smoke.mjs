@@ -812,6 +812,114 @@ async function run() {
       }
     });
 
+    // Seeded acceptance journeys (2026-10-07 local-dogfood QA). Each check
+    // drives a defect that was reproduced in this production build: restore
+    // and delete must show up without a reload, stale evidence must be
+    // recheckable, a cancelled review must leave the record reviewable, and a
+    // rejected import must say so and keep what the person pasted.
+    await section("seeded acceptance journeys", async () => {
+      const journeyContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+      const journey = await journeyContext.newPage();
+      journey.on("pageerror", (error) => errors.push(`journey pageerror: ${error.message}`));
+      journey.on("dialog", (dialog) => void dialog.accept());
+      const seedPath = resolve(process.cwd(), "docs/acceptance/seed/ux-acceptance-seed-v2.json");
+      const malformed = await readFile(resolve(process.cwd(), "docs/acceptance/seed/malformed-signals-import.json"), "utf8");
+      const go = async (view) => {
+        await journey.click(`nav button[data-nav="${view}"]`, { noWaitAfter: true });
+        await settled(journey);
+      };
+      const liveText = async () => (await journey.locator("#live-region").textContent()) ?? "";
+      const focusedText = () => journey.evaluate(() => (document.activeElement?.textContent ?? "").replace(/\s+/g, " ").trim());
+      try {
+        await journey.goto(`${origin}/`);
+        await settled(journey);
+        await go("calendar");
+        await journey.getByRole("button", { name: "Open Product to create or restore a workspace" }).click();
+        await settled(journey);
+        check(await journey.locator('form[data-form="create-workspace"]').isVisible(), "an empty-profile workflow screen links to where a workspace can be created");
+
+        await go("workspace");
+        await journey.setInputFiles("[data-workspace-import]", seedPath);
+        await journey.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+        await journey.click('[data-workspace-action="restore-empty"]');
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 15000 });
+        await go("home");
+        const restoredHome = await journey.waitForFunction(() => document.querySelectorAll("[data-home-attention-item]").length >= 8, undefined, { timeout: 5000 }).then(() => true, () => false);
+        check(restoredHome && !(await journey.locator('form[data-form="create-workspace"]').count()), "Home shows the restored workspace without a reload");
+        const openNames = await journey.locator("[data-home-attention-item] button[data-home-attention-open]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+        check(openNames.length > 1 && new Set(openNames).size === openNames.length, "every Home open control has a distinct accessible name");
+
+        // Views reload their workspace before rendering; Back and Forward must
+        // still land on exactly the previous and next pages.
+        for (const view of ["product", "signals", "home"]) await go(view);
+        const current = async () => (await journey.locator('nav button[data-nav][aria-current="page"]').getAttribute("data-nav")) ?? "";
+        const step = async (direction) => {
+          await (direction === "back" ? journey.goBack() : journey.goForward());
+          await settled(journey);
+          return current();
+        };
+        const walked = [await step("back"), await step("back"), await step("forward"), await step("forward")];
+        check(walked.join(",") === "signals,product,signals,home", `Back and Forward return to the exact previous pages (${walked.join(" → ")})`);
+
+        await journey.click('[data-home-attention-open="product:evidence:evidence-4"]');
+        await settled(journey);
+        const stale = journey.locator("#main article", { hasText: "Agency pricing objection notes" }).first();
+        await stale.locator('input[name="reviewer"]').fill("Smoke Reviewer");
+        await stale.getByRole("button", { name: "Still valid: set next review" }).click();
+        const keptReviewer = await stale.locator('input[name="reviewer"]').inputValue();
+        check(keptReviewer === "Smoke Reviewer" && await stale.locator('input[name="nextFreshnessReviewAt"]').evaluate((input) => !input.checkValidity()), "a recheck without a future date is refused in place and keeps the reviewer");
+        const nextYear = `${new Date().getFullYear() + 1}-06-30`;
+        await stale.locator('input[name="nextFreshnessReviewAt"]').fill(nextYear);
+        await stale.getByRole("button", { name: "Still valid: set next review" }).click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Evidence rechecked"), undefined, { timeout: 10000 });
+        await go("home");
+        check(!(await journey.locator('[data-home-attention-open="product:evidence:evidence-4"]').count()), "rechecked evidence leaves Home's stale-evidence blockers");
+
+        await go("product");
+        const forum = journey.locator("#main article", { hasText: "Freelancer forum thread about invoice chasing" }).first();
+        const accept = forum.getByRole("button", { name: "Accept with named review" });
+        await accept.click();
+        await forum.getByRole("button", { name: "Cancel review" }).click();
+        check(await accept.isVisible() && (await focusedText()) === "Accept with named review", "cancelling a review restores the record's review controls and returns focus to them");
+        await accept.click();
+        await journey.keyboard.press("Escape");
+        check(!(await forum.locator("[data-contextual-review]").count()) && await accept.isVisible(), "Escape closes a review panel without changing the record");
+
+        await go("signals");
+        const advanced = journey.locator("summary", { hasText: "Advanced: raw JSON adapter imports" }).first();
+        const sources = journey.locator("summary", { hasText: "Manage evidence sources" }).first();
+        if (!(await advanced.isVisible())) await sources.click();
+        await advanced.click();
+        const raw = journey.locator('form[data-form="signals-manual-import"]');
+        await raw.locator('textarea[name="payload"]').fill(malformed);
+        await raw.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => /failed/i.test(document.querySelector("#live-region")?.textContent ?? ""), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        const rawPayload = journey.locator('form[data-form="signals-manual-import"] textarea[name="payload"]');
+        check(/failed/i.test(await liveText()) && await rawPayload.isVisible() && (await rawPayload.inputValue()) === malformed, "a rejected import is reported as failed and keeps the pasted payload visible");
+
+        await journey.setViewportSize({ width: 640, height: 360 });
+        for (const view of ["product", "studio", "workspace"]) {
+          await go(view);
+          const sideways = await journey.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+          check(!sideways, `at 640×360 CSS px (about 200% zoom) ${view} does not scroll sideways`);
+        }
+        await journey.setViewportSize({ width: 1366, height: 768 });
+
+        await go("workspace");
+        const deletion = journey.locator("[data-workspace-delete]");
+        await deletion.locator('[name="scopeConfirmed"]').check();
+        await deletion.locator('[name="declineRecoveryPoint"]').check();
+        await deletion.locator('[name="confirmation"]').fill("DELETE");
+        await deletion.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
+        await go("home");
+        check(await journey.locator('form[data-form="create-workspace"]').isVisible() && !((await journey.locator("#main").textContent()) ?? "").includes("Ledgerly"), "Home stops showing a deleted workspace without a reload");
+      } finally {
+        await journeyContext.close();
+      }
+    });
+
     // Browser storage durability (#36): what this engine reports, and what
     // Viable does when the browser clears or refuses storage. Real eviction
     // under storage pressure cannot be triggered on demand, so it is simulated

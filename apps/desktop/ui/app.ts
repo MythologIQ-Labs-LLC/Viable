@@ -122,13 +122,14 @@ function emptyWorkspace(): string {
         <label>Supported environments, one per line<textarea name="environments" rows="3" placeholder="Windows desktop\nmacOS desktop"></textarea></label>
         <button class="primary" type="submit">Create local workspace</button>
       </form>
+      <p class="guidance">Already have a <code>viable.workspace-backup</code> file? <button type="button" data-nav="workspace">Restore it from Workspace</button> instead of creating a new workspace.</p>
     </section>`;
 }
 
 function homeView(value: ProductWorkspace): string {
   const selected = value.icpHypotheses.find((item) => item.status === "selected");
   const reviewedEvidence = value.evidence.filter((item) => item.reviewStatus === "reviewed" && item.origin !== "generated_suggestion");
-  const stale = value.evidence.filter((item) => isStale(item.freshnessReviewAt));
+  const stale = value.evidence.filter((item) => item.reviewStatus !== "rejected" && isStale(item.freshnessReviewAt));
   const contradictions = value.icpHypotheses.flatMap((item) => item.contradictions);
   const openActions = value.actions.filter((item) => item.status === "open" || item.status === "in_progress");
   const next = !value.product.positioning ? "Complete product truth" : value.icpHypotheses.length < 2 ? "Create a second ICP hypothesis" : !selected ? "Review evidence and select a primary ICP" : value.assessments.length === 0 ? "Run the marketability assessment" : "Work the highest-priority readiness action";
@@ -183,9 +184,31 @@ function evidenceSection(value: ProductWorkspace): string {
       <div class="cards">${value.evidence.length ? value.evidence.map((item) => `<article class="record">
         <div class="record-top"><h4>${escapeHtml(item.title)}</h4>${statusPill(item.origin === "generated_suggestion" ? "Generated suggestion" : item.reviewStatus, item.origin === "generated_suggestion" ? "suggested" : item.reviewStatus)}</div>
         <p>${escapeHtml(item.summary)}</p><small>Confidence: ${item.confidence}. Freshness review: ${humanDate(item.freshnessReviewAt)}.</small>
+        ${item.reviewStatus !== "rejected" && isStale(item.freshnessReviewAt) ? `<p class="inline-warning"><strong>Freshness review due.</strong> This evidence reached its review date. Recheck it before relying on dependent claims or ICP conclusions.</p>` : ""}
+        ${item.reviewStatus === "reviewed" && item.origin !== "generated_suggestion" && isStale(item.freshnessReviewAt) ? recheckEvidenceForm(item.id) : ""}
         <div class="actions">${item.reviewStatus === "suggested" && item.origin !== "generated_suggestion" ? `<button type="button" data-action="review-evidence" data-id="${item.id}">Accept with named review</button>` : ""}${item.reviewStatus === "suggested" ? `<button type="button" data-action="reject-evidence" data-id="${item.id}">Reject</button>` : ""}</div>
       </article>`).join("") : `<div class="state empty"><strong>No evidence yet.</strong><span>Record an observation, interview, customer outcome, analytic, or public source.</span></div>`}</div>
     </section>`;
+}
+
+// The earliest next review date is tomorrow, so a confirmed recheck can never
+// be stale again on the same day. The browser enforces it in place (the date
+// becomes required only for "Still valid"), so a correction keeps the entered
+// values and never reaches Product Core.
+function localDate(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function recheckEvidenceForm(id: string): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return `<form data-form="recheck-evidence" data-record-id="${escapeHtml(id)}" aria-label="Recheck this evidence">
+      <input type="hidden" name="id" value="${escapeHtml(id)}">
+      <div class="two"><label>Named evidence reviewer<input name="reviewer" required autocomplete="name"></label>
+      <label>Next freshness review on<input name="nextFreshnessReviewAt" type="date" min="${localDate(tomorrow)}"></label></div>
+      <p class="guidance">Withdrawing returns approved claims that cite this evidence to proposed review, and flags ICP hypotheses that rely on it.</p>
+      <div class="actions"><button class="primary" type="submit" name="outcome" value="valid" data-recheck-outcome="valid">Still valid: set next review</button><button type="submit" name="outcome" value="withdraw" data-recheck-outcome="withdraw">No longer valid: withdraw</button></div>
+    </form>`;
 }
 
 function claimSection(value: ProductWorkspace): string {
@@ -332,17 +355,30 @@ function rolesFrom(form: FormData): IcpRoles {
 }
 
 document.addEventListener("click", (event) => {
+  const outcome = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-recheck-outcome]");
+  const date = outcome?.form?.querySelector<HTMLInputElement>('input[name="nextFreshnessReviewAt"]');
+  // Runs before the browser validates the submission.
+  if (!outcome || !date) return;
+  date.required = outcome.dataset.recheckOutcome === "valid";
+  // Withdrawal ignores the next-review date; an out-of-range value must not block it.
+  if (outcome.dataset.recheckOutcome === "withdraw") date.value = "";
+}, true);
+
+document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
   if (!button) return;
   const targetPage = button.dataset.nav;
   if (targetPage === "home" || targetPage === "product" || targetPage === "signals" || targetPage === "market") {
     page = targetPage;
-    if (targetPage === "signals" || targetPage === "market") {
-      void signalsController?.load().then(() => { render(); main.focus(); });
-    } else {
+    // Reload from workspace storage: the Workspace screen can restore, replace,
+    // or delete the workspace (and another tab can change it) without this
+    // module's cached copy knowing, so rendering the cache would show a
+    // workspace that no longer exists, or hide one that was just restored.
+    void refresh().then(() => main.focus(), (error: unknown) => {
+      lastFailure = error instanceof Error ? error.message : "Unknown local error";
       render();
-      main.focus();
-    }
+      announce(`Workspace could not be loaded: ${lastFailure}`);
+    });
     return;
   }
   if (button.dataset.signalAction && signalsController) {
@@ -412,6 +448,17 @@ document.addEventListener("submit", (event) => {
     const origin = String(form.get("origin")) as "observed";
     workspace = await service.addEvidence(workspace!.id, { title: String(form.get("title")), summary: String(form.get("summary")), origin, observedAt: new Date(String(form.get("observedAt"))).toISOString(), freshnessReviewAt: new Date(String(form.get("freshnessReviewAt"))).toISOString(), reviewStatus: "suggested", confidence: String(form.get("confidence")) as "medium" });
   }, "Evidence added for review");
+  if (kind === "recheck-evidence") {
+    const stillValid = ((event as SubmitEvent).submitter as HTMLButtonElement | null)?.value !== "withdraw";
+    const next = String(form.get("nextFreshnessReviewAt") ?? "");
+    void act(async () => {
+      workspace = await service.recheckEvidence(workspace!.id, String(form.get("id")), {
+        reviewer: String(form.get("reviewer") ?? ""),
+        stillValid,
+        ...(stillValid ? { nextFreshnessReviewAt: new Date(`${next}T12:00:00`).toISOString() } : {}),
+      });
+    }, stillValid ? "Evidence rechecked and kept with a new freshness-review date" : "Evidence withdrawn after recheck");
+  }
   if (kind === "add-claim") void act(async () => {
     const rationale = String(form.get("rationale")).trim();
     workspace = await service.addClaim(workspace!.id, {
