@@ -96,6 +96,7 @@ Persistence rules for dogfood profiles:
 
 - browser evidence for replace-current restore (#36), in its own profile in the smoke: a backup of the same workspace offers replace-current (not empty-profile) restore; without a recovery-point decision it is refused and nothing changes; the recovery point captures the state about to be replaced; the replacement is durable in IndexedDB and survives reload; restoring the recovery point undoes it.
 
+- browser storage durability (#36), in every engine the smoke runs: the report records what the browser says about persistence and quota and whether a `persist()` request was granted; the runtime panel reports persistence truthfully; after the origin's storage is cleared (simulated eviction) Viable starts as a clean, empty profile without errors or stale data, and a backup restores the workspace; a write the browser refuses (simulated by aborting the transaction, as quota exhaustion does) is reported as not saved and leaves nothing half-written. Real eviction under storage pressure and a real quota limit cannot be reproduced on demand (Chromium's DevTools quota override does not enforce IndexedDB writes), so those exact triggers remain unobserved.
 - recovery mode (#36): when stored workspace data is unreadable, startup fails closed without changing anything and offers **Open workspace recovery**, which runs only the Workspace screen. The smoke proves in the browser that replacing corrupt data is blocked until quarantine is exported, the quarantine file preserves the raw record, a backup then replaces the workspace after an explicit decision, and Viable starts normally afterwards.
 
 ### Native runtime and credential vault (PRs #108, #113)
@@ -301,7 +302,7 @@ This is a dogfood statement, not a public-release statement. #36 still contains 
 - production HTTPS origin, deployment provenance, and rollback (#114 O4, #36);
 - localhost → public-origin migration through the portable backup;
 - supported browser and OS list with minimum versions, from actual tests, including real Safari before any Safari claim;
-- real storage-eviction and quota evidence per supported browser (#114 O3);
+- observation of real (not simulated) eviction and quota limits in each supported browser, and Safari's own policy, before any durability claim beyond the simulated evidence (#114 O3);
 - privacy/security review, diagnostic export, vulnerability intake, support and known-limitations documentation;
 - honest labeling and provenance of any direct native artifacts.
 

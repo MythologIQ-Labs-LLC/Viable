@@ -360,6 +360,7 @@ async function run() {
 
   let support = {};
   const storageAccessReport = {};
+  let storageDurabilityReport = null;
   let backup;
   try {
     await page.goto(`${origin}/`);
@@ -811,6 +812,122 @@ async function run() {
       }
     });
 
+    // Browser storage durability (#36): what this engine reports, and what
+    // Viable does when the browser clears or refuses storage. Real eviction
+    // under storage pressure cannot be triggered on demand, so it is simulated
+    // by clearing the origin's storage, which is what eviction does.
+    await section("storage durability and eviction recovery", async () => {
+      const evictContext = await browser.newContext({ acceptDownloads: true });
+      const evict = await evictContext.newPage();
+      evict.on("pageerror", (error) => errors.push(`eviction pageerror: ${error.message}`));
+      evict.on("dialog", (dialog) => void dialog.accept());
+      const workspace = { ...backup.contexts.product, id: "evict-ws", product: { ...backup.contexts.product.product, identity: { ...backup.contexts.product.product.identity, name: "Eviction product" } } };
+      await evict.addInitScript((value) => {
+        if (location.pathname === "/" && !sessionStorage.getItem("viable-smoke-seeded")) {
+          sessionStorage.setItem("viable-smoke-seeded", "1");
+          localStorage.setItem("viable.product-workspace.evict-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+          localStorage.setItem("viable.product-workspace.active", "evict-ws");
+        }
+      }, workspace);
+      const backupPath = join(served, "..", "dist-pwa-smoke-eviction-backup.json");
+      try {
+        await evict.goto(`${origin}/`);
+        await evict.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Eviction product"), undefined, { timeout: 10000 });
+
+        const facts = await evict.evaluate(async () => {
+          const persisted = typeof navigator.storage?.persisted === "function" ? await navigator.storage.persisted() : null;
+          const estimate = typeof navigator.storage?.estimate === "function" ? await navigator.storage.estimate().catch(() => null) : null;
+          const request = typeof navigator.storage?.persist === "function"
+            ? await Promise.race([navigator.storage.persist().then(String, (error) => `error: ${error?.name}`), new Promise((done) => setTimeout(() => done("no answer within 5s"), 5000))])
+            : "unavailable";
+          return { persistedAtStart: persisted, usage: estimate?.usage ?? null, quota: estimate?.quota ?? null, persistRequest: request };
+        });
+        storageDurabilityReport = facts;
+        console.log(`Storage durability: ${JSON.stringify(facts)}`);
+        await evict.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+        await evict.waitForSelector("[data-storage-persistence]", { timeout: 10000 });
+        const shown = await evict.locator("[data-storage-persistence]").getAttribute("data-storage-persistence");
+        const persistedNow = await evict.evaluate(async () => (typeof navigator.storage?.persisted === "function" ? navigator.storage.persisted() : null));
+        const expected = persistedNow === null ? "unknown" : persistedNow ? "persisted" : "best_effort";
+        check(shown === expected || (facts.persistedAtStart === false && persistedNow === true), `runtime panel reports this browser's storage persistence truthfully (${shown}; browser says ${expected})`);
+
+        const [file] = await Promise.all([evict.waitForEvent("download"), evict.click('[data-workspace-action="backup"]')]);
+        await file.saveAs(backupPath);
+
+        // Eviction: the browser clears this origin's storage while Viable is closed.
+        await evict.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+        const cleared = await evict.evaluate(() => new Promise((done) => {
+          localStorage.clear();
+          const request = indexedDB.deleteDatabase("viable-workspace");
+          request.onsuccess = () => done("cleared");
+          request.onerror = () => done(`error: ${request.error?.name}`);
+          request.onblocked = () => done("blocked");
+        }));
+        check(cleared === "cleared", `origin storage cleared to simulate eviction (${cleared})`);
+        await evict.goto(`${origin}/`);
+        const freshStart = await evict.waitForFunction(() => {
+          const text = document.body?.textContent ?? "";
+          return document.querySelector("#main form") && !text.includes("Eviction product") && !/could not (be )?open/i.test(text);
+        }, undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(freshStart, "after eviction Viable starts as a clean, empty profile without errors or stale data");
+
+        await evict.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+        await evict.waitForSelector("[data-workspace-import]", { timeout: 10000 });
+        await evict.setInputFiles("[data-workspace-import]", backupPath);
+        await evict.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+        await evict.click('[data-workspace-action="restore-empty"]');
+        await evict.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        await reload(evict);
+        const restored = await evict.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Eviction product"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(restored, "a backup restores the workspace after eviction and survives reload");
+      } finally {
+        await rm(backupPath, { force: true });
+        await evictContext.close();
+      }
+    });
+
+    // Refused writes (#36): when an origin runs out of quota the browser
+    // aborts the write transaction. Chromium's DevTools quota override changes
+    // the reported quota but does not enforce it on IndexedDB writes (verified
+    // with a 1 MB write), so the refusal is simulated by aborting Viable's
+    // write transactions, in every engine. A refused save must be reported as
+    // failed, never as saved, and must leave nothing half-written.
+    await section("refused storage writes", async () => {
+      const refuseContext = await browser.newContext();
+      const refuse = await refuseContext.newPage();
+      refuse.on("pageerror", (error) => errors.push(`refused-write pageerror: ${error.message}`));
+      await refuse.addInitScript(() => {
+        const open = IDBDatabase.prototype.transaction;
+        IDBDatabase.prototype.transaction = function (...args) {
+          const transaction = open.apply(this, args);
+          if (globalThis.__viableSmokeRefuseWrites && args[1] === "readwrite") queueMicrotask(() => { try { transaction.abort(); } catch { /* already finished */ } });
+          return transaction;
+        };
+      });
+      try {
+        await refuse.goto(`${origin}/`);
+        await refuse.waitForSelector("#main form", { timeout: 10000 });
+        await refuse.evaluate(() => { globalThis.__viableSmokeRefuseWrites = true; });
+        const form = refuse.locator("#main form").first();
+        for (const field of await form.locator("input[required], textarea[required]").all()) {
+          const type = await field.getAttribute("type");
+          if (type === "checkbox") await field.check();
+          else if (!(await field.inputValue())) await field.fill("Refused product");
+        }
+        await form.locator('button[type="submit"]').first().click();
+        const reported = await refuse.waitForFunction(() => /could not|not saved|failed/i.test(document.querySelector("#live-region")?.textContent ?? "") || document.querySelector("#main [role=alert]"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        const live = (await refuse.locator("#live-region").textContent()) ?? "";
+        console.log(`Refused write outcome: ${live}`);
+        check(reported && !/Product workspace created/.test(live), "a save the browser refuses is reported as failed, not as saved");
+        await refuse.evaluate(() => { globalThis.__viableSmokeRefuseWrites = false; });
+        await reload(refuse);
+        const nothingKept = await refuse.waitForFunction(() => document.querySelector("#main form") && !(document.querySelector("#main")?.textContent ?? "").includes("Refused product"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(nothingKept, "a refused save leaves no half-written workspace after reload");
+      } finally {
+        await refuseContext.close();
+      }
+    });
+
     // IndexedDB is the authority whenever the browser exposes it. If opening
     // that authority fails, Viable must never guess that a legacy localStorage
     // copy is safe, because it may be stale after a prior migration.
@@ -839,7 +956,7 @@ async function run() {
     const uniqueErrors = [...new Set(errors)];
     // Printed (not only written to the report) so a CI log alone explains a failure.
     if (uniqueErrors.length) console.log(`Page errors (${uniqueErrors.length}):\n  ${uniqueErrors.join("\n  ")}`);
-    await writeFile(`pwa-smoke-report-${BROWSER}.json`, `${JSON.stringify({ browser: BROWSER, version: browser.version(), support, storageAccess: storageAccessReport, results, limitations, errors: uniqueErrors }, null, 2)}\n`);
+    await writeFile(`pwa-smoke-report-${BROWSER}.json`, `${JSON.stringify({ browser: BROWSER, version: browser.version(), support, storageAccess: storageAccessReport, storageDurability: storageDurabilityReport, results, limitations, errors: uniqueErrors }, null, 2)}\n`);
     await browser.close();
     server.close();
     await rm(served, { recursive: true, force: true });
