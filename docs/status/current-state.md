@@ -5,8 +5,8 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-10-06 |
-| Reviewed against | `main` through `a33537f5a40605c90f21be4fedc2606467e7853d` (#124, #129, and #93 merged), plus the open work listed below |
+| Last reviewed | 2026-10-07 |
+| Reviewed against | `main` through `e788430143465d1554c50292413508fa20102fbf` (#109 and #134–#137 included), plus the open human-gated work listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -30,7 +30,7 @@ This record keeps these states distinct. A later state never follows automatical
 | **Human-accepted** | A named person completed the governed hands-on acceptance (keyboard-only, 200% zoom, non-color comprehension, unfamiliar-user journeys) and recorded the environment, findings, and remediation. |
 | **Deferred** | Deliberately not pursued now; the trigger for resuming is named. |
 
-As of this review, **nothing is human-accepted** and **no consequential external action is live-proven**. Read-only public GitHub collection is live-proven: #129 measured the production-default adapters succeeding in Chromium and the native webview, and that exact implementation is now merged to `main`. LinkedIn publication remains implemented but not live-proven.
+As of this review, **nothing is human-accepted** and **no consequential external action is live-proven**. Read-only public GitHub collection is live-proven: #129 measured the production-default adapters succeeding in Chromium and the native webview, and that exact implementation is merged to `main`. LinkedIn member publishing is also merged and exact-head validated (#109 / `54093163`), but it is **not live-proven**; #107 remains open for clean-install guidance acceptance and one developer-owned publication.
 
 ## Summary
 
@@ -80,7 +80,7 @@ Persistence rules for dogfood profiles:
 - Existing `localStorage` data is migrated once and verified; the legacy copy is kept as a recovery source, except that deleting a workspace also removes that workspace's legacy records once the IndexedDB deletion is durable (#36). Legacy copies of workspaces deleted before this change are not purged automatically, because after an IndexedDB eviction they may be the only recovery source.
 - Changes made in one tab reach other open tabs through `BroadcastChannel`.
 - **Fail closed:** whenever the runtime exposes IndexedDB and it cannot be opened, Viable shows a visible error and refuses writes rather than serving a possibly stale `localStorage` copy. `localStorage` is used only where the runtime does not expose IndexedDB at all.
-- All seven workspace stores await a durable commit before reporting success.
+- All seven portable workspace stores plus the machine-local provider-connection store await a durable commit before reporting success.
 
 ### Schema versions, backup, restore, quarantine, deletion (PRs #62, #88, #117, #119)
 
@@ -92,17 +92,18 @@ Persistence rules for dogfood profiles:
 - recovery points (#36): deletion and replace-current restore require either a downloaded recovery point of exactly the current state (an ordinary backup, refused as stale if the workspace changed afterwards) or an explicit choice to continue without one; Viable keeps no internal copy;
 - browser round trip validated in the smoke: backup → deletion refused without a recovery-point decision → recovery point downloaded → delete (seen by a second open tab) → restore the recovery point into an empty profile → reload.
 
-- retention defaults (#36): one stated policy (`src/workspace-lifecycle/retention-policy.ts`), shown on the Workspace screen and in the user guide. Viable never deletes or expires data on its own; Website Watch deadlines (14/90 days/none) only make payloads eligible for a named person's prune. Workspace deletion keeps exported files, the storage-upgrade marker and provider credentials (keyed to a connection, not a workspace), and says so.
+- retention defaults (#36): one stated policy (`src/workspace-lifecycle/retention-policy.ts`), shown on the Workspace screen and in the user guide. Viable never deletes or expires data on its own; Website Watch deadlines (14/90 days/none) only make payloads eligible for a named person's prune. Connected-provider metadata is machine-local, excluded from portable backups, and blocks workspace replacement/deletion until the provider is explicitly disconnected; vault credentials are removed by that disconnect flow, not by workspace deletion.
 
 - browser evidence for replace-current restore (#36), in its own profile in the smoke: a backup of the same workspace offers replace-current (not empty-profile) restore; without a recovery-point decision it is refused and nothing changes; the recovery point captures the state about to be replaced; the replacement is durable in IndexedDB and survives reload; restoring the recovery point undoes it.
 
+- browser storage durability (#36), in every engine the smoke runs: the report records what the browser says about persistence and quota and whether a `persist()` request was granted; the runtime panel reports persistence truthfully; after the origin's storage is cleared (simulated eviction) Viable starts as a clean, empty profile without errors or stale data, and a backup restores the workspace; a write the browser refuses (simulated by aborting the transaction, as quota exhaustion does) is reported as not saved and leaves nothing half-written. Real eviction under storage pressure and a real quota limit cannot be reproduced on demand (Chromium's DevTools quota override does not enforce IndexedDB writes), so those exact triggers remain unobserved.
 - recovery mode (#36): when stored workspace data is unreadable, startup fails closed without changing anything and offers **Open workspace recovery**, which runs only the Workspace screen. The smoke proves in the browser that replacing corrupt data is blocked until quarantine is exported, the quarantine file preserves the raw record, a backup then replaces the workspace after an explicit decision, and Viable starts normally afterwards.
 
 ### Native runtime and credential vault (PRs #108, #113)
 
 - Tauri 2 shell; Debian package built and inspected in CI on the pinned Rust 1.88 baseline;
 - native credential vault boundary: provider secrets are stored only through the OS credential store (Linux Secret Service, Windows Credential Manager) behind narrow commands (`credential_capability`, `credential_put`, `credential_has`, `credential_delete`). Secrets never return to JavaScript, workspace data, logs, or exports;
-- in the PWA, the vault and connected publishing are shown as unavailable with the concrete reason (browsers have no OS keychain API; LinkedIn blocks browser-origin requests and requires a native-only PKCE flow or a Client Secret).
+- in the PWA, the vault and connected publishing are shown as unavailable with a concrete reason: browser JavaScript has no acceptable OS credential-vault authority for this design and the LinkedIn provider transport is implemented only in the native runtime. Manual activation remains available in the PWA.
 
 ## Deterministic publishing foundation (umbrella #97)
 
@@ -113,7 +114,7 @@ Persistence rules for dogfood profiles:
 | C. Native credential vault boundary | #106 / #108 | Merged and validated |
 | Credential-store contract research | #100 | Closed (decision recorded) |
 | First live provider selection | #101 | Closed: LinkedIn member publishing selected (#107) |
-| D. LinkedIn member publishing proof | #107 / PR #109 | **Implemented on an open draft PR; not live-proven** |
+| D. LinkedIn member publishing proof | #107 / PR #109 | **Merged and exact-head validated; not live-proven. #107 remains open for two human evidence gates** |
 
 Implemented on `main`:
 
@@ -121,7 +122,7 @@ Implemented on `main`:
 - deterministic scheduler with an execution ledger, idempotency keys, explicit `not_dispatched`, `published`, `outcome_unknown`, retryable, and reconnect-required states, and no automatic retry after an ambiguous provider dispatch;
 - a deterministic fake provider for tests only; manual activation remains the fallback for every destination.
 
-PR #109 (LinkedIn member publishing, native-only) is complete enough for its live proof. On 2026-10-06 it was brought onto current `main`. Its provider-connection store now persists through `workspaceStorage` with a durable `commit()` (#119), and the storage contract test discovers every store instead of a fixed list. The one remaining gate is a developer-owned LinkedIn publication using a human-generated token entered only into Viable's native connection UI, with the person's consent. No connected publishing claim is made until that proof exists.
+PR #109 (LinkedIn member publishing, native-only) merged to `main` as `54093163` after exact-head CI, real-browser PWA smoke, Rust tests, desktop bundle, and Debian package validation passed. It provides the guided self-service setup, native OIDC identity validation, text-only `/v2/ugcPosts` publishing, provider receipt mapping, explicit disconnect, staged credential replacement, and deterministic scheduler integration. Provider connection metadata persists durably through `workspaceStorage`, remains outside portable backups, and blocks destructive workspace actions until disconnect removes the machine-local account authority. #107 stays open for clean-install guidance acceptance and one developer-owned LinkedIn publication using a human-generated token and consent.
 
 ### Product Core
 
@@ -274,8 +275,8 @@ Coverage floors apply to reusable core source. They do not prove user comprehens
 
 | PR / issue | Purpose | State |
 |---|---|---|
-| #109 / #107 | LinkedIn member publishing proof | Implementation is green and mergeable but remains draft until one human-owned live publication with a human-generated token and consent proves the provider path. |
-| #112 / #110 | Discoverability strategy on channel variants | Implementation is green and bounded; hands-on UX review and real-content dogfood remain, sequenced behind the LinkedIn live proof. |
+| #107 | LinkedIn member publishing proof | Implementation is merged and validated. Clean-install guidance acceptance and one human-owned live publication with a human-generated token and consent remain. |
+| #110 | Discoverability strategy on channel variants | #112 is merged and bounded; real-content dogfood and the later evidence loop remain, sequenced behind the LinkedIn live proof. |
 | #36 | Release foundations | Durable migration/recovery, browser storage durability evidence, operational readiness, and public-release trust remain. Public-hosting work is deferred until external distribution is justified. |
 | #95, #96, #111, #121 | Dependency updates | Triage separately. Do not raise the pinned Rust 1.88 baseline implicitly; #111 requires a deliberate baseline decision. |
 
@@ -292,8 +293,8 @@ This is a dogfood statement, not a public-release statement. #36 still contains 
 ### Human gates (cannot be satisfied by automation)
 
 - **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. The governed runbooks, deterministic seed, and candidate record are now merged under `docs/acceptance/`; start with `ux-candidate-2026-10-06.md`. The frozen candidate is `fee77c8` (PWA build `1bd83169cbba`), and the record explains when current `main` is application-equivalent.
-- **#107 / #109:** one developer-owned LinkedIn publication with a human-generated token and consent.
-- **#112 / #110:** hands-on review of the discoverability fieldset and dogfood against real content, after a stable LinkedIn path exists.
+- **#107 / #109:** clean-install guidance acceptance plus one developer-owned LinkedIn publication with a human-generated token and consent.
+- **#110 / #112:** real-content dogfood of the merged discoverability guidance and the later evidence loop, after the LinkedIn live proof exists.
 - Slice-level acceptance for #2, #3, #4, #5, #6, #7, and #29 is carried by the #81 demo acceptance journeys.
 
 ### External / public-release requirements (not dogfood blockers)
@@ -301,7 +302,7 @@ This is a dogfood statement, not a public-release statement. #36 still contains 
 - production HTTPS origin, deployment provenance, and rollback (#114 O4, #36);
 - localhost → public-origin migration through the portable backup;
 - supported browser and OS list with minimum versions, from actual tests, including real Safari before any Safari claim;
-- real storage-eviction and quota evidence per supported browser (#114 O3);
+- observation of real (not simulated) eviction and quota limits in each supported browser, and Safari's own policy, before any durability claim beyond the simulated evidence (#114 O3);
 - privacy/security review, diagnostic export, vulnerability intake, support and known-limitations documentation;
 - honest labeling and provenance of any direct native artifacts.
 
@@ -316,7 +317,7 @@ This is a dogfood statement, not a public-release statement. #36 still contains 
 
 ## Designed or required but not implemented
 
-- live connected publishing for any provider (LinkedIn is implemented on #109 but not live-proven or merged);
+- live-proven connected publishing for any provider (the LinkedIn implementation is merged and validated, but its human-owned live proof is still open in #107);
 - automatic provider delivery verification beyond the #109 provider response mapping;
 - connected analytics and search imports;
 - local ViMax execution or managed worker;
