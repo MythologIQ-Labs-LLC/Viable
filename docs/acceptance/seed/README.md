@@ -9,7 +9,7 @@ This directory holds the canonical starting workspace for human acceptance runs 
 | Workspace ID | `ledgerly-ux-acceptance-seed-v2` |
 | Backup integrity checksum | `crc32:c9f2ee2d` (detects accidental change; not a signature) |
 | Backup creation date | 2026-10-01T12:00:00Z (fixed, so the output is reproducible) |
-| Built from | `acceptance/ux-integrated-candidate` at `8805ac8` (main `aebe800` + runbooks). Also verified restoring and rendering on candidate `fee77c8` (build `1bd83169cbba`); see [UX candidate 2026-10-06](../ux-candidate-2026-10-06.md) |
+| Built from | `acceptance/ux-integrated-candidate` at `8805ac8` (main `aebe800` + runbooks). Also verified restoring and rendering on candidate `fee77c8` (build `1bd83169cbba`; [UX candidate 2026-10-06](../ux-candidate-2026-10-06.md)) and on candidate `445378c` (build `86c2c9a956b4`; [UX candidate 2026-10-07](../ux-candidate-2026-10-07.md)) |
 | Deliberate failure fixture | [`malformed-signals-import.json`](malformed-signals-import.json) |
 | Intended channel set | LinkedIn (approved, ready to export) and Website (changes requested, not yet exportable) |
 
