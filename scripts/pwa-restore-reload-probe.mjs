@@ -88,6 +88,8 @@ async function downloadBackup(page, path) {
 }
 
 async function deleteWorkspace(page) {
+  // Deletion requires an explicit recovery-point decision (#133); the probe declines.
+  await page.check('[data-workspace-delete] input[name="declineRecoveryPoint"]');
   await page.check('[data-workspace-delete] input[name="scopeConfirmed"]');
   await page.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
   await page.click('[data-workspace-delete] button[type="submit"]');
