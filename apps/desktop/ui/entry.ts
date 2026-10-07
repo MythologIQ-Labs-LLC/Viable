@@ -13,6 +13,9 @@
 // dynamic import that normally evaluated after the shells).
 
 import "./contextual-review-shell.js";
+// Before the Repository Growth shell, whose capture listener would otherwise
+// handle its prompting actions first.
+import "./inline-input-shell.js";
 import "./campaign-shell.js";
 import "./repository-growth-shell.js";
 import "./activation-learning-shell.js";
