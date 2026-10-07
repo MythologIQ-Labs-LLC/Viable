@@ -1,6 +1,6 @@
 # ADR-0011: Productization publishing analytics and learning authority
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-08
 - Supersedes: None
 - Superseded by: None
