@@ -57,8 +57,8 @@ Regression evidence: behavioral checks in the real-browser PWA smoke (section "s
 
 | Severity | Finding |
 |---|---|
-| P2 | Repository Growth has no URL or history state. Reload returns to Product, and Back skips it. |
-| P2 | Several actions still use native `prompt()` dialogs (Signals tag/assign/save/delete/prune, Repository Growth checklist evidence and export creator, Calendar cancellation and interrupted export). Review decisions use inline panels, so the interaction model is inconsistent. |
+| P2 | Repository Growth has no URL or history state. Reload returns to Product, and Back skips it (#146). |
+| P2 | (#147) Several actions still use native `prompt()` dialogs (Signals tag/assign/save/delete/prune, Repository Growth checklist evidence and export creator, Calendar cancellation and interrupted export). Review decisions use inline panels, so the interaction model is inconsistent. |
 | P3 | Raw identifiers appear in secondary text: source IDs such as `manual:1791397663568`, `asset-1 · v1`, and an observation ID inside a prefilled Calendar note. Repository Growth action status options show raw values such as `in_progress`. |
 | P3 | Converting the same signal again creates a duplicate proposal without a warning. |
 | P3 | A recheck replaces the evidence's `reviewedBy`/`reviewedAt`; there is no separate recheck history. The next review date has no upper bound. |
