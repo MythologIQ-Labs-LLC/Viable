@@ -23,6 +23,14 @@ import { SECURITY_HEADERS } from "./pwa-security-headers.mjs";
 
 const source = resolve(process.cwd(), process.env.VIABLE_PWA_OUT ?? "dist-pwa");
 const served = resolve(process.cwd(), "dist-pwa-smoke");
+const SMOKE_HOST = "localhost";
+const SMOKE_PORT = 4175;
+const SMOKE_ORIGIN = `http://${SMOKE_HOST}:${SMOKE_PORT}`;
+// An app-free page used to tell an engine defect from a Viable defect.
+const ENGINE_CONTROL_PATH = "/__engine-control.html";
+const ENGINE_CONTROL_SW_PATH = "/__engine-control-sw.js";
+let engineControlSwVersion = 1;
+let engineControlPrecache = [ENGINE_CONTROL_PATH];
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png",
@@ -46,6 +54,34 @@ async function browserPath() {
 function startServer() {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
+    if (url.pathname === ENGINE_CONTROL_PATH) {
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }).end("<!doctype html><title>engine control</title><p id=control>engine control</p>");
+      return;
+    }
+    if (url.pathname === ENGINE_CONTROL_SW_PATH) {
+      response.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/" }).end(`
+const CACHE = "viable-engine-control-v${engineControlSwVersion}";
+const PRECACHE = ${JSON.stringify(engineControlPrecache)};
+self.addEventListener("install", (event) => event.waitUntil(
+  caches.open(CACHE).then((cache) => cache.addAll(PRECACHE.map((path) => new Request(path, { cache: "reload" })))),
+));
+self.addEventListener("activate", (event) => event.waitUntil((async () => {
+  const names = await caches.keys();
+  await Promise.all(names.filter((name) => name.startsWith("viable-engine-control-v") && name !== CACHE).map((name) => caches.delete(name)));
+  await self.clients.claim();
+})()));
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "ACTIVATE") void self.skipWaiting();
+});
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin === self.location.origin && url.pathname === "${ENGINE_CONTROL_PATH}") {
+    event.respondWith(caches.match(event.request).then((cached) => cached ?? fetch(event.request)));
+  }
+});
+`);
+      return;
+    }
     const path = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname));
     const file = join(served, path);
     if (!file.startsWith(served + sep)) { response.writeHead(403).end(); return; }
@@ -60,7 +96,13 @@ function startServer() {
       response.writeHead(404).end();
     }
   });
-  return new Promise((resolveServer) => server.listen(0, "127.0.0.1", () => resolveServer(server)));
+  return new Promise((resolveServer, rejectServer) => {
+    server.once("error", rejectServer);
+    server.listen(SMOKE_PORT, SMOKE_HOST, () => {
+      server.removeListener("error", rejectServer);
+      resolveServer(server);
+    });
+  });
 }
 
 const BROWSER = process.env.PWA_BROWSER ?? "chromium";
@@ -91,6 +133,51 @@ function withTimeout(promise, ms, label) {
 
 const SECTION_TIMEOUT_MS = 90_000;
 
+// The main page, described in the log whenever a section fails.
+let diagnosticPage;
+
+// What the page was doing when a section failed: still loading, controlled by
+// the service worker, app rendered or not.
+async function describePage(page) {
+  if (!page) return "no page";
+  return withTimeout(page.evaluate(() => JSON.stringify({
+    url: location.href,
+    readyState: document.readyState,
+    controlled: Boolean(navigator.serviceWorker?.controller),
+    navButtons: document.querySelectorAll("nav button[data-nav]").length,
+    body: (document.body?.innerText ?? "").replace(/\s+/g, " ").slice(0, 200),
+  })), 5_000, "page state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
+}
+
+// Reloads the page. Playwright's Firefox driver can leave page.reload()
+// pending forever when the URL has a #hash (microsoft/playwright#21145), and
+// Viable records the current view in the hash. In Firefox, navigate to the
+// same document without the hash instead; the app restores its default view.
+function reload(page) {
+  return BROWSER === "firefox" ? page.goto(page.url().split("#")[0]) : page.reload();
+}
+
+// WebKit refuses more than 100 history writes per 10 s; a person never comes
+// close, but 72 back-to-back transitions do. Pace each transition click.
+const TRANSITION_PACE_MS = 120;
+
+// Waits until the app has rendered and stopped re-rendering, as a person would
+// before typing. The page "load" event is not a readiness signal: engines
+// differ on whether it waits for modules still in a top-level await, and the
+// app re-renders once its stores finish loading.
+async function settled(page) {
+  await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0);
+  await withTimeout(page.evaluate(() => new Promise((resolveQuiet) => {
+    const main = document.querySelector("#main");
+    let quiet;
+    const cap = setTimeout(done, 5000);
+    const observer = new MutationObserver(() => { clearTimeout(quiet); quiet = setTimeout(done, 500); });
+    function done() { clearTimeout(quiet); clearTimeout(cap); observer.disconnect(); resolveQuiet(); }
+    quiet = setTimeout(done, 500);
+    observer.observe(main, { childList: true, subtree: true });
+  })), 10_000, "app settle");
+}
+
 // Runs one independent section; an exception or timeout is recorded as a
 // failure without hiding the results of later sections.
 async function section(name, body) {
@@ -98,6 +185,7 @@ async function section(name, body) {
     await withTimeout(body(), SECTION_TIMEOUT_MS, name);
   } catch (error) {
     check(false, `${name}: ${(error instanceof Error ? error.message : String(error)).split("\n")[0]}`);
+    console.log(`  page state: ${await describePage(diagnosticPage)}`);
   }
 }
 
@@ -138,25 +226,141 @@ async function run() {
   await rm(served, { recursive: true, force: true });
   await cp(source, served, { recursive: true });
   const buildInfo = JSON.parse(await readFile(join(served, "build-info.json"), "utf8"));
+  // Make the app-free WebKit update control exercise the same precache volume
+  // and cache churn as the production service worker without executing Viable
+  // application code. This distinguishes a WebKit service-worker/cache defect
+  // from a failure in Viable's post-update startup path.
+  const productionWorker = await readFile(join(served, "sw.js"), "utf8");
+  const precacheMatch = productionWorker.match(/const PRECACHE = (\[[^\n]+\]);/);
+  if (!precacheMatch) throw new Error("Production service-worker precache list not found");
+  engineControlPrecache = [...JSON.parse(precacheMatch[1]), ENGINE_CONTROL_PATH];
   const server = await startServer();
-  const origin = `http://127.0.0.1:${server.address().port}`;
+  const origin = SMOKE_ORIGIN;
   const browser = BROWSER === "chromium"
     ? await chromium.launch({ executablePath: await browserPath() })
     : await ENGINES[BROWSER].launch();
   console.log(`Engine: ${BROWSER} ${browser.version()}`);
   const context = await browser.newContext();
   context.setDefaultTimeout(15_000);
-  const page = await context.newPage();
   const errors = [];
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-  page.on("dialog", (dialog) => void dialog.accept());
-  page.on("console", (message) => { if (message.type() === "error") errors.push(`console: ${message.text()}`); });
-  await page.addInitScript(() => {
-    document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
-  });
+  async function instrumentedPage() {
+    const created = await context.newPage();
+    created.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+    created.on("dialog", (dialog) => void dialog.accept());
+    created.on("console", (message) => {
+      if (message.type() === "error") errors.push(`console: ${message.text()}`);
+      else if (message.type() === "warning") console.log(`  page warning: ${message.text()}`);
+    });
+    await created.addInitScript(() => {
+      document.addEventListener("securitypolicyviolation", (event) => console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`));
+    });
+    diagnosticPage = created;
+    return created;
+  }
+  // Replaced only to avoid a WebKit engine defect (see webkitHistoryReloadDefectPresent).
+  let page = await instrumentedPage();
+
+  // Playwright's Linux WebKit build crashes or hangs its renderer when a page
+  // is reloaded after going Back across several pushState entries. It
+  // reproduces on an app-free page with no Viable code
+  // (scripts/pwa-restore-reload-probe.mjs; CI runs 37426515169, 37428688989),
+  // and a hung renderer also takes down later pages of the same browser.
+  // In WebKit, the app-free control runs in a separately launched browser.
+  // While it still fails, the page that went Back is replaced by a fresh page
+  // of the same profile before any further reload, so every later check
+  // still runs. Chromium and Firefox keep covering reload after Back. Once
+  // the engine is fixed, the control passes and the same page is kept.
+  async function webkitHistoryReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const control = await (await isolated.newContext()).newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await control.evaluate(async () => {
+        for (let index = 0; index < 10; index += 1) {
+          history.pushState({ index }, "", `#entry-${index}`);
+          await new Promise((resolveWait) => setTimeout(resolveWait, 150));
+        }
+      });
+      await control.goBack();
+      await control.waitForTimeout(300);
+      return await withTimeout(control.reload(), 20_000, "control reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
+  
+  // Playwright's Linux WebKit can fail a reload while its context is
+  // emulating offline mode even for an app-free page cached by a minimal
+  // service worker. Run this control in a separate browser so a harness
+  // failure cannot poison the Viable smoke context.
+  async function webkitOfflineReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const isolatedContext = await isolated.newContext();
+      const control = await isolatedContext.newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      const registered = await withTimeout(control.evaluate(async (workerPath) => {
+        const registration = await navigator.serviceWorker.register(workerPath, { scope: "/" });
+        await navigator.serviceWorker.ready;
+        return Boolean(registration.active);
+      }, ENGINE_CONTROL_SW_PATH), 20_000, "control service worker registration").catch(() => false);
+      if (!registered) return false;
+      await control.reload();
+      if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
+      await isolatedContext.setOffline(true);
+      return await withTimeout(control.reload(), 20_000, "offline control reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
+
+  // An app-free single-tab control mirrors the exact WebKit diagnostic path
+  // used below: install a service worker, publish a changed worker, activate it
+  // only after an explicit message, then reload from controllerchange. The
+  // second Viable tab is deliberately closed in the WebKit diagnostic, so the
+  // control must also be single-tab. A multi-tab control can pass while this
+  // single-tab reload still crashes, which would incorrectly blame Viable.
+  async function webkitUpdateReloadDefectPresent() {
+    engineControlSwVersion = 1;
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const isolatedContext = await isolated.newContext();
+      const control = await isolatedContext.newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await withTimeout(control.evaluate(async (workerPath) => {
+        await navigator.serviceWorker.register(workerPath, { scope: "/" });
+        await navigator.serviceWorker.ready;
+      }, ENGINE_CONTROL_SW_PATH), 20_000, "update control service worker registration");
+      await control.reload();
+      if (!await control.evaluate(() => Boolean(navigator.serviceWorker.controller))) return false;
+
+      engineControlSwVersion = 2;
+      await control.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) throw new Error("control registration missing");
+        await registration.update();
+      });
+      const waiting = await control.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration())?.waiting), undefined, { timeout: 15000 }).then(() => true, () => false);
+      if (!waiting) return false;
+
+      await control.evaluate(() => {
+        navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
+      });
+      const load = control.waitForEvent("load", { timeout: 15000 }).then(() => true, () => false);
+      await control.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        registration?.waiting?.postMessage({ type: "ACTIVATE" });
+      });
+      return !(await load);
+    } finally {
+      engineControlSwVersion = 1;
+      await isolated.close().catch(() => undefined);
+    }
+  }
 
   let support = {};
   const storageAccessReport = {};
+  let storageDurabilityReport = null;
   let backup;
   try {
     await page.goto(`${origin}/`);
@@ -177,7 +381,7 @@ async function run() {
       await section("service worker", async () => {
           const swReady = await withTimeout(page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).active)), 20_000, "navigator.serviceWorker.ready");
           check(swReady, "service worker installs and activates");
-          await page.reload();
+          await reload(page);
           check(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), "page is controlled by the service worker after reload");
           storageAccessReport.serviceWorkerControlled = await storageAccess(page);
           console.log(`Storage access (service-worker controlled): ${JSON.stringify(storageAccessReport.serviceWorkerControlled)}`);
@@ -189,6 +393,7 @@ async function run() {
 
     // Create a Product workspace through the real UI.
     await section("workspace creation", async () => {
+      await settled(page);
       const form = page.locator("#main form").first();
       for (const field of await form.locator("input[required], textarea[required]").all()) {
         const type = await field.getAttribute("type");
@@ -199,9 +404,12 @@ async function run() {
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Product workspace created"));
       check(true, "Product workspace created through the UI");
 
-      await page.reload();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"));
       check(true, "workspace persists across reload in browser storage");
+      // index.html starts <main aria-busy="true">; a rendered view must clear it.
+      const busyCleared = await page.waitForFunction(() => document.querySelector("#main")?.getAttribute("aria-busy") === "false", undefined, { timeout: 5000 }).then(() => true, () => false);
+      check(busyCleared, "main region is not left aria-busy after startup");
     });
 
     await section("navigation", async () => {
@@ -218,8 +426,10 @@ async function run() {
       for (const from of views) {
         for (const to of views) {
           if (from === to) continue;
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${from}"]`, { noWaitAfter: true });
           await page.waitForFunction((nav) => document.querySelector(`nav button[data-nav="${nav}"]`)?.getAttribute("aria-current") === "page", from, { timeout: 4000 }).catch(() => undefined);
+          await page.waitForTimeout(TRANSITION_PACE_MS);
           await page.click(`nav button[data-nav="${to}"]`, { noWaitAfter: true });
           const reached = await page.waitForFunction((nav) => {
             const current = [...document.querySelectorAll('nav button[aria-current="page"]')].map((button) => button.dataset.nav);
@@ -234,6 +444,14 @@ async function run() {
       const back = await page.waitForFunction((nav) => document.querySelector(`nav button[data-nav="${nav}"]`)?.getAttribute("aria-current") === "page", views.at(-1), { timeout: 4000 }).then(() => true, () => false);
       check(back, "browser Back returns to the previous view");
     });
+
+    if (BROWSER === "webkit" && await webkitHistoryReloadDefectPresent()) {
+      limitation("WebKit engine defect: reloading after Back across pushState entries crashes or hangs the renderer, reproduced on an app-free page in a separate browser. The remaining checks continue on a fresh page of the same profile; Chromium and Firefox cover reload after Back");
+      await page.close();
+      page = await instrumentedPage();
+      await page.goto(`${origin}/`);
+      await settled(page);
+    }
 
     await section("Calendar and runtime panel", async () => {
       await page.click('nav button[data-nav="calendar"]', { noWaitAfter: true });
@@ -274,6 +492,8 @@ async function run() {
       check(Boolean(storedKey), "workspace data is committed to IndexedDB");
       const engine = await page.locator("[data-storage-engine]").getAttribute("data-storage-engine");
       check(engine === "indexeddb", `runtime panel reports the IndexedDB storage engine (${engine})`);
+      const retentionRules = await page.locator("[data-workspace-retention] [data-retention-rule]").count();
+      check(retentionRules >= 10, `Workspace screen states the retention policy (${retentionRules} rules)`);
 
       // Browser backup -> delete -> restore round trip (#36), observed from a second tab.
       const second = await context.newPage();
@@ -288,6 +508,23 @@ async function run() {
       backup = JSON.parse(await readFile(backupPath, "utf8"));
       check(backup.format === "viable.workspace-backup" && backup.contexts?.product?.product?.identity?.name === "PWA smoke product", "workspace backup downloads with unwrapped domain data");
 
+      // Recovery points (#36): deletion needs an explicit decision, and the
+      // downloaded recovery point must restore what deletion removed.
+      await page.check('[data-workspace-delete] input[name="scopeConfirmed"]');
+      await page.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
+      await page.click('[data-workspace-delete] button[type="submit"]');
+      const refused = await page.waitForFunction(() => /Download a recovery point/.test(document.querySelector("[data-workspace-action-error]")?.textContent ?? ""), undefined, { timeout: 5000 }).then(() => true, () => false);
+      check(refused && productKey(await idbKeys()) === storedKey, "deletion without a recovery-point decision is refused and changes nothing");
+      const [pointDownload] = await Promise.all([page.waitForEvent("download"), page.click('[data-workspace-delete] [data-workspace-action="recovery-point"]')]);
+      const recoveryPath = join(served, "..", "dist-pwa-smoke-recovery-point.json");
+      await pointDownload.saveAs(recoveryPath);
+      const recoveryPoint = JSON.parse(await readFile(recoveryPath, "utf8"));
+      check(
+        /^viable-recovery-point-/.test(pointDownload.suggestedFilename()) && recoveryPoint.format === "viable.workspace-backup" && JSON.stringify(recoveryPoint.contexts) === JSON.stringify(backup.contexts),
+        "recovery point downloads as an ordinary backup of exactly the current state",
+      );
+      const pointCurrent = await page.locator("[data-workspace-delete] [data-recovery-point]").getAttribute("data-recovery-point");
+      check(pointCurrent === "current", `deletion form shows the recovery point as current (${pointCurrent})`);
       await page.check('[data-workspace-delete] input[name="scopeConfirmed"]');
       await page.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
       await page.click('[data-workspace-delete] button[type="submit"]');
@@ -297,31 +534,56 @@ async function run() {
       const crossTab = await second.waitForFunction(() => /does not currently contain a Viable workspace/.test(document.querySelector("#main")?.textContent ?? ""), undefined, { timeout: 8000 }).then(() => true, () => false);
       check(crossTab, "another open tab sees the deletion without reloading");
 
-      await page.setInputFiles("[data-workspace-import]", backupPath);
+      await page.setInputFiles("[data-workspace-import]", recoveryPath);
       await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
       await page.click('[data-workspace-action="restore-empty"]');
       await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
-      check(productKey(await idbKeys()) === storedKey, "restore into an empty profile is durable in IndexedDB");
-      await page.reload();
+      check(productKey(await idbKeys()) === storedKey, "the recovery point restores the deleted workspace into the empty profile, durably in IndexedDB");
+      await rm(recoveryPath, { force: true });
+      // The cross-tab check is done.
+      await second.close();
+      await reload(page);
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "restored workspace survives reload");
-      await second.close();
       await rm(backupPath, { force: true });
     });
 
     // Offline: the shell must load from the service worker cache.
     if (support.serviceWorker) await section("offline and update contract", async () => {
       await page.click('nav button[data-nav="home"]', { noWaitAfter: true });
-      await context.setOffline(true);
-      const offlineLoaded = await page.reload().then(() => page.waitForFunction(
-        () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
-        undefined,
-        { timeout: 10000 },
-      )).then(() => true, (error) => { console.log(`offline diagnostic: ${error.message.split("\n")[0]}`); return false; });
-      check(offlineLoaded, `offline reload serves the cached shell with local workspace data${offlineLoaded ? "" : ` (main: ${(await mainText(page).catch(() => "unavailable")).slice(0, 160)})`}`);
-      await context.setOffline(false);
+      const webkitOfflineHarnessDefect = BROWSER === "webkit" && await webkitOfflineReloadDefectPresent();
+      if (webkitOfflineHarnessDefect) {
+        limitation("WebKit engine/harness limitation: Playwright offline emulation fails a reload even for an app-free page cached by a minimal service worker. Chromium and Firefox cover Viable offline reload; real Safari requires hands-on validation");
+      } else {
+        await context.setOffline(true);
+        const offlineLoaded = await reload(page).then(() => page.waitForFunction(
+          () => document.querySelector("#main")?.textContent?.includes("PWA smoke product"),
+          undefined,
+          { timeout: 10000 },
+        )).then(() => true, (error) => { console.log(`offline diagnostic: ${error.message.split("\\n")[0]}`); return false; });
+        check(offlineLoaded, `offline reload serves the cached shell with local workspace data${offlineLoaded ? "" : ` (main: ${(await mainText(page).catch(() => "unavailable")).slice(0, 160)})`}`);
+        await context.setOffline(false);
+      }
 
       // Update contract: a new build is offered, never applied silently.
+      const webkitUpdateHarnessDefect = BROWSER === "webkit" && await webkitUpdateReloadDefectPresent();
+      if (webkitUpdateHarnessDefect) {
+        limitation("WebKit engine/harness limitation: a blank page using the same user-confirmed service-worker activation and controllerchange reload does not produce a load event. Chromium and Firefox cover Viable update activation; real Safari requires hands-on validation");
+        return;
+      }
+
+      // A second open tab stands in for unsaved work. Origin-wide service-worker
+      // activation must not reload that tab until it independently confirms.
+      const updateObserver = await context.newPage();
+      await updateObserver.goto(`${origin}/`);
+      await updateObserver.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
+      await updateObserver.evaluate(() => { globalThis.__viableUpdateSentinel = "unsaved-tab-state"; });
+      const webkitSingleTabDiagnostic = BROWSER === "webkit";
+      if (webkitSingleTabDiagnostic) {
+        await updateObserver.close();
+        limitation("WebKit diagnostic: the update activation is being retried with the second Viable tab closed to isolate a multi-tab runtime interaction");
+      }
+
       const nextBuildId = `${buildInfo.buildId.slice(0, 56)}feedface`;
       await writeFile(join(served, "build-info.json"), JSON.stringify({ ...buildInfo, buildId: nextBuildId }));
       const sw = await readFile(join(served, "sw.js"), "utf8");
@@ -331,14 +593,62 @@ async function run() {
       check(true, "new build is announced to the person");
       const stillOld = await page.evaluate(async () => (await (await fetch("build-info.json")).json()).buildId);
       check(stillOld === buildInfo.buildId, "running session keeps its build until the person confirms");
-      await Promise.all([
-        page.waitForEvent("load", { timeout: 15000 }),
-        page.click('[data-pwa-action="update"]'),
-      ]);
+      if (BROWSER === "webkit") {
+        await page.evaluate(() => {
+          const key = "__viableSmokeUpdateEvents";
+          const mark = (event) => {
+            const prior = localStorage.getItem(key);
+            localStorage.setItem(key, prior ? `${prior},${event}` : event);
+          };
+          localStorage.setItem(key, "armed");
+          navigator.serviceWorker.addEventListener("controllerchange", () => mark("controllerchange"));
+          window.addEventListener("beforeunload", () => mark("beforeunload"));
+          window.addEventListener("pagehide", () => mark("pagehide"));
+        });
+      }
+      try {
+        await Promise.all([
+          page.waitForEvent("load", { timeout: 15000 }),
+          page.click('[data-pwa-action="update"]'),
+        ]);
+      } catch (error) {
+        if (BROWSER === "webkit") {
+          let forensic = { events: "unavailable", active: null, waiting: null, contextAlive: false };
+          try {
+            const witness = await context.newPage();
+            await witness.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+            forensic = await witness.evaluate(async () => {
+              const registration = await navigator.serviceWorker.getRegistration("/");
+              return {
+                events: localStorage.getItem("__viableSmokeUpdateEvents") ?? "none",
+                active: registration?.active?.scriptURL ?? null,
+                waiting: registration?.waiting?.scriptURL ?? null,
+                contextAlive: true,
+              };
+            });
+            await witness.close();
+          } catch { /* diagnostic only */ }
+          console.log(`update forensic: ${JSON.stringify(forensic)}`);
+        }
+        throw error;
+      }
       const updated = await page.evaluate(async () => (await (await fetch("build-info.json")).json()).buildId);
-      check(updated === nextBuildId, "confirmed update reloads into the new build");
+      check(updated === nextBuildId, "confirmed update reloads the initiating tab into the new build");
       await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
       check(true, "local workspace data survives the update");
+      if (webkitSingleTabDiagnostic) return;
+
+      await updateObserver.waitForSelector("[data-pwa-update-active]", { timeout: 15000 });
+      const observerStayedLoaded = await updateObserver.evaluate(() => globalThis.__viableUpdateSentinel === "unsaved-tab-state");
+      check(observerStayedLoaded, "another open tab is not reloaded by someone else's update confirmation");
+      await Promise.all([
+        updateObserver.waitForEvent("load", { timeout: 15000 }),
+        updateObserver.click('[data-pwa-action="reload"]'),
+      ]);
+      await updateObserver.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("PWA smoke product"), undefined, { timeout: 10000 });
+      check(true, "another open tab reloads only after its own confirmation");
+      await updateObserver.close();
+
       const caches = await page.evaluate(async () => (await globalThis.caches.keys()).filter((name) => name.startsWith("viable-shell-")));
       check(caches.length === 1, `old build cache removed after activation (${caches.length} shell cache)`);
     });
@@ -365,32 +675,278 @@ async function run() {
       check(/2 saved records were copied/.test(migrationText), "runtime panel reports the migration");
       const legacyKept = await upgrade.evaluate(() => localStorage.getItem("viable.product-workspace.active"));
       check(legacyKept === "legacy-ws", "legacy storage copy is left untouched as a recovery source");
+
+      // Deleting the workspace must not leave it behind in the legacy copy (#36).
+      upgrade.on("dialog", (dialog) => void dialog.accept());
+      await upgrade.check('[data-workspace-delete] input[name="declineRecoveryPoint"]');
+      await upgrade.check('[data-workspace-delete] input[name="scopeConfirmed"]');
+      await upgrade.fill('[data-workspace-delete] input[name="confirmation"]', "DELETE");
+      await upgrade.click('[data-workspace-delete] button[type="submit"]');
+      await upgrade.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
+      const legacyLeft = await upgrade.evaluate(() => ["viable.product-workspace.legacy-ws", "viable.product-workspace.active"].filter((key) => localStorage.getItem(key) !== null));
+      check(legacyLeft.length === 0, `deleting a migrated workspace also removes its legacy storage copy${legacyLeft.length ? ` (left: ${legacyLeft.join(", ")})` : ""}`);
       await upgradeContext.close();
     });
 
-    // IndexedDB failure handling. Previously migrated profile: fail closed
-    // (stale localStorage copy is never shown). Never-migrated profile: keep
-    // using localStorage, which still holds the only copy.
-    await section("IndexedDB failure handling", async () => {
-      for (const migratedBefore of [true, false]) {
-        const failContext = await browser.newContext();
-        const failPage = await failContext.newPage();
-        await failPage.addInitScript(([value, marked]) => {
-          localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
-          localStorage.setItem("viable.product-workspace.active", "legacy-ws");
-          if (marked) localStorage.setItem("viable-storage-engine", "indexeddb");
-          IDBFactory.prototype.open = function () { throw new DOMException("simulated failure", "UnknownError"); };
-        }, [legacyWorkspace, migratedBefore]);
-        await failPage.goto(`${origin}/`);
-        await failPage.waitForTimeout(1500);
-        const text = (await failPage.textContent("body")) ?? "";
-        if (migratedBefore) {
-          check(/saved Viable data could not be opened/.test(text) && !/Legacy upgrade product/.test(text), "IndexedDB failure after migration fails closed and never shows the stale legacy copy");
-        } else {
-          check(/Legacy upgrade product/.test(text), "IndexedDB failure before any migration keeps working from localStorage");
+    // Restore into an existing profile (#36): replace-current restore,
+    // driven through the Workspace screen against real IndexedDB.
+    await section("replace-current restore", async () => {
+      const replaceContext = await browser.newContext({ acceptDownloads: true });
+      const replace = await replaceContext.newPage();
+      replace.on("pageerror", (error) => errors.push(`replace pageerror: ${error.message}`));
+      replace.on("dialog", (dialog) => void dialog.accept());
+      const productKey = "viable.product-workspace.replace-ws";
+      const named = (name) => ({ ...backup.contexts.product, id: "replace-ws", product: { ...backup.contexts.product.product, identity: { ...backup.contexts.product.product.identity, name } } });
+      await replace.addInitScript((value) => {
+        if (!localStorage.getItem("viable.product-workspace.active")) {
+          localStorage.setItem("viable.product-workspace.replace-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+          localStorage.setItem("viable.product-workspace.active", "replace-ws");
         }
-        await failContext.close();
+      }, named("Replace original"));
+      const idb = (operation, key, value) => replace.evaluate(([op, k, v]) => new Promise((resolveIdb, rejectIdb) => {
+        const open = indexedDB.open("viable-workspace");
+        open.onerror = () => rejectIdb(open.error);
+        open.onsuccess = () => {
+          const transaction = open.result.transaction("kv", op === "get" ? "readonly" : "readwrite");
+          const request = op === "get" ? transaction.objectStore("kv").get(k) : transaction.objectStore("kv").put(v, k);
+          transaction.oncomplete = () => { open.result.close(); resolveIdb(op === "get" ? request.result : undefined); };
+          transaction.onerror = () => rejectIdb(transaction.error);
+        };
+      }), [operation, key, value]);
+      const storedName = async () => JSON.parse((await idb("get", productKey)) ?? "null")?.workspace?.product?.identity?.name;
+      const openWorkspace = async () => {
+        await replace.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+        await replace.waitForSelector("[data-workspace-import]", { timeout: 10000 });
+      };
+      const download = async (selector, name) => {
+        const [file] = await Promise.all([replace.waitForEvent("download"), replace.click(selector)]);
+        const path = join(served, "..", `dist-pwa-smoke-${name}.json`);
+        await file.saveAs(path);
+        return path;
+      };
+      const chooseBackup = async (path) => {
+        await replace.setInputFiles("[data-workspace-import]", path);
+        await replace.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+      };
+      const paths = [];
+      try {
+        await replace.goto(`${origin}/`);
+        await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original"), undefined, { timeout: 10000 });
+        await openWorkspace();
+        const originalPath = await download('[data-workspace-action="backup"]', "replace-original");
+        paths.push(originalPath);
+
+        // Later work changes the stored workspace after that backup was taken.
+        const current = JSON.parse(await idb("get", productKey));
+        current.workspace.product.identity.name = "Replace newer";
+        await idb("put", productKey, JSON.stringify(current));
+        await reload(replace);
+        await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace newer"), undefined, { timeout: 10000 });
+        await openWorkspace();
+
+        await chooseBackup(originalPath);
+        const replaceEnabled = await replace.locator('[data-workspace-action="restore-replace"]').isEnabled();
+        const emptyDisabled = await replace.locator('[data-workspace-action="restore-empty"]').isDisabled();
+        check(replaceEnabled && emptyDisabled, "a backup of the same workspace offers replace-current, not empty-profile restore");
+
+        await replace.click('[data-workspace-action="restore-replace"]');
+        const refused = await replace.waitForFunction(() => /recovery point/i.test(document.querySelector("[data-workspace-action-error]")?.textContent ?? ""), undefined, { timeout: 5000 }).then(() => true, () => false);
+        check(refused && (await storedName()) === "Replace newer", "replace-current restore without a recovery-point decision is refused and changes nothing");
+
+        const recoveryPath = await download('section[aria-labelledby="restore-heading"] [data-workspace-action="recovery-point"]', "replace-recovery-point");
+        paths.push(recoveryPath);
+        const recovery = JSON.parse(await readFile(recoveryPath, "utf8"));
+        check(recovery.contexts?.product?.product?.identity?.name === "Replace newer", "the recovery point captures the state about to be replaced");
+
+        await replace.click('[data-workspace-action="restore-replace"]');
+        await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        check((await storedName()) === "Replace original", "replace-current restore overwrites the existing workspace durably in IndexedDB");
+        await reload(replace);
+        const survived = await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(survived, "the replaced workspace survives reload");
+
+        // The recovery point undoes the replacement through the same flow.
+        await openWorkspace();
+        await chooseBackup(recoveryPath);
+        await replace.check("[data-workspace-restore-decline]");
+        await replace.click('[data-workspace-action="restore-replace"]');
+        await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        check((await storedName()) === "Replace newer", "restoring the recovery point undoes the replacement");
+
+        // Corrupt stored data fails closed at startup without being changed,
+        // and recovery mode makes the Workspace screen reachable (#36).
+        await idb("put", "viable.signals-inbox.replace-ws", "{corrupt");
+        await reload(replace);
+        const failedClosed = await replace.waitForFunction(() => /could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(
+          failedClosed && (await idb("get", "viable.signals-inbox.replace-ws")) === "{corrupt" && (await storedName()) === "Replace newer",
+          "corrupt stored data fails closed at startup and nothing is changed",
+        );
+        await replace.click('[data-startup-action="recover"]');
+        await replace.waitForSelector("[data-workspace-recovery-mode]", { timeout: 10000 });
+        check(true, "startup failure offers workspace recovery mode");
+
+        await chooseBackup(originalPath);
+        const gated = await replace.locator("[data-workspace-restore-quarantine]").isVisible() && await replace.locator('[data-workspace-action="restore-replace"]').isDisabled();
+        check(gated, "in recovery mode, replacing corrupt data is blocked until quarantine is exported");
+        const quarantinePath = await download('[data-workspace-action="quarantine"]', "replace-quarantine");
+        paths.push(quarantinePath);
+        const quarantine = JSON.parse(await readFile(quarantinePath, "utf8"));
+        check(quarantine.entries?.some((entry) => entry.raw === "{corrupt"), "quarantine export preserves the unreadable raw record");
+
+        await chooseBackup(originalPath);
+        const pointBlocked = await replace.locator('section[aria-labelledby="restore-heading"] [data-workspace-action="recovery-point"]').isDisabled();
+        await replace.check("[data-workspace-restore-decline]");
+        await replace.click('[data-workspace-action="restore-replace"]');
+        await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        check(
+          pointBlocked && (await storedName()) === "Replace original" && (await idb("get", "viable.signals-inbox.replace-ws")) === undefined,
+          "recovery mode replaces the corrupt workspace from a backup after an explicit decision",
+        );
+        await replace.click('[data-workspace-action="reload-app"]');
+        const recovered = await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original") && !/could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 15000 }).then(() => true, () => false);
+        check(recovered, "after recovery, Viable starts normally");
+      } finally {
+        for (const path of paths) await rm(path, { force: true });
+        await replaceContext.close();
       }
+    });
+
+    // Browser storage durability (#36): what this engine reports, and what
+    // Viable does when the browser clears or refuses storage. Real eviction
+    // under storage pressure cannot be triggered on demand, so it is simulated
+    // by clearing the origin's storage, which is what eviction does.
+    await section("storage durability and eviction recovery", async () => {
+      const evictContext = await browser.newContext({ acceptDownloads: true });
+      const evict = await evictContext.newPage();
+      evict.on("pageerror", (error) => errors.push(`eviction pageerror: ${error.message}`));
+      evict.on("dialog", (dialog) => void dialog.accept());
+      const workspace = { ...backup.contexts.product, id: "evict-ws", product: { ...backup.contexts.product.product, identity: { ...backup.contexts.product.product.identity, name: "Eviction product" } } };
+      await evict.addInitScript((value) => {
+        if (location.pathname === "/" && !sessionStorage.getItem("viable-smoke-seeded")) {
+          sessionStorage.setItem("viable-smoke-seeded", "1");
+          localStorage.setItem("viable.product-workspace.evict-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+          localStorage.setItem("viable.product-workspace.active", "evict-ws");
+        }
+      }, workspace);
+      const backupPath = join(served, "..", "dist-pwa-smoke-eviction-backup.json");
+      try {
+        await evict.goto(`${origin}/`);
+        await evict.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Eviction product"), undefined, { timeout: 10000 });
+
+        const facts = await evict.evaluate(async () => {
+          const persisted = typeof navigator.storage?.persisted === "function" ? await navigator.storage.persisted() : null;
+          const estimate = typeof navigator.storage?.estimate === "function" ? await navigator.storage.estimate().catch(() => null) : null;
+          const request = typeof navigator.storage?.persist === "function"
+            ? await Promise.race([navigator.storage.persist().then(String, (error) => `error: ${error?.name}`), new Promise((done) => setTimeout(() => done("no answer within 5s"), 5000))])
+            : "unavailable";
+          return { persistedAtStart: persisted, usage: estimate?.usage ?? null, quota: estimate?.quota ?? null, persistRequest: request };
+        });
+        storageDurabilityReport = facts;
+        console.log(`Storage durability: ${JSON.stringify(facts)}`);
+        await evict.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+        await evict.waitForSelector("[data-storage-persistence]", { timeout: 10000 });
+        const shown = await evict.locator("[data-storage-persistence]").getAttribute("data-storage-persistence");
+        const persistedNow = await evict.evaluate(async () => (typeof navigator.storage?.persisted === "function" ? navigator.storage.persisted() : null));
+        const expected = persistedNow === null ? "unknown" : persistedNow ? "persisted" : "best_effort";
+        check(shown === expected || (facts.persistedAtStart === false && persistedNow === true), `runtime panel reports this browser's storage persistence truthfully (${shown}; browser says ${expected})`);
+
+        const [file] = await Promise.all([evict.waitForEvent("download"), evict.click('[data-workspace-action="backup"]')]);
+        await file.saveAs(backupPath);
+
+        // Eviction: the browser clears this origin's storage while Viable is closed.
+        await evict.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+        const cleared = await evict.evaluate(() => new Promise((done) => {
+          localStorage.clear();
+          const request = indexedDB.deleteDatabase("viable-workspace");
+          request.onsuccess = () => done("cleared");
+          request.onerror = () => done(`error: ${request.error?.name}`);
+          request.onblocked = () => done("blocked");
+        }));
+        check(cleared === "cleared", `origin storage cleared to simulate eviction (${cleared})`);
+        await evict.goto(`${origin}/`);
+        const freshStart = await evict.waitForFunction(() => {
+          const text = document.body?.textContent ?? "";
+          return document.querySelector("#main form") && !text.includes("Eviction product") && !/could not (be )?open/i.test(text);
+        }, undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(freshStart, "after eviction Viable starts as a clean, empty profile without errors or stale data");
+
+        await evict.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+        await evict.waitForSelector("[data-workspace-import]", { timeout: 10000 });
+        await evict.setInputFiles("[data-workspace-import]", backupPath);
+        await evict.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+        await evict.click('[data-workspace-action="restore-empty"]');
+        await evict.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+        await reload(evict);
+        const restored = await evict.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Eviction product"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(restored, "a backup restores the workspace after eviction and survives reload");
+      } finally {
+        await rm(backupPath, { force: true });
+        await evictContext.close();
+      }
+    });
+
+    // Refused writes (#36): when an origin runs out of quota the browser
+    // aborts the write transaction. Chromium's DevTools quota override changes
+    // the reported quota but does not enforce it on IndexedDB writes (verified
+    // with a 1 MB write), so the refusal is simulated by aborting Viable's
+    // write transactions, in every engine. A refused save must be reported as
+    // failed, never as saved, and must leave nothing half-written.
+    await section("refused storage writes", async () => {
+      const refuseContext = await browser.newContext();
+      const refuse = await refuseContext.newPage();
+      refuse.on("pageerror", (error) => errors.push(`refused-write pageerror: ${error.message}`));
+      await refuse.addInitScript(() => {
+        const open = IDBDatabase.prototype.transaction;
+        IDBDatabase.prototype.transaction = function (...args) {
+          const transaction = open.apply(this, args);
+          if (globalThis.__viableSmokeRefuseWrites && args[1] === "readwrite") queueMicrotask(() => { try { transaction.abort(); } catch { /* already finished */ } });
+          return transaction;
+        };
+      });
+      try {
+        await refuse.goto(`${origin}/`);
+        await refuse.waitForSelector("#main form", { timeout: 10000 });
+        await refuse.evaluate(() => { globalThis.__viableSmokeRefuseWrites = true; });
+        const form = refuse.locator("#main form").first();
+        for (const field of await form.locator("input[required], textarea[required]").all()) {
+          const type = await field.getAttribute("type");
+          if (type === "checkbox") await field.check();
+          else if (!(await field.inputValue())) await field.fill("Refused product");
+        }
+        await form.locator('button[type="submit"]').first().click();
+        const reported = await refuse.waitForFunction(() => /could not|not saved|failed/i.test(document.querySelector("#live-region")?.textContent ?? "") || document.querySelector("#main [role=alert]"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        const live = (await refuse.locator("#live-region").textContent()) ?? "";
+        console.log(`Refused write outcome: ${live}`);
+        check(reported && !/Product workspace created/.test(live), "a save the browser refuses is reported as failed, not as saved");
+        await refuse.evaluate(() => { globalThis.__viableSmokeRefuseWrites = false; });
+        await reload(refuse);
+        const nothingKept = await refuse.waitForFunction(() => document.querySelector("#main form") && !(document.querySelector("#main")?.textContent ?? "").includes("Refused product"), undefined, { timeout: 10000 }).then(() => true, () => false);
+        check(nothingKept, "a refused save leaves no half-written workspace after reload");
+      } finally {
+        await refuseContext.close();
+      }
+    });
+
+    // IndexedDB is the authority whenever the browser exposes it. If opening
+    // that authority fails, Viable must never guess that a legacy localStorage
+    // copy is safe, because it may be stale after a prior migration.
+    await section("IndexedDB failure handling", async () => {
+      const failContext = await browser.newContext();
+      const failPage = await failContext.newPage();
+      await failPage.addInitScript((value) => {
+        localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
+        localStorage.setItem("viable.product-workspace.active", "legacy-ws");
+        IDBFactory.prototype.open = function () { throw new DOMException("simulated failure", "UnknownError"); };
+      }, legacyWorkspace);
+      await failPage.goto(`${origin}/`);
+      await failPage.waitForTimeout(1500);
+      const text = (await failPage.textContent("body")) ?? "";
+      check(
+        /saved Viable data could not be opened/.test(text) && !/Legacy upgrade product/.test(text),
+        "IndexedDB authority failure always fails closed and never resurrects a legacy localStorage copy",
+      );
+      await failContext.close();
     });
 
     check(errors.length === 0, `no page errors or CSP violations${errors.length ? `: ${errors.join(" | ")}` : ""}`);
@@ -400,7 +956,7 @@ async function run() {
     const uniqueErrors = [...new Set(errors)];
     // Printed (not only written to the report) so a CI log alone explains a failure.
     if (uniqueErrors.length) console.log(`Page errors (${uniqueErrors.length}):\n  ${uniqueErrors.join("\n  ")}`);
-    await writeFile(`pwa-smoke-report-${BROWSER}.json`, `${JSON.stringify({ browser: BROWSER, version: browser.version(), support, storageAccess: storageAccessReport, results, limitations, errors: uniqueErrors }, null, 2)}\n`);
+    await writeFile(`pwa-smoke-report-${BROWSER}.json`, `${JSON.stringify({ browser: BROWSER, version: browser.version(), support, storageAccess: storageAccessReport, storageDurability: storageDurabilityReport, results, limitations, errors: uniqueErrors }, null, 2)}\n`);
     await browser.close();
     server.close();
     await rm(served, { recursive: true, force: true });

@@ -179,3 +179,37 @@ function readLegacy(legacy: LegacyKeyValueSource): Array<[string, string]> {
   }
   return entries;
 }
+
+export interface LegacyKeyValueTarget {
+  getItem(key: string): string | null;
+  removeItem(key: string): void;
+}
+
+/**
+ * Removes a deleted workspace's records from the legacy (pre-IndexedDB)
+ * localStorage copy. Call only after the authoritative deletion has been
+ * durably committed. The migration copied these records once and left them as
+ * a recovery source; once the person deletes the workspace that copy must go
+ * too, or deletion would silently retain their data.
+ *
+ * Only the given keys are touched, and the pointer is removed only when it
+ * still names the deleted workspace. Returns how many legacy entries were
+ * removed. Legacy copies of other workspaces are left untouched.
+ */
+export function purgeLegacyWorkspaceCopy(
+  legacy: LegacyKeyValueTarget,
+  keys: readonly string[],
+  pointer?: Readonly<{ key: string; value: string }>,
+): number {
+  let removed = 0;
+  for (const key of keys) {
+    if (legacy.getItem(key) === null) continue;
+    legacy.removeItem(key);
+    removed += 1;
+  }
+  if (pointer && legacy.getItem(pointer.key) === pointer.value) {
+    legacy.removeItem(pointer.key);
+    removed += 1;
+  }
+  return removed;
+}

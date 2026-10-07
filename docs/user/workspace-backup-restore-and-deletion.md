@@ -20,6 +20,19 @@ The Workspace screen inspects all seven contexts before backup, restore, reset, 
 
 The former Product-header reset control was misleading because it removed only Product Core and its active pointer while leaving downstream stores intact. The Product workflow now routes destructive workspace management to the dedicated Workspace surface instead.
 
+### Machine-local provider connections
+
+Connected-provider metadata is intentionally outside the seven portable workspace contexts. It stores non-secret provider authority plus an opaque reference to a credential held by the operating system. Copying that reference into a portable backup would not recreate usable authority on another machine and would misrepresent what the backup contains.
+
+When connected-provider metadata exists for a workspace:
+
+- normal workspace backup and recovery-point export still cover the seven portable contexts;
+- replace-current restore and product-wide deletion are blocked;
+- the Workspace screen directs the person to disconnect providers in Calendar first;
+- disconnect removes the operating-system credential before removing the local connection record.
+
+After the providers are disconnected, the destructive workspace action can proceed normally. Restore never recreates a connected account.
+
 ## Backup
 
 `Download workspace backup` produces one JSON file containing the seven workspace context slots. Each slot contains that context's local data or `null` when the context is absent.
@@ -46,7 +59,26 @@ A quarantine file preserves the raw unreadable value, its local key, owning cont
 
 Because quarantine preserves raw local bytes as text, it may contain whatever the damaged local record contained. Treat the exported file as sensitive local data and store it accordingly.
 
+### Recovery mode
+
+If stored workspace data is unreadable, Viable cannot start and shows **The local workspace could not be opened**. Nothing is changed. Choose **Open workspace recovery** to run only the Workspace screen. From there you can export quarantine data, restore a backup (replace the current workspace), or delete the workspace, with every safeguard on this page still in force. Choose **Reload Viable** when you are done.
+
 Viable blocks destructive workspace deletion while corrupt context exists until quarantine has been exported during the current Workspace recovery session. This avoids turning a deletion button into the final destroyer of the only recoverable copy.
+
+## Recovery points
+
+Deletion and replace-current restore cannot be undone inside Viable. Before either one runs, the Workspace screen asks for an explicit recovery-point decision:
+
+- **Download recovery point** saves an ordinary workspace backup of exactly the current state, named `viable-recovery-point-<workspace>-<time>.json`. Restoring that file through **Restore** brings the workspace back.
+- **Continue without a recovery point** proceeds with no restorable copy. This exists for people who are deleting data precisely because they do not want another copy of it.
+
+Neither choice is made for you, and the action is refused until one is made. Nothing is changed by a refusal.
+
+A recovery point is tied to the state it captured. If the workspace changes after the download (for example, another open Viable tab saves new work), the recovery point no longer restores what is about to be lost, so Viable refuses it and asks for a new one.
+
+Recovery points are files you control. Viable never keeps a hidden internal copy, so the deletion promise below still holds: nothing is retained inside the app. Like any backup, a recovery point contains the workspace's data; store it accordingly and delete it when you no longer need it.
+
+A recovery point is unavailable whenever a normal backup is blocked (corrupt context, missing Product Core, or credential-like fields). Export quarantine data for corrupt context first; for the remaining contexts, the only way forward is to continue explicitly without a recovery point.
 
 ## Restore
 
@@ -74,7 +106,9 @@ Successful restore writes the contexts from the backup, restores the active work
 
 Replacement is allowed only when the profile contains the same workspace ID and no competing workspace ID. Viable will not silently combine or overwrite a different local workspace.
 
-The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
+Any connected providers must be disconnected first. Provider credentials and their machine-local connection records are deliberately not restored from portable backups.
+
+A recovery-point decision is required next (see **Recovery points**). The existing values are snapshotted before writes. A partial-write failure triggers rollback to the prior local values and does not report success.
 
 The replacement operation does not imply review, approval, publication, delivery, or measurement. It restores previously stored local state.
 
@@ -90,7 +124,7 @@ Before confirmation, Viable shows:
 - what remains outside workspace deletion;
 - what is anonymized.
 
-The user must explicitly review the scope and type `DELETE`. A final desktop confirmation follows.
+Connected providers must be disconnected first. The user must then make a recovery-point decision, explicitly review the scope, and type `DELETE`. A final desktop confirmation follows.
 
 Deletion removes:
 
@@ -106,13 +140,14 @@ Deletion removes:
 Deletion retains:
 
 - Viable application files and code;
-- backup or quarantine files the user already exported outside the app;
+- backup, recovery-point, or quarantine files the user already exported outside the app;
+- provider credentials unrelated to an active workspace connection may remain in the operating system's credential vault; normal connected credentials are removed during the required disconnect step before workspace deletion;
 - unrelated operating-system, browser, or desktop-profile preferences that are not Viable workspace contexts;
 - other explicitly distinct workspace IDs, if abnormal local state contains more than one. The Workspace screen shows those IDs separately rather than combining them.
 
 Deletion anonymizes **nothing**. Workspace-scoped records are removed rather than copied into a hidden anonymous dataset or tombstone.
 
-This policy intentionally means there is no retained in-app deletion record containing the deleted workspace ID. For a local-first workspace, retaining a hidden deletion tombstone after telling a user the workspace was removed would be a contradiction. Users who need a recoverable/auditable copy should export a backup before deletion, or a quarantine package when normal backup is blocked.
+This policy intentionally means there is no retained in-app deletion record containing the deleted workspace ID. For a local-first workspace, retaining a hidden deletion tombstone after telling a user the workspace was removed would be a contradiction. Users who need a recoverable/auditable copy download a recovery point before deletion, or a quarantine package when normal backup is blocked.
 
 ## Rollback behavior
 
@@ -128,9 +163,25 @@ Rollback is best-effort if the underlying storage itself is failing repeatedly. 
 
 ## Retention
 
-Viable does not currently run automatic retention pruning for these workspace stores. Data remains local until the user changes it through an owning workflow, restores a backup over the same workspace, or explicitly deletes/resets the workspace.
+Viable never deletes or expires data on its own. Data stays until you change it in its workflow, replace it from a backup, or delete the workspace. Dates such as a Website Watch retention deadline or a publication-inventory expiry only make something eligible or unavailable; removal is always an action a person runs.
 
-If automatic retention is added later, it must define its own preview, provenance, and recovery rules before it is allowed to remove authority or evidence.
+The Workspace screen shows this policy under **How long Viable keeps data**. Its source is `src/workspace-lifecycle/retention-policy.ts`, and the deletion scope preview derives what deletion keeps from it.
+
+| Rule | Data | Where | Kept until | Workspace deletion |
+| --- | --- | --- | --- | --- |
+| workspace-data | All seven workspace contexts, including histories, ledgers and approvals | This browser profile or desktop app (IndexedDB) | You change, replace or delete it. Nothing expires automatically. | Removed |
+| website-watch-snapshots | Website Watch snapshot payloads and screenshot references | Inside the workspace | Eligible for pruning after the site's retention class: ephemeral 14 days, standard 90 days, extended no deadline. Removed only when a named person runs **Prune expired snapshots** or deletes a payload; the observation record stays. | Removed |
+| active-pointer | Which workspace is active | This browser profile or desktop app | Another workspace becomes active, or this one is deleted. | Removed |
+| legacy-copy | Pre-IndexedDB copy left by the one-time storage upgrade as a recovery source | This browser profile (localStorage) | That workspace is deleted. Copies of workspaces deleted before deletion purged them remain until you clear this site's data in the browser. | Removed |
+| migration-marker | Record that the storage upgrade ran (time and record count only) | This browser profile or desktop app (IndexedDB) | The life of the browser profile, so the upgrade never runs twice. | Kept |
+| exported-files | Backups, recovery points and quarantine exports | Files you downloaded, outside Viable | You delete the files. Viable cannot see or remove them. | Kept |
+| provider-connections | Connected-provider metadata: destination authority, opaque credential reference, provider identity and connection status | This browser profile or desktop app (IndexedDB); never contains the provider secret | You disconnect the provider. Workspace replacement and deletion are blocked while this record exists. | Blocks deletion until removed |
+| provider-credentials | Provider credentials (desktop only) | The operating system's credential vault; never workspace data, browser storage or backups | You disconnect the provider or a superseded-credential cleanup completes. Workspace deletion does not directly operate on the credential vault. | Kept |
+| app-shell-cache | Viable's own code and assets for offline use (browser app only) | Service-worker cache | You confirm an update; the previous build's cache is then removed. Contains no workspace data. | Not workspace data |
+| draft-step-position | Which step of a multi-step draft a tab was showing | This browser tab (sessionStorage) | The tab is closed. Contains no draft content. | Not workspace data |
+| browser-eviction | Everything Viable stores in a browser | This browser profile | The browser may clear site data under storage pressure unless it has granted persistent storage. Ask it to keep Viable data from the Workspace screen, and keep backups. | Not workspace data |
+
+Any future automatic retention must define its own preview, provenance and recovery rules, and update this policy, before it may remove authority or evidence.
 
 ## Demo and sample workspaces
 

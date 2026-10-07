@@ -3,6 +3,7 @@ import type {
   RepositoryMetricKind,
   RepositoryMetricObservation,
 } from "../domain/repository-growth.js";
+import { globalFetch } from "../../runtime/global-fetch.js";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 type Clock = () => Date;
@@ -63,7 +64,7 @@ export class GitHubPublicRepositoryGrowthSource {
 
   constructor(
     repository: string,
-    private readonly fetcher: FetchLike = fetch,
+    private readonly fetcher: FetchLike = globalFetch,
     private readonly clock: Clock = () => new Date(),
   ) {
     if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error("GitHub repository must use owner/name");

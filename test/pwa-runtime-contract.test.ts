@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
+
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
 
 const read = (path: string) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
@@ -37,14 +40,17 @@ test("PWA build derives immutable build identity from shipped content and keeps 
   assert.doesNotMatch(build, /new Date\(|Date\.now\(/, "builds must be deterministic");
   const desktopIndex = await read("apps/desktop/web/index.html");
   assert.doesNotMatch(desktopIndex, /pwa-runtime\.js|manifest\.webmanifest/, "the desktop runtime never registers a service worker");
-  assert.match(desktopIndex, /runtime-capabilities-shell\.js/);
+  assert.match(entry, /runtime-capabilities-shell\.js/);
+  assert.match(entry, /linkedin-connection-shell\.js/);
 });
 
 test("every workspace store persists through the shared durable storage and awaits the commit", async () => {
-  const stores = [
-    "activation-learning", "campaign-workspace", "product-workspace", "repository-growth",
-    "signals-inbox", "video-production", "website-watch",
-  ];
+  // Discovered rather than listed: adding a persisted local store without
+  // routing it through durable workspace storage must fail this contract.
+  const stores = (await readdir(new URL("../../apps/desktop/ui/", import.meta.url)))
+    .map((file) => /^local-storage-(.+)-store\.ts$/.exec(file)?.[1])
+    .filter((name): name is string => Boolean(name));
+  assert.ok(stores.length >= 8, `expected every local workspace-scoped store, found ${stores.join(", ")}`);
   for (const name of stores) {
     const source = await read(`apps/desktop/ui/local-storage-${name}-store.ts`);
     assert.doesNotMatch(source, /\blocalStorage\b/, `${name} store must not bypass workspace storage`);
@@ -56,5 +62,31 @@ test("every workspace store persists through the shared durable storage and awai
   assert.match(lifecycle, /new WorkspaceLifecycleService\(workspaceStorage\)/);
   const storage = await read("apps/desktop/ui/workspace-storage.ts");
   assert.match(storage, /durability: "strict"/);
-  assert.match(storage, /if \(markerSet\(\)\)/, "a migrated profile must fail closed rather than read stale localStorage");
+  assert.doesNotMatch(storage, /ENGINE_MARKER|markerSet/, "IndexedDB authority must not depend on a best-effort localStorage marker");
+  assert.match(
+    storage,
+    /catch \(error\)[\s\S]*showUnavailableBanner\(reason\)[\s\S]*engine: "unavailable"/,
+    "any IndexedDB open failure must fail closed rather than read a possibly stale localStorage copy",
+  );
+  assert.equal(
+    storage.match(/storage: liveLocalStorage/g)?.length,
+    1,
+    "localStorage fallback is allowed only when IndexedDB is not exposed by the runtime",
+  );
+  assert.match(storage, /await withinLoadTimeout\(DurableKeyValueStorage\.open\(/, "loading saved data is bounded so startup can never hang");
+});
+
+test("workspace deletion purges the legacy localStorage copy only after the IndexedDB deletion is durable", async () => {
+  const lifecycle = await read("apps/desktop/ui/workspace-lifecycle-shell.ts");
+  assert.match(
+    lifecycle,
+    /lifecycle\.deleteWorkspace\(workspaceId, \{ recoveryPoint \}\);\s*await workspaceStorage\.commit\(\);[\s\S]*?purgeLegacyWorkspaceRecords\(workspaceScopedKeys\(workspaceId\), \{ key: PRODUCT_ACTIVE_KEY, value: workspaceId \}\);[\s\S]*?announce\("Product-wide local workspace deletion completed"\)/,
+    "the legacy copy must be purged after the commit and before deletion is announced",
+  );
+  const storage = await read("apps/desktop/ui/workspace-storage.ts");
+  assert.match(
+    storage,
+    /export function purgeLegacyWorkspaceRecords[\s\S]*?if \(opened\.status\.engine !== "indexeddb"[\s\S]*?return 0;/,
+    "the purge runs only when IndexedDB is the authority; otherwise localStorage is the authority or nothing was deleted",
+  );
 });

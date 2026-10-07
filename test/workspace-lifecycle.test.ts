@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PRODUCT_ACTIVE_KEY,
   WORKSPACE_CONTEXTS,
+  WORKSPACE_LOCAL_CONNECTION_RECORDS,
   WORKSPACE_STORAGE_SCHEMA_VERSION,
   WorkspaceLifecycleService,
   type KeyValueStorage,
@@ -64,7 +65,7 @@ test("workspace preview enumerates every product context and makes retention sco
   assert.equal(preview.totalRecords, 11);
   assert.equal(preview.active, true);
   assert.deepEqual(preview.anonymized, []);
-  assert.match(preview.retainedOutsideWorkspace.join(" "), /User-exported backup files/);
+  assert.match(preview.retainedOutsideWorkspace.join(" "), /Backup, recovery-point and quarantine files you exported outside the app/);
 });
 
 test("backup round-trip validates integrity and restores all contexts into an empty profile", () => {
@@ -166,7 +167,7 @@ test("replace-current restore rolls back all prior context values when one write
   seedWorkspace(target, "workspace-1");
   const before = target.entries();
   target.failSetOnce = `${WORKSPACE_CONTEXTS[1].prefix}workspace-1`;
-  assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(backup, "replace_current"), /prior local state was restored/);
+  assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(backup, "replace_current", { recoveryPoint: { kind: "declined" } }), /prior local state was restored/);
   assert.deepEqual(target.entries(), before);
 });
 
@@ -175,7 +176,7 @@ test("product-wide deletion removes all workspace contexts and active pointer wh
   seedWorkspace(storage, "workspace-1");
   storage.setItem("unrelated.preference", "keep-me");
   const service = new WorkspaceLifecycleService(storage, now);
-  const deleted = service.deleteWorkspace("workspace-1");
+  const deleted = service.deleteWorkspace("workspace-1", { recoveryPoint: { kind: "declined" } });
   assert.equal(deleted.contexts.length, 7);
   assert.equal(storage.getItem(PRODUCT_ACTIVE_KEY), null);
   assert.ok(WORKSPACE_CONTEXTS.every((descriptor) => storage.getItem(`${descriptor.prefix}workspace-1`) === null));
@@ -187,7 +188,7 @@ test("failed product-wide deletion rolls back already removed contexts", () => {
   seedWorkspace(storage, "workspace-1");
   const before = storage.entries();
   storage.failRemoveOnce = `${WORKSPACE_CONTEXTS[2].prefix}workspace-1`;
-  assert.throws(() => new WorkspaceLifecycleService(storage, now).deleteWorkspace("workspace-1"), /prior local state was restored/);
+  assert.throws(() => new WorkspaceLifecycleService(storage, now).deleteWorkspace("workspace-1", { recoveryPoint: { kind: "declined" } }), /prior local state was restored/);
   assert.deepEqual(storage.entries(), before);
 });
 
@@ -260,7 +261,7 @@ test("workspace deletion works for workspaces saved in the current envelope", ()
   const storage = new MemoryStorage();
   seedEnvelopedWorkspace(storage, "ws-delete");
   const service = new WorkspaceLifecycleService(storage, now);
-  service.deleteWorkspace("ws-delete");
+  service.deleteWorkspace("ws-delete", { recoveryPoint: { kind: "declined" } });
   assert.equal(service.knownWorkspaceIds().has("ws-delete"), false);
 });
 
@@ -277,4 +278,117 @@ test("unsupported future envelope versions are corrupt and quarantinable, never 
   const quarantine = JSON.parse(service.exportQuarantine("ws-future")) as { entries: Array<{ raw: string; issue: string }> };
   assert.equal(quarantine.entries[0]?.raw, future);
   assert.match(quarantine.entries[0]?.issue ?? "", /unsupported workspace schema version 2/);
+});
+
+test("machine-local provider connections are excluded from portable backup and block destructive workspace actions", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const connectionKey = `${WORKSPACE_LOCAL_CONNECTION_RECORDS[0].prefix}workspace-1`;
+  storage.setItem(connectionKey, JSON.stringify({
+    schemaVersion: WORKSPACE_STORAGE_SCHEMA_VERSION,
+    workspace: {
+      workspaceId: "workspace-1",
+      connections: [{
+        credentialReference: "viable://credential/linkedin/connection-1/access_token",
+      }],
+      updatedAt: now().toISOString(),
+    },
+  }));
+  const service = new WorkspaceLifecycleService(storage, now);
+
+  const preview = service.inspect("workspace-1");
+  assert.equal(preview.localConnectionBlockers.length, 1);
+  assert.equal(preview.localConnectionBlockers[0]?.key, connectionKey);
+
+  const backup = service.createBackup("workspace-1");
+  assert.doesNotMatch(backup, /provider-connections|credentialReference|connection-1/);
+  const before = storage.entries();
+
+  assert.throws(
+    () => service.deleteWorkspace("workspace-1", { recoveryPoint: { kind: "declined" } }),
+    /Disconnect connected providers before deleting/,
+  );
+  assert.throws(
+    () => service.restoreBackup(backup, "replace_current", { recoveryPoint: { kind: "declined" } }),
+    /Disconnect connected providers before replacing/,
+  );
+  assert.deepEqual(storage.entries(), before);
+});
+
+test("provider-connection metadata alone keeps a workspace ID discoverable until it is disconnected", () => {
+  const storage = new MemoryStorage();
+  const connectionKey = `${WORKSPACE_LOCAL_CONNECTION_RECORDS[0].prefix}connection-only`;
+  storage.setItem(connectionKey, JSON.stringify({ schemaVersion: 1, workspace: { workspaceId: "connection-only", connections: [], updatedAt: now().toISOString() } }));
+  const service = new WorkspaceLifecycleService(storage, now);
+  assert.equal(service.knownWorkspaceIds().has("connection-only"), true);
+});
+
+test("destructive actions refuse to run without an explicit recovery-point decision", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const service = new WorkspaceLifecycleService(storage, now);
+  const backup = service.createBackup("workspace-1");
+  const before = storage.entries();
+  assert.throws(() => service.deleteWorkspace("workspace-1"), /recovery point[\s\S]*Nothing was changed/);
+  assert.throws(() => service.restoreBackup(backup, "replace_current"), /recovery point[\s\S]*Nothing was changed/);
+  assert.deepEqual(storage.entries(), before);
+});
+
+test("a recovery point restores exactly the workspace a deletion removed", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const service = new WorkspaceLifecycleService(storage, now);
+  const point = service.createRecoveryPoint("workspace-1");
+  const captured = service.validateBackup(point.backup);
+  assert.equal(captured.workspaceId, "workspace-1", "a recovery point is an ordinary validated backup");
+  service.deleteWorkspace("workspace-1", { recoveryPoint: { kind: "downloaded", fingerprint: point.fingerprint } });
+  assert.equal(storage.length, 0);
+  service.restoreBackup(point.backup, "empty_profile");
+  assert.deepEqual(service.validateBackup(service.createBackup("workspace-1")).contexts, captured.contexts);
+  assert.equal(storage.getItem(PRODUCT_ACTIVE_KEY), "workspace-1");
+});
+
+test("a recovery point taken before the workspace changed is refused as stale", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const service = new WorkspaceLifecycleService(storage, now);
+  const point = service.createRecoveryPoint("workspace-1");
+  const signalsKey = `${WORKSPACE_CONTEXTS.find((descriptor) => descriptor.name === "signals")!.prefix}workspace-1`;
+  // For example, another open tab saved a new signal after the download.
+  storage.setItem(signalsKey, JSON.stringify(contextValue("signals", "workspace-1")).replace("signal-1", "signal-2"));
+  const before = storage.entries();
+  const decision = { recoveryPoint: { kind: "downloaded", fingerprint: point.fingerprint } } as const;
+  assert.throws(() => service.deleteWorkspace("workspace-1", decision), /changed after its recovery point[\s\S]*Nothing was changed/);
+  assert.throws(() => service.restoreBackup(point.backup, "replace_current", decision), /changed after its recovery point/);
+  assert.deepEqual(storage.entries(), before);
+  const fresh = service.createRecoveryPoint("workspace-1");
+  service.deleteWorkspace("workspace-1", { recoveryPoint: { kind: "downloaded", fingerprint: fresh.fingerprint } });
+  assert.equal(storage.length, 0);
+});
+
+test("recovery points are unavailable whenever a normal backup is blocked, leaving only an explicit decline", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  storage.setItem(`${WORKSPACE_CONTEXTS[1].prefix}workspace-1`, "{not json");
+  const service = new WorkspaceLifecycleService(storage, now);
+  assert.throws(() => service.createRecoveryPoint("workspace-1"), /backup is blocked/);
+  service.deleteWorkspace("workspace-1", { recoveryPoint: { kind: "declined" } });
+  assert.equal(storage.length, 0);
+});
+
+test("the state fingerprint covers every record a destructive action would change, and nothing else", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  seedWorkspace(storage, "workspace-2");
+  storage.setItem(PRODUCT_ACTIVE_KEY, "workspace-1");
+  const service = new WorkspaceLifecycleService(storage, now);
+  const initial = service.stateFingerprint("workspace-1");
+  storage.setItem("unrelated.preference", "x");
+  storage.setItem(`${WORKSPACE_CONTEXTS[0].prefix}workspace-2`, "{}");
+  assert.equal(service.stateFingerprint("workspace-1"), initial, "other workspaces and preferences do not invalidate it");
+  storage.setItem(PRODUCT_ACTIVE_KEY, "workspace-2");
+  assert.notEqual(service.stateFingerprint("workspace-1"), initial, "the active pointer is part of what deletion changes");
+  storage.setItem(PRODUCT_ACTIVE_KEY, "workspace-1");
+  storage.removeItem(`${WORKSPACE_CONTEXTS[6].prefix}workspace-1`);
+  assert.notEqual(service.stateFingerprint("workspace-1"), initial);
 });

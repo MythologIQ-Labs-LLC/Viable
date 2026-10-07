@@ -456,4 +456,7 @@ document.addEventListener("submit", (event) => {
   }, "Explained marketability assessment saved");
 });
 
-void refresh();
+// index.html marks <main> busy until the first render. Clear it once the
+// initial workspace has rendered, or assistive technology keeps treating the
+// view as loading. A startup failure still reaches bootstrap's error screen.
+void refresh().then(() => setBusy(false));

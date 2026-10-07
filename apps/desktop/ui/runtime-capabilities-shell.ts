@@ -108,7 +108,7 @@ function markup(value: RuntimeObservation): string {
   const canRequestPersistence = value.runtime === "browser" && value.storagePersistence === "best_effort";
   return `<div class="section-heading"><div><p class="eyebrow">Runtime</p><h3 id="runtime-heading">${runtimeLabel}</h3></div><span class="pill neutral">${build}</span></div>
     <p class="guidance">Viable keeps the same product in every runtime. A capability is limited only where this runtime genuinely cannot provide it, and the reason is shown here.</p>
-    <p class="guidance" data-storage-engine="${workspaceStorageStatus.engine}">${escapeHtml(storageEngineText())}</p>
+    <p class="guidance" data-storage-engine="${workspaceStorageStatus.engine}" data-storage-persistence="${value.storagePersistence}">${escapeHtml(storageEngineText())}</p>
     ${storageUsage ? `<p class="guidance">${escapeHtml(storageUsage)}.</p>` : ""}
     ${storageMessage ? `<section class="state warning" role="status"><span>${escapeHtml(storageMessage)}</span></section>` : ""}
     ${canRequestPersistence ? `<div class="actions"><button type="button" data-runtime-action="persist-storage">Ask the browser to keep Viable data</button></div>` : ""}

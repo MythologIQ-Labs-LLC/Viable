@@ -32,7 +32,7 @@ impl CredentialVaultState {
         }
     }
 
-    fn store(&self) -> Result<&NativeCredentialStore, CredentialStoreError> {
+    pub(crate) fn store(&self) -> Result<&NativeCredentialStore, CredentialStoreError> {
         self.store.as_ref().ok_or_else(|| match self.capability {
             CredentialCapability::Inaccessible => CredentialStoreError::Inaccessible,
             CredentialCapability::Unsupported => CredentialStoreError::Unsupported,

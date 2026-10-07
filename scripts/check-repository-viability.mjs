@@ -57,16 +57,12 @@ for (const directive of ["default-src 'self'", "img-src 'self' data:", "style-sr
 }
 requireCondition(!csp.includes("'unsafe-inline'"), "Tauri CSP must not allow unsafe-inline");
 requireCondition(!csp.includes("'unsafe-eval'"), "Tauri CSP must not allow unsafe-eval");
+// #114 O5: public GitHub reads are the only external network origin.
+requireCondition(csp.includes("connect-src 'self' ipc: http://ipc.localhost https://api.github.com"), "Tauri CSP connect-src must allow exactly Tauri IPC and https://api.github.com");
+requireCondition(!csp.includes("*"), "Tauri CSP must not use wildcards");
 
-const storageFiles = [
-  "apps/desktop/ui/local-storage-product-workspace-store.ts",
-  "apps/desktop/ui/local-storage-signals-inbox-store.ts",
-  "apps/desktop/ui/local-storage-campaign-workspace-store.ts",
-  "apps/desktop/ui/local-storage-repository-growth-store.ts",
-  "apps/desktop/ui/local-storage-video-production-store.ts",
-  "apps/desktop/ui/local-storage-activation-learning-store.ts",
-  "apps/desktop/ui/local-storage-website-watch-store.ts",
-];
+const storageFiles = gitFiles("apps/desktop/ui/local-storage-*-store.ts");
+requireCondition(storageFiles.length >= 8, `Expected all persisted local workspace stores to be governed; found only ${storageFiles.length}`);
 for (const path of storageFiles) {
   const content = await read(path);
   requireCondition(content.includes("readWorkspaceJson"), `${path} must use shared local-storage integrity validation`);
@@ -75,13 +71,21 @@ for (const path of storageFiles) {
 }
 
 const storageBoundary = await read("apps/desktop/ui/local-storage-json.ts");
-requireCondition(storageBoundary.includes("CURRENT_WORKSPACE_SCHEMA_VERSION = 1"), "Workspace persistence must declare an explicit current schema version");
-requireCondition(storageBoundary.includes("LEGACY_WORKSPACE_SCHEMA_VERSION = 0"), "Workspace persistence must retain an explicit legacy-version boundary");
-requireCondition(storageBoundary.includes("schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace writes must persist the current schema version");
+const storageSchema = await read("src/workspace-lifecycle/workspace-storage-schema.ts");
+requireCondition(storageSchema.includes("CURRENT_WORKSPACE_SCHEMA_VERSION = 1"), "Workspace persistence must declare an explicit current schema version");
+requireCondition(storageSchema.includes("LEGACY_WORKSPACE_SCHEMA_VERSION = 0"), "Workspace persistence must retain an explicit legacy-version boundary");
+requireCondition(storageSchema.includes("RETAINED_WORKSPACE_SCHEMA_VERSIONS"), "Workspace persistence must list every retained schema version and its migration path");
+requireCondition(storageSchema.includes("schemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace writes must persist the current schema version");
+requireCondition(storageSchema.includes("version > CURRENT_WORKSPACE_SCHEMA_VERSION"), "Workspace reads must fail closed on unsupported future schema versions");
 requireCondition(
-  storageBoundary.includes("schemaVersion > CURRENT_WORKSPACE_SCHEMA_VERSION")
+  storageBoundary.includes("decodeStoredWorkspace") && storageBoundary.includes("encodeStoredWorkspace")
     && storageBoundary.includes("Use a compatible Viable version or restore a compatible backup before retrying."),
-  "Workspace reads must fail closed on unsupported future schema versions",
+  "Workspace store adapters must read and write through the shared storage schema contract",
+);
+const lifecycleService = await read("src/workspace-lifecycle/workspace-lifecycle-service.ts");
+requireCondition(
+  lifecycleService.includes("decodeStoredWorkspace") && lifecycleService.includes("encodeStoredWorkspace"),
+  "The workspace lifecycle service must read and write through the shared storage schema contract",
 );
 
 for (const path of gitFiles("src/**/*.ts", "apps/**/*.ts", "test/**/*.ts")) {

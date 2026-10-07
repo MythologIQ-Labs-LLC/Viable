@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("desktop loads readable prior-version history after revision controls", async () => {
   const html = await read("apps/desktop/web/index.html");
-  const revision = html.indexOf("revision-completion-shell.js");
-  const history = html.indexOf("revision-history-shell.js");
+  const revision = entry.indexOf("revision-completion-shell.js");
+  const history = entry.indexOf("revision-history-shell.js");
   assert.ok(revision >= 0);
   assert.ok(history > revision);
 });

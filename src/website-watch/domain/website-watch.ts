@@ -9,6 +9,17 @@ export type WebsiteOwnershipClassification =
 export type WebsiteWatchTargetKind = "site_links" | "page_content" | "product_price";
 export type WebsiteWatchLinkScope = "added" | "removed" | "both";
 export type WebsiteWatchRetentionClass = "ephemeral" | "standard" | "extended";
+
+/**
+ * Days after capture before a snapshot payload becomes eligible for pruning;
+ * null means no deadline. Eligibility never deletes anything by itself: a named
+ * person runs the prune (see the product retention policy).
+ */
+export const WEBSITE_WATCH_SNAPSHOT_RETENTION_DAYS: Readonly<Record<WebsiteWatchRetentionClass, number | null>> = {
+  ephemeral: 14,
+  standard: 90,
+  extended: null,
+};
 export type WebsiteWatchReviewState = "suggested" | "reviewed" | "rejected";
 export type WebsiteWatchConfidence = "low" | "medium" | "high";
 export type WebsiteWatchGeneratedKind = "generated_change_summary" | "generated_relevance_recommendation";

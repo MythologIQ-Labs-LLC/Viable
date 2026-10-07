@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// Shell load order lives in the single desktop entry module.
+const entry = await readFile("apps/desktop/ui/entry.ts", "utf8");
+
 const read = (path: string): Promise<string> => readFile(path, "utf8");
 
 test("desktop exposes Campaigns and Studio workflows", async () => {
@@ -17,7 +20,7 @@ test("desktop exposes Campaigns and Studio workflows", async () => {
   assert.match(shell, /if \(!button\.textContent\?\.trim\(\)\) button\.textContent = text;/);
   assert.match(shell, /nav === "campaigns"/);
   assert.match(shell, /nav === "studio"/);
-  assert.match(html, /campaign-shell\.js/);
+  assert.match(entry, /campaign-shell\.js/);
   for (const marker of [
     "One outcome. One audience. Traceable truth.",
     "Canonical first. Channel second.",
