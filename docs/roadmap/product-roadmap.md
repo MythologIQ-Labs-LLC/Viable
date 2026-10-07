@@ -169,6 +169,7 @@ Viable produces coherent, evidence-backed asset families from one approved campa
 - Image briefs, carousel plans, diagrams, thumbnails, and ad concepts.
 - Short-video scripts, hooks, shot lists, storyboards, captions, voiceover, aspect ratios, and edit instructions.
 - Brand voice, claim, evidence, accessibility, duplication, and channel-fit checks.
+- Deterministic composition briefs, hook/content-family metadata, experiment hypotheses, and readiness facets that guide the user without requiring generated prose.
 - Review queues, comments, version comparison, approval, rejection, and rework.
 - Export packages for design and video tools.
 
@@ -307,8 +308,13 @@ Viable helps the user decide what to repeat, stop, change, or test next.
 - Weekly and monthly marketability reviews.
 - Learning ledger connecting evidence, decision, change, and outcome.
 - Recommendation engine grounded in observed performance and product constraints.
+- Append-only publication analytics snapshots with provider/native metric provenance and explicit unavailable/manual states.
+- Comparable-publication cohorts for topic, hook, format, media, audience, and timing experiments, with conservative evidence thresholds before recommendations are made.
+- Explicit separation between distribution/engagement metrics and downstream product conversion so attention is not mislabeled as product success.
 
 ### Exit criteria
+
+Implementation architecture for deterministic composition guidance and publishing analytics is tracked in issue #156 and [`../architecture/publishing-analytics-and-composition-guidance.md`](../architecture/publishing-analytics-and-composition-guidance.md).
 
 - The system distinguishes activity from useful outcomes.
 - Attribution always identifies its model and confidence.
