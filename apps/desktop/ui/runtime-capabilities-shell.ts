@@ -3,12 +3,16 @@ import {
   type RuntimeObservation,
   type StoragePersistence,
 } from "../../../src/runtime/runtime-capabilities.js";
+import {
+  serializeSupportDiagnosticReport,
+  type SupportDiagnosticBuildInfo,
+} from "../../../src/runtime/support-diagnostics.js";
 import { NativeCredentialVaultClient } from "./native-credential-vault.js";
 import { workspaceStorageStatus } from "./workspace-storage.js";
 
 // Truthful runtime capability panel for the Workspace page (ADR-0010).
 
-type BuildInfo = Readonly<{ buildId: string; version: string; commit: string }>;
+type BuildInfo = SupportDiagnosticBuildInfo;
 
 const vault = new NativeCredentialVaultClient();
 const main = document.querySelector<HTMLElement>("#main");
@@ -108,8 +112,33 @@ function markup(value: RuntimeObservation): string {
     <p class="guidance" data-storage-engine="${workspaceStorageStatus.engine}" data-storage-persistence="${value.storagePersistence}">${escapeHtml(storageEngineText())}</p>
     ${storageUsage ? `<p class="guidance">${escapeHtml(storageUsage)}.</p>` : ""}
     ${storageMessage ? `<section class="state warning" role="status"><span>${escapeHtml(storageMessage)}</span></section>` : ""}
-    ${canRequestPersistence ? `<div class="actions"><button type="button" data-runtime-action="persist-storage">Ask the browser to keep Viable data</button></div>` : ""}
+    <p class="guidance" data-support-diagnostics-scope>Support diagnostics contain build, runtime, storage-state, capability-state, and browser user-agent facts only. They do not include workspace IDs or content, provider account metadata, tokens, logs, prompts, or raw failure text.</p>
+    <div class="actions">
+      ${canRequestPersistence ? `<button type="button" data-runtime-action="persist-storage">Ask the browser to keep Viable data</button>` : ""}
+      <button type="button" data-runtime-action="download-diagnostics">Download support diagnostics</button>
+    </div>
     <div class="table-wrap"><table><thead><tr><th scope="col">Capability</th><th scope="col">State</th><th scope="col">Why</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function downloadSupportDiagnostics(): void {
+  if (!observation) return;
+  const text = serializeSupportDiagnosticReport({
+    generatedAt: new Date().toISOString(),
+    observation,
+    ...(buildInfo ? { build: buildInfo } : {}),
+    userAgent: navigator.userAgent,
+  });
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  const stamp = new Date().toISOString().replaceAll(":", "-").replace(/\.\d{3}Z$/, "Z");
+  anchor.href = url;
+  anchor.download = `viable-support-diagnostics-${stamp}.json`;
+  anchor.hidden = true;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function render(): void {
@@ -124,8 +153,13 @@ function render(): void {
 }
 
 document.addEventListener("click", (event) => {
-  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-runtime-action="persist-storage"]');
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-runtime-action]");
   if (!button) return;
+  if (button.dataset.runtimeAction === "download-diagnostics") {
+    downloadSupportDiagnostics();
+    return;
+  }
+  if (button.dataset.runtimeAction !== "persist-storage") return;
   button.disabled = true;
   void (async () => {
     let granted = false;

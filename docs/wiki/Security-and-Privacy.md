@@ -25,6 +25,12 @@ Do not commit or import:
 - private repository contents without explicit approved provenance;
 - destination secrets inside activation packages or evidence records.
 
+## Support diagnostics
+
+Support diagnostics are a separate, content-free export. They report build identity, runtime/storage capability state, and the browser/webview user agent. They do not include workspace content, provider account metadata, credential references, tokens, prompts, logs, or raw failure text.
+
+The export is created locally and is not uploaded by Viable. Downloading it does not imply consent to share it. See [Support diagnostics](../user/support-diagnostics.md) for the exact versioned boundary.
+
 ## External content
 
 Public visibility does not automatically grant permission to scrape, reproduce, republish, or bypass access controls. Source terms, copyright, robots policies, privacy obligations, and applicable law remain separate constraints.

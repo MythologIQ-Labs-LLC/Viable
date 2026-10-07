@@ -183,6 +183,12 @@ The Workspace screen shows this policy under **How long Viable keeps data**. Its
 
 Any future automatic retention must define its own preview, provenance and recovery rules, and update this policy, before it may remove authority or evidence.
 
+## Support diagnostics
+
+The Workspace runtime panel can download a [content-free support diagnostics report](support-diagnostics.md). It contains build/runtime/storage capability facts and browser/webview environment information, not workspace content.
+
+Support diagnostics are separate from workspace backups, recovery points, and quarantine exports. Downloading the report does not upload or share it.
+
 ## Demo and sample workspaces
 
 Demo/sample data uses the same workspace boundary as ordinary data. There is no special partial reset that leaves dependent contexts behind.

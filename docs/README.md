@@ -111,6 +111,7 @@ Human acceptance evidence is deliberately separate from automated CI and impleme
 - [Public Repository Growth and Launch workflow](user/repository-growth.md)
 - [Video Production in Studio](user/video-production.md)
 - [Calendar, Manual Activation, Outcomes, and Learning](user/calendar-activation-and-learning.md)
+- [Support diagnostics](user/support-diagnostics.md)
 
 ## Wiki pages
 
