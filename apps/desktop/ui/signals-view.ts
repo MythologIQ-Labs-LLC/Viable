@@ -120,6 +120,21 @@ export class SignalsViewController {
     throw new Error(`${health.status.replaceAll("_", " ")}: ${health.detail ?? "the source returned no usable evidence"}. Nothing was imported from this attempt; source health records it`);
   }
 
+  // One signal may yield several pieces of work, so converting again is
+  // allowed; this only makes an existing proposal visible first (#158).
+  private existingProposals(signalId: string): string {
+    const existing = this.inbox?.conversions.filter((conversion) => conversion.signalId === signalId) ?? [];
+    if (!existing.length) return "";
+    return `<div class="inline-warning" data-existing-proposals><strong>Already proposed from this signal:</strong><ul>${existing.map((conversion) => `<li>${escapeHtml(conversion.title)} (${escapeHtml(conversion.kind.replaceAll("_", " "))}, ${escapeHtml(conversion.status.replaceAll("_", " "))})</li>`).join("")}</ul>Converting again creates a separate proposal.</div>`;
+  }
+
+  // People see where evidence came from, not internal source identifiers.
+  private sourceName(sourceId: string): string {
+    const registration = this.inbox?.sources.find((source) => source.id === sourceId)
+      ?? this.website?.sources.find((source) => source.id === sourceId);
+    return registration ? `${registration.label} (${humanDate(registration.configuredAt)})` : "Unnamed source";
+  }
+
   async submit(formElement: HTMLFormElement): Promise<string | undefined> {
     const form = new FormData(formElement);
     const kind = formElement.dataset.form;
@@ -362,8 +377,8 @@ export class SignalsViewController {
         <p>Import events, repositories, and website changes; inspect source health; and convert only reviewed evidence into owned work or Calendar follow-up.</p></div>${pill("local only")}</header>
       ${this.failure ? `<section class="state error" role="alert"><div><strong>Signal operation failed.</strong><p>${escapeHtml(this.failure)}</p></div><button type="button" data-nav="signals">Return to saved inbox</button></section>` : ""}
       <section class="state offline"><strong>Manual paths remain available.</strong><span>Live website crawling is not enabled. Provider failures do not erase successful local evidence.</span></section>
-      ${failures.length ? `<section class="state warning"><div><strong>Partial source health</strong><p>${failures.map((item) => `${escapeHtml(item.sourceId)}: ${escapeHtml(item.status)}`).join(" · ")}</p></div></section>` : ""}
-      ${verifiedEmpty.length ? `<section class="state"><strong>Verified empty</strong><span>${verifiedEmpty.map((item) => escapeHtml(item.sourceId)).join(", ")} completed successfully and returned no evidence.</span></section>` : ""}
+      ${failures.length ? `<section class="state warning"><div><strong>Partial source health</strong><p>${failures.map((item) => `${escapeHtml(this.sourceName(item.sourceId))}: ${escapeHtml(item.status.replaceAll("_", " "))}`).join(" · ")}</p></div></section>` : ""}
+      ${verifiedEmpty.length ? `<section class="state"><strong>Verified empty</strong><span>${verifiedEmpty.map((item) => escapeHtml(this.sourceName(item.sourceId))).join(", ")} completed successfully and returned no evidence.</span></section>` : ""}
       ${this.sourceHealth(inbox.sourceHealth)}
       ${this.websiteWatchSection()}
       <section class="panel" aria-labelledby="sources-heading">
@@ -517,7 +532,7 @@ ${escapeHtml(signal.summary)}</textarea></label>
         <p class="guidance">Website Watch remains authoritative for the reviewed observation; Calendar owns the response plan. This creates planning only. It does not publish, notify a provider, alter Product Core, or claim delivery.</p>
         <div class="two"><label>Response kind<select name="calendarKind"><option value="follow_up">Follow-up</option><option value="experiment">Experiment</option><option value="event_opportunity">Opportunity</option><option value="approval_deadline">Approval deadline</option></select></label><label>Start<input name="startsAt" type="datetime-local" required value="${start}"></label></div>
         <div class="two"><label>Optional end<input name="endsAt" type="datetime-local"></label><label>Timezone<input name="timezone" required value="${escapeHtml(timezone)}"></label></div>
-        <label>Planning notes<textarea name="notes" rows="3">Review Website Watch observation ${escapeHtml(observation.id)} and the bounded source evidence before deciding a reversible response.</textarea></label>
+        <label>Planning notes<textarea name="notes" rows="3">Review the Website Watch change for ${escapeHtml(this.website?.sites.find((site) => site.id === observation.watchedSiteId)?.displayName ?? "the watched site")} observed ${escapeHtml(humanDate(observation.observedAt))} and the bounded source evidence before deciding a reversible response.</textarea></label>
         <button type="submit">Create authoritative Calendar response plan</button>
       </form>
     </details>`;
@@ -545,7 +560,7 @@ ${escapeHtml(signal.summary)}</textarea></label>
 
   private websiteHealth(): string {
     const health = this.website!.sourceHealth;
-    return `<div class="health-grid website-health">${health.length ? health.map((item) => `<article><div class="record-top"><strong>${escapeHtml(item.sourceId)}</strong>${pill(item.status)}</div><small>Checked ${humanDate(item.checkedAt)}</small>${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ""}<details><summary>Source limitations</summary><ul class="limitations">${item.limitations.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></details></article>`).join("") : `<div class="state empty"><strong>No Website Watch source attempts.</strong><span>Configuration alone does not imply a successful source check.</span></div>`}</div>`;
+    return `<div class="health-grid website-health">${health.length ? health.map((item) => `<article><div class="record-top"><strong>${escapeHtml(this.sourceName(item.sourceId))}</strong>${pill(item.status)}</div><small>Checked ${humanDate(item.checkedAt)}</small>${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ""}<details><summary>Source limitations</summary><ul class="limitations">${item.limitations.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></details></article>`).join("") : `<div class="state empty"><strong>No Website Watch source attempts.</strong><span>Configuration alone does not imply a successful source check.</span></div>`}</div>`;
   }
 
   private siteCard(site: WatchedSite): string {
@@ -562,7 +577,7 @@ ${escapeHtml(signal.summary)}</textarea></label>
     const snapshot = this.website!.snapshots.find((item) => item.id === observation.currentSnapshotId);
     const analyses = this.website!.generatedAnalyses.filter((item) => observation.generatedAnalysisIds.includes(item.id));
     const signal = this.inbox!.signals.find((item) => item.facts.websiteWatchObservationId === observation.id);
-    return `<article class="record website-observation"><div class="record-top"><h4>${escapeHtml(site?.displayName ?? "Website observation")}</h4><div>${pill(observation.changeKind)} ${pill(observation.evidenceState)} ${pill(observation.reviewState)}</div></div><p class="diff-preview">${escapeHtml(observation.diffPreview || "No bounded diff preview supplied")}</p><dl><div><dt>Observed</dt><dd>${humanDate(observation.observedAt)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(observation.confidence)}</dd></div><div><dt>Source</dt><dd>${escapeHtml(observation.sourceId)}</dd></div><div><dt>Signal review</dt><dd>${escapeHtml(signal?.evidenceState ?? "No correlated signal")}</dd></div></dl>${snapshot ? this.snapshotDetails(snapshot) : `<div class="inline-warning"><strong>Snapshot reference unavailable.</strong></div>`}<details><summary>Evidence limitations</summary><ul class="limitations">${observation.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>${analyses.length ? `<div class="generated-analysis"><strong>Generated analysis, not evidence</strong>${analyses.map((analysis) => this.analysisCard(analysis)).join("")}</div>` : ""}${observation.reviewState === "suggested" ? `<p class="guidance">Accept or dismiss the correlated signal below. Named signal review synchronizes this observation.</p>` : ""}${signal && signal.evidenceState === "reviewed" && observation.reviewState === "reviewed" ? this.calendarForm(signal, observation) : ""}</article>`;
+    return `<article class="record website-observation"><div class="record-top"><h4>${escapeHtml(site?.displayName ?? "Website observation")}</h4><div>${pill(observation.changeKind)} ${pill(observation.evidenceState)} ${pill(observation.reviewState)}</div></div><p class="diff-preview">${escapeHtml(observation.diffPreview || "No bounded diff preview supplied")}</p><dl><div><dt>Observed</dt><dd>${humanDate(observation.observedAt)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(observation.confidence)}</dd></div><div><dt>Source</dt><dd>${escapeHtml(this.sourceName(observation.sourceId))}</dd></div><div><dt>Signal review</dt><dd>${escapeHtml(signal?.evidenceState ?? "No correlated signal")}</dd></div></dl>${snapshot ? this.snapshotDetails(snapshot) : `<div class="inline-warning"><strong>Snapshot reference unavailable.</strong></div>`}<details><summary>Evidence limitations</summary><ul class="limitations">${observation.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>${analyses.length ? `<div class="generated-analysis"><strong>Generated analysis, not evidence</strong>${analyses.map((analysis) => this.analysisCard(analysis)).join("")}</div>` : ""}${observation.reviewState === "suggested" ? `<p class="guidance">Accept or dismiss the correlated signal below. Named signal review synchronizes this observation.</p>` : ""}${signal && signal.evidenceState === "reviewed" && observation.reviewState === "reviewed" ? this.calendarForm(signal, observation) : ""}</article>`;
   }
 
   private snapshotDetails(snapshot: WebsiteSnapshot): string {
@@ -598,7 +613,7 @@ ${escapeHtml(signal.summary)}</textarea></label>
 
   private sourceHealth(health: readonly SourceHealth[]): string {
     return `<section class="panel" aria-labelledby="health-heading"><div class="section-heading"><div><p class="eyebrow">Source health</p><h3 id="health-heading">Latest Signals collection state</h3></div></div>
-      <div class="health-grid">${health.length ? health.map((item) => `<article><div class="record-top"><strong>${escapeHtml(item.sourceId)}</strong>${pill(item.status)}</div><small>Checked ${humanDate(item.checkedAt)}</small>${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ""}</article>`).join("") : `<div class="state empty"><strong>No source checks yet.</strong><span>Source health appears after the first collection or import attempt.</span></div>`}</div></section>`;
+      <div class="health-grid">${health.length ? health.map((item) => `<article><div class="record-top"><strong>${escapeHtml(this.sourceName(item.sourceId))}</strong>${pill(item.status)}</div><small>Checked ${humanDate(item.checkedAt)}</small>${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ""}</article>`).join("") : `<div class="state empty"><strong>No source checks yet.</strong><span>Source health appears after the first collection or import attempt.</span></div>`}</div></section>`;
   }
 
   private signalCard(signal: SignalRecord, readonly = false): string {
@@ -606,12 +621,12 @@ ${escapeHtml(signal.summary)}</textarea></label>
     return `<article class="record signal-card">
       <div class="record-top"><h4>${escapeHtml(signal.title)}</h4><div>${pill(signal.kind)} ${pill(signal.status)} ${pill(signal.evidenceState)}</div></div>
       <p>${escapeHtml(signal.summary)}</p>
-      <dl><div><dt>Source</dt><dd>${escapeHtml(signal.provenance.provider)} · ${escapeHtml(signal.sourceId)}</dd></div><div><dt>Retrieved</dt><dd>${humanDate(signal.provenance.retrievedAt)}</dd></div><div><dt>Freshness review</dt><dd>${humanDate(signal.freshnessReviewAt)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(signal.confidence)}</dd></div></dl>
+      <dl><div><dt>Source</dt><dd>${escapeHtml(this.sourceName(signal.sourceId))}</dd></div><div><dt>Retrieved</dt><dd>${humanDate(signal.provenance.retrievedAt)}</dd></div><div><dt>Freshness review</dt><dd>${humanDate(signal.freshnessReviewAt)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(signal.confidence)}</dd></div></dl>
       <details><summary>Evidence drawer</summary><p><strong>Provenance:</strong> ${escapeHtml(signal.provenance.sourceUrl ?? "No validated source URL")}</p><p><strong>Limitations:</strong> ${escapeHtml(signal.limitations.join(" · "))}</p><p><strong>Facts:</strong> ${escapeHtml(JSON.stringify(signal.facts))}</p><p><strong>Relationships:</strong> ${escapeHtml(signal.relationships.map((item) => `${item.kind}: ${item.label}`).join(" · ") || "None")}</p></details>
       ${signal.tags.length ? `<p class="tag-list">${signal.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</p>` : ""}
       ${!readonly ? `<div class="actions">${signal.evidenceState === "suggested" ? `<button type="button" data-signal-action="accept" data-id="${escapeHtml(signal.id)}">Accept with named review</button><button type="button" data-signal-action="dismiss" data-id="${escapeHtml(signal.id)}">Dismiss</button>` : ""}<button type="button" data-signal-action="save" data-id="${escapeHtml(signal.id)}">Save</button><button type="button" data-signal-action="tag" data-id="${escapeHtml(signal.id)}">Tag</button><button type="button" data-signal-action="assign" data-id="${escapeHtml(signal.id)}">Assign</button></div>
       <details><summary>Connect evidence</summary><form data-form="signals-connect"><input type="hidden" name="signalId" value="${escapeHtml(signal.id)}"><div class="three"><label>Relationship<select name="relationshipKind"><option value="product">Product</option><option value="icp_hypothesis">ICP hypothesis</option><option value="topic">Topic</option><option value="repository">Repository</option><option value="opportunity">Opportunity</option></select></label><label>Target identifier<input name="targetId" required></label><label>Label<input name="label" required></label></div><button type="submit">Connect signal</button></form></details>
-      ${reviewed ? `<details><summary>Convert to proposed work</summary><form data-form="signals-convert"><input type="hidden" name="signalId" value="${escapeHtml(signal.id)}"><label>Work type<select name="kind"><option value="product_action">Product action</option><option value="icp_validation_action">ICP validation action</option><option value="campaign_brief">Campaign brief</option><option value="content_brief">Content brief</option><option value="repository_growth_action">Repository growth action</option><option value="website_watch_action">Website response action</option><option value="product_feedback">Product feedback</option></select></label><label>Title<input name="title" required value="Review: ${escapeHtml(signal.title)}"></label><label>Named owner<input name="owner" required value="${escapeHtml(signal.owner ?? this.defaultOwner)}"></label><button type="submit">Create proposed work</button></form></details>` : ""}` : ""}
+      ${reviewed ? `<details><summary>Convert to proposed work</summary>${this.existingProposals(signal.id)}<form data-form="signals-convert"><input type="hidden" name="signalId" value="${escapeHtml(signal.id)}"><label>Work type<select name="kind"><option value="product_action">Product action</option><option value="icp_validation_action">ICP validation action</option><option value="campaign_brief">Campaign brief</option><option value="content_brief">Content brief</option><option value="repository_growth_action">Repository growth action</option><option value="website_watch_action">Website response action</option><option value="product_feedback">Product feedback</option></select></label><label>Title<input name="title" required value="Review: ${escapeHtml(signal.title)}"></label><label>Named owner<input name="owner" required value="${escapeHtml(signal.owner ?? this.defaultOwner)}"></label><button type="submit">Create proposed work</button></form></details>` : ""}` : ""}
     </article>`;
   }
 

@@ -1003,6 +1003,24 @@ async function run() {
         check(prefilled === "Morgan Reyes" && stocked.includes("Smoke Reviewer ·") && stocked.includes("Review note: Smoke review note"), `a two-field inline review records reviewer and note in order (prefilled ${prefilled || "nothing"})`);
         check(journeyDialogs.length === dialogsBefore, "no browser dialog opened for inline-form actions");
 
+        // Readable source names (#157) and a visible earlier proposal (#158).
+        await go("signals");
+        const signalsText = (await journey.locator("#main").textContent()) ?? "";
+        check(!signalsText.includes("manual:ledgerly-community-notes-2026-09") && signalsText.includes("Manual JSON import ("), "Signals names sources instead of showing internal source IDs");
+        const studios = () => journey.locator("#main article", { hasText: "Studio owners asking for receipt matching" }).first();
+        await studios().locator("summary", { hasText: "Convert to proposed work" }).click();
+        await studios().locator('form[data-form="signals-convert"] button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("converted into proposed owned work"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        await studios().locator("summary", { hasText: "Convert to proposed work" }).click();
+        const notice = ((await studios().locator("[data-existing-proposals]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
+        check(notice.includes("Already proposed from this signal") && notice.includes("Review: Studio owners"), "converting a signal again first shows the proposal it already produced");
+
+        // Runtime panel results are announced (#161).
+        await go("workspace");
+        await Promise.all([journey.waitForEvent("download", { timeout: 10000 }), journey.click('[data-runtime-action="download-diagnostics"]')]);
+        check((await liveText()).includes("Support diagnostics downloaded"), "downloading support diagnostics is announced");
+
         await journey.setViewportSize({ width: 640, height: 360 });
         for (const view of ["product", "studio", "workspace"]) {
           await go(view);

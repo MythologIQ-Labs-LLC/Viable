@@ -19,6 +19,9 @@ let workspace: ProductWorkspace | undefined;
 let page: "home" | "product" | "signals" | "market" = "home";
 let signalsController: SignalsViewController | undefined;
 let lastFailure: string | undefined;
+// A failed reload from storage (not a failed change): nothing was changed,
+// and the previously loaded copy is not shown as if it were current.
+let loadFailure: string | undefined;
 
 const dimensionLabels: Record<IcpDimension, string> = {
   problemIntensity: "Problem intensity", urgency: "Urgency", productFit: "Product fit",
@@ -58,6 +61,7 @@ function setBusy(busy: boolean): void {
 async function refresh(): Promise<void> {
   const id = store.activeWorkspaceId();
   workspace = id ? await store.load(id) : undefined;
+  loadFailure = undefined;
   if (workspace) {
     if (!signalsController || signalsController.workspaceId !== workspace.id) {
       signalsController = new SignalsViewController(workspace.id, workspace.createdBy);
@@ -337,6 +341,7 @@ function productView(value: ProductWorkspace): string {
 
 function render(): void {
   document.querySelector<HTMLElement>("#sidebar")!.innerHTML = nav();
+  if (loadFailure) { main.innerHTML = loadFailureView(loadFailure); return; }
   main.innerHTML = workspace
     ? page === "home"
       ? homeView(workspace)
@@ -344,6 +349,23 @@ function render(): void {
         ? productView(workspace)
         : signalsController?.render(page) ?? '<section class="state loading" role="status"><strong>Loading Signals Inbox</strong></section>'
     : emptyWorkspace();
+}
+
+function loadFailureView(detail: string): string {
+  return `<section class="state error" role="alert" data-workspace-load-failure><div><strong>This workspace could not be loaded from local storage.</strong><p>Nothing was changed. ${escapeHtml(detail)}</p><p>If this keeps happening, open Workspace to export unreadable data or restore a backup.</p></div><button type="button" data-action="retry-load">Try loading again</button></section>`;
+}
+
+// Reloads from storage; a failure shows the load-failure state, never the
+// previously loaded copy.
+function reload(): void {
+  void refresh().then(() => main.focus(), (error: unknown) => {
+    loadFailure = error instanceof Error ? error.message : "Unknown local storage error";
+    workspace = undefined;
+    signalsController = undefined;
+    render();
+    announce(`Workspace could not be loaded: ${loadFailure}`);
+    main.focus();
+  });
 }
 
 function rolesFrom(form: FormData): IcpRoles {
@@ -374,11 +396,7 @@ document.addEventListener("click", (event) => {
     // or delete the workspace (and another tab can change it) without this
     // module's cached copy knowing, so rendering the cache would show a
     // workspace that no longer exists, or hide one that was just restored.
-    void refresh().then(() => main.focus(), (error: unknown) => {
-      lastFailure = error instanceof Error ? error.message : "Unknown local error";
-      render();
-      announce(`Workspace could not be loaded: ${lastFailure}`);
-    });
+    reload();
     return;
   }
   if (button.dataset.signalAction && signalsController) {
@@ -392,7 +410,8 @@ document.addEventListener("click", (event) => {
     return;
   }
   const action = button.dataset.action;
-  if (action === "retry-render") { lastFailure = undefined; void refresh(); }
+  if (action === "retry-render") { lastFailure = undefined; reload(); }
+  if (action === "retry-load") { lastFailure = undefined; reload(); }
   if (action === "reset-workspace") { if (confirm("Delete this local workspace from this desktop profile?")) { void store.clearActiveWorkspace().then(() => { workspace = undefined; page = "home"; render(); announce("Local workspace deleted"); }, (error: unknown) => announce(`Local workspace was not deleted: ${error instanceof Error ? error.message : "storage error"}`)); } }
   if (!workspace || !button.dataset.id) {
     if (action === "create-gap-action" && workspace) {
