@@ -899,11 +899,22 @@ async function run() {
         await go("signals");
         const advanced = journey.locator("summary", { hasText: "Advanced: raw JSON adapter imports" }).first();
         const sources = journey.locator("summary", { hasText: "Manage evidence sources" }).first();
-        const advancedVisible = await advanced.isVisible();
-        console.log(`  journey signals disclosures: ${await disclosureState()} advancedVisible=${advancedVisible}`);
-        if (!advancedVisible) await sources.click();
-        console.log(`  journey signals disclosures after sources: ${await disclosureState()}`);
-        await advanced.click();
+        // Open disclosures by their own state, not by visibility: WebKit gives
+        // a summary nested in a closed <details> a layout box, so Playwright
+        // reports it visible though it cannot be clicked (#149; app-free
+        // control below).
+        const openDisclosure = async (summary) => {
+          if (!(await summary.evaluate((element) => element.parentElement?.open === true))) await summary.click();
+        };
+        await openDisclosure(sources);
+        await openDisclosure(advanced);
+        if (BROWSER === "webkit") {
+          const control = await journeyContext.newPage();
+          await control.setContent("<details><summary>outer</summary><details><summary id=nested>nested</summary><p>body</p></details></details>");
+          const nestedVisible = await control.locator("#nested").isVisible();
+          await control.close();
+          console.log(`  engine control: a summary nested in a closed <details> reports visible=${nestedVisible} (app-free page)`);
+        }
         const raw = journey.locator('form[data-form="signals-manual-import"]');
         await raw.locator('textarea[name="payload"]').fill(malformed);
         await raw.locator('button[type="submit"]').click();
