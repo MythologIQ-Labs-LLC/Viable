@@ -82,5 +82,15 @@ This section was added after the record above and leaves it unchanged.
 - #149: the WebKit stop in the seeded smoke journeys was a harness issue, not a Viable defect. WebKit gives a summary nested inside a closed `<details>` a layout box, so Playwright reported it visible; an app-free control page reproduces this. The smoke now opens disclosures from their own state (#151).
 - A later harness finding: Playwright's Firefox `page.reload()` on a `#hash` URL adds a history entry, which broke a new smoke check on `main`. Diagnostic runs showed that Viable returns to the right page on Back in Firefox and WebKit, and the check now reloads from inside the page (#153).
 
-The current acceptance candidate is [UX candidate 2026-10-07b](../acceptance/ux-candidate-2026-10-07b.md). The P3 findings listed above remain open.
+At that point the current acceptance candidate was [UX candidate 2026-10-07b](../acceptance/ux-candidate-2026-10-07b.md), and the P3 findings listed above were still open.
+
+## Second follow-up, later on 2026-10-07
+
+The P3 findings were filed as issues and fixed:
+
+- #157 readable names instead of internal identifiers, and #158 the earlier-proposal notice (both #163);
+- #159 recheck history that keeps the original review, with a three-year limit on the next review date (#162);
+- #160 a fail-closed load-failure state, and #161 announcements on the runtime panel (both #163).
+
+The current acceptance candidate is [UX candidate 2026-10-07c](../acceptance/ux-candidate-2026-10-07c.md). The Windows-only smoke teardown hang (Harness row above) is the only finding from this record still open.
 
