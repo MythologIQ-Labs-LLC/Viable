@@ -19,6 +19,8 @@ The architecture therefore needs to permit intentionally duplicative provider ca
 
 Viable will treat publishing analytics as part of the productization learning loop.
 
+The required baseline is deterministic and inference-free. Viable must not require an LLM or other model to create a composition brief, run composition guidance, validate readiness, approve exact content, publish approved content, collect analytics, calculate derived metrics, compare cohorts, or produce threshold-based advisory learning. A future optional language-assistance feature may exist only as an additive proposal layer and may not replace this deterministic path.
+
 Viable may publish and measure content on supported personal or organization destinations only when that content is governed by a Viable product, repository, campaign, ICP, marketability, launch, or related productization objective.
 
 Viable does not own a person's career history, employability, target role, recruiter positioning, or personal-brand strategy. Those concerns belong outside Viable, including in Job Ranger when applicable.
