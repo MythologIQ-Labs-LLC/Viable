@@ -206,7 +206,62 @@ async function seedLegacyWorkspace(context) {
 
 // Every variant starts from a service-worker-controlled page with a saved
 // workspace (unless noted) and ends with the reload under test.
+const reloadShowing = async (page, text) => {
+  await page.reload();
+  await page.waitForFunction((expected) => document.querySelector("#main")?.textContent?.includes(expected), text, { timeout: 10000 });
+};
 const VARIANTS = {
+  "bisect: IndexedDB write + reload, then reload again": async ({ page }) => {
+    await putProductName(page, "Probe product");
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+  },
+  "bisect: reload (no write), then replace-current, reload": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+    await page.setInputFiles("[data-workspace-import]", path);
+    await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+    await page.check("[data-workspace-restore-decline]");
+    await page.click('[data-workspace-action="restore-replace"]');
+    await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+  },
+  "bisect: reload, then setInputFiles preview only, reload": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+    await page.setInputFiles("[data-workspace-import]", path);
+    await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+  },
+  "bisect: reload, then delete + empty-profile restore, reload": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+    await deleteWorkspace(page);
+    await restore(page, path);
+  },
+  "bisect: reload, then a saved Product change (no restore), reload": async ({ page }) => {
+    await reloadShowing(page, "Probe product");
+    await page.click('nav button[data-nav="product"]', { noWaitAfter: true });
+    const form = page.locator('form[data-ux-revision-form="product-truth"]');
+    await form.waitFor({ timeout: 10000 });
+    await form.locator('textarea[name="rationale"]').fill("Probe revision");
+    await form.locator('button[type="submit"]').click();
+    await page.waitForTimeout(1500);
+  },
+  "bisect: replace-current with in-page location.reload() for both reloads": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await putProductName(page, "Probe changed");
+    await Promise.all([page.waitForEvent("load"), page.evaluate(() => location.reload())]);
+    await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Probe changed"), undefined, { timeout: 10000 });
+    await openWorkspaceView(page);
+    await page.setInputFiles("[data-workspace-import]", path);
+    await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+    await page.check("[data-workspace-restore-decline]");
+    await page.click('[data-workspace-action="restore-replace"]');
+    await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+    return { inPageReload: true };
+  },
   "replace-current (decline point), reload": async ({ page, path }) => { await replaceCurrent(page, path); },
   "replace-current, no reload before restore, reload": async ({ page, path }) => { await replaceCurrent(page, path, { reloadBefore: false }); },
   "replace-current with recovery-point download, reload": async ({ page, path }) => { await replaceCurrent(page, path, { recoveryPoint: true }); },
@@ -332,7 +387,9 @@ async function runVariant(name, body, { serviceWorkers }) {
     stage = "steps";
     const how = (await body({ page, path, context })) ?? {};
     stage = "reload";
-    if (how.goto) await page.goto(page.url()); else await page.reload();
+    if (how.goto) await page.goto(page.url());
+    else if (how.inPageReload) await Promise.all([page.waitForEvent("load", { timeout: 15000 }), page.evaluate(() => location.reload())]);
+    else await page.reload();
     stage = "render after reload";
     if (how.anyView) await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0 && document.querySelector("#main")?.getAttribute("aria-busy") !== "true", undefined, { timeout: 10000 });
     else if (how.expectEmpty) await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0 && !document.querySelector("#main")?.textContent?.includes("Probe product"), undefined, { timeout: 10000 });
