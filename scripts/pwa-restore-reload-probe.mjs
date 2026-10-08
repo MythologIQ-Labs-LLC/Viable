@@ -147,9 +147,72 @@ async function blankHistory(page, { back, viaHash, count = 10 }) {
   if (back) { await page.goBack(); await page.waitForTimeout(300); }
 }
 
+// Replace-current restore (the smoke's crashing path): a backup of the same
+// workspace replaces it after the stored copy changed.
+const putProductName = (page, name) => page.evaluate((newName) => new Promise((resolvePut, rejectPut) => {
+  const open = indexedDB.open("viable-workspace");
+  open.onerror = () => rejectPut(open.error);
+  open.onsuccess = () => {
+    const store = open.result.transaction("kv", "readwrite").objectStore("kv");
+    const keys = store.getAllKeys();
+    keys.onsuccess = () => {
+      const key = keys.result.find((candidate) => String(candidate).startsWith("viable.product-workspace.") && !String(candidate).endsWith(".active"));
+      const get = store.get(key);
+      get.onsuccess = () => {
+        const record = JSON.parse(get.result);
+        record.workspace.product.identity.name = newName;
+        store.put(JSON.stringify(record), key);
+        store.transaction.oncomplete = () => { open.result.close(); resolvePut(undefined); };
+      };
+    };
+  };
+}), name);
+
+async function replaceCurrent(page, path, { reloadBefore = true, recoveryPoint = false } = {}) {
+  await downloadBackup(page, path);
+  await putProductName(page, "Probe changed");
+  if (reloadBefore) {
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Probe changed"), undefined, { timeout: 10000 });
+  }
+  await openWorkspaceView(page);
+  await page.setInputFiles("[data-workspace-import]", path);
+  await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+  if (recoveryPoint) {
+    const [point] = await Promise.all([page.waitForEvent("download"), page.click('section[aria-labelledby="restore-heading"] [data-workspace-action="recovery-point"]')]);
+    await point.saveAs(`${path}.point.json`);
+  } else {
+    await page.check("[data-workspace-restore-decline]");
+  }
+  await page.click('[data-workspace-action="restore-replace"]');
+  await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+}
+
+// The smoke starts this section from a legacy localStorage copy that Viable
+// migrates into IndexedDB (an init script seeds it before every load).
+async function seedLegacyWorkspace(context) {
+  await context.addInitScript(() => {
+    if (localStorage.getItem("viable.product-workspace.active")) return;
+    const now = "2026-10-01T12:00:00.000Z";
+    const workspace = {
+      id: "legacy-ws", createdAt: now, createdBy: "Probe owner",
+      product: { identity: { name: "Probe product", description: "Legacy probe", lifecycle: "concept", supportedEnvironments: [] }, capabilities: [], limitations: [], positioning: "", alternatives: [], differentiation: [], pricing: [], packaging: [], offers: [], callsToAction: [], brandVoice: [], terminology: {}, accessibilityConstraints: [], revision: 1, updatedAt: now, updatedBy: "Probe owner" },
+      claims: [], evidence: [], icpHypotheses: [], assessments: [], actions: [],
+    };
+    localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace }));
+    localStorage.setItem("viable.product-workspace.active", "legacy-ws");
+  });
+}
+
 // Every variant starts from a service-worker-controlled page with a saved
 // workspace (unless noted) and ends with the reload under test.
 const VARIANTS = {
+  "replace-current (decline point), reload": async ({ page, path }) => { await replaceCurrent(page, path); },
+  "replace-current, no reload before restore, reload": async ({ page, path }) => { await replaceCurrent(page, path, { reloadBefore: false }); },
+  "replace-current with recovery-point download, reload": async ({ page, path }) => { await replaceCurrent(page, path, { recoveryPoint: true }); },
+  "legacy localStorage start: migrate, reload": async () => {},
+  "legacy localStorage start: replace-current, reload": async ({ page, path }) => { await replaceCurrent(page, path, { recoveryPoint: true }); },
+  "legacy localStorage start: replace-current (decline point), reload": async ({ page, path }) => { await replaceCurrent(page, path); },
   "baseline: workspace, reload": async () => {},
   "accepted confirm() dialog, reload": async ({ page }) => {
     await page.evaluate(() => { window.confirm("probe"); });
@@ -236,6 +299,8 @@ async function runVariant(name, body, { serviceWorkers }) {
   const browser = await ENGINES[BROWSER].launch(launch);
   const context = await browser.newContext({ serviceWorkers, acceptDownloads: true });
   context.setDefaultTimeout(15_000);
+  const legacy = name.startsWith("legacy localStorage start");
+  if (legacy) await seedLegacyWorkspace(context);
   const page = await context.newPage();
   const events = [];
   let crashed = false;
@@ -262,8 +327,8 @@ async function runVariant(name, body, { serviceWorkers }) {
       await page.reload();
       if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) events.push("page not service-worker controlled");
     }
-    stage = "create workspace";
-    await createWorkspace(page);
+    stage = legacy ? "migrated workspace" : "create workspace";
+    if (legacy) await hasProduct(page); else await createWorkspace(page);
     stage = "steps";
     const how = (await body({ page, path, context })) ?? {};
     stage = "reload";
@@ -278,6 +343,7 @@ async function runVariant(name, body, { serviceWorkers }) {
   } finally {
     await browser.close().catch(() => undefined);
     await rm(path, { force: true });
+    await rm(`${path}.point.json`, { force: true });
   }
 }
 
