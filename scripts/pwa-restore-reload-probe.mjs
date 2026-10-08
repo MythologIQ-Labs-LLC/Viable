@@ -147,9 +147,152 @@ async function blankHistory(page, { back, viaHash, count = 10 }) {
   if (back) { await page.goBack(); await page.waitForTimeout(300); }
 }
 
+// Replace-current restore (the smoke's crashing path): a backup of the same
+// workspace replaces it after the stored copy changed.
+const putProductName = (page, name) => page.evaluate((newName) => new Promise((resolvePut, rejectPut) => {
+  const open = indexedDB.open("viable-workspace");
+  open.onerror = () => rejectPut(open.error);
+  open.onsuccess = () => {
+    const store = open.result.transaction("kv", "readwrite").objectStore("kv");
+    const keys = store.getAllKeys();
+    keys.onsuccess = () => {
+      const key = keys.result.find((candidate) => String(candidate).startsWith("viable.product-workspace.") && !String(candidate).endsWith(".active"));
+      const get = store.get(key);
+      get.onsuccess = () => {
+        const record = JSON.parse(get.result);
+        record.workspace.product.identity.name = newName;
+        store.put(JSON.stringify(record), key);
+        store.transaction.oncomplete = () => { open.result.close(); resolvePut(undefined); };
+      };
+    };
+  };
+}), name);
+
+async function replaceCurrent(page, path, { reloadBefore = true, recoveryPoint = false } = {}) {
+  await downloadBackup(page, path);
+  await putProductName(page, "Probe changed");
+  if (reloadBefore) {
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Probe changed"), undefined, { timeout: 10000 });
+  }
+  await openWorkspaceView(page);
+  await page.setInputFiles("[data-workspace-import]", path);
+  await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+  if (recoveryPoint) {
+    const [point] = await Promise.all([page.waitForEvent("download"), page.click('section[aria-labelledby="restore-heading"] [data-workspace-action="recovery-point"]')]);
+    await point.saveAs(`${path}.point.json`);
+  } else {
+    await page.check("[data-workspace-restore-decline]");
+  }
+  await page.click('[data-workspace-action="restore-replace"]');
+  await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+}
+
+// The smoke starts this section from a legacy localStorage copy that Viable
+// migrates into IndexedDB (an init script seeds it before every load).
+async function seedLegacyWorkspace(context) {
+  await context.addInitScript(() => {
+    if (localStorage.getItem("viable.product-workspace.active")) return;
+    const now = "2026-10-01T12:00:00.000Z";
+    const workspace = {
+      id: "legacy-ws", createdAt: now, createdBy: "Probe owner",
+      product: { identity: { name: "Probe product", description: "Legacy probe", lifecycle: "concept", supportedEnvironments: [] }, capabilities: [], limitations: [], positioning: "", alternatives: [], differentiation: [], pricing: [], packaging: [], offers: [], callsToAction: [], brandVoice: [], terminology: {}, accessibilityConstraints: [], revision: 1, updatedAt: now, updatedBy: "Probe owner" },
+      claims: [], evidence: [], icpHypotheses: [], assessments: [], actions: [],
+    };
+    localStorage.setItem("viable.product-workspace.legacy-ws", JSON.stringify({ schemaVersion: 1, workspace }));
+    localStorage.setItem("viable.product-workspace.active", "legacy-ws");
+  });
+}
+
 // Every variant starts from a service-worker-controlled page with a saved
 // workspace (unless noted) and ends with the reload under test.
+const reloadShowing = async (page, text) => {
+  await page.reload();
+  await page.waitForFunction((expected) => document.querySelector("#main")?.textContent?.includes(expected), text, { timeout: 10000 });
+};
+// App-free double-reload controls: does WebKit hang on a second reload of a
+// history entry written by pushState, with no Viable code at all?
+async function blankReloadTwice(page, write) {
+  await page.evaluate((kind) => {
+    if (kind === "pushState") history.pushState({ probe: 1 }, "", "#probe-1");
+    if (kind === "hash") location.hash = "probe-1";
+  }, write);
+  await page.waitForTimeout(300);
+  await page.reload();
+  await page.waitForSelector("#blank", { timeout: 10000 });
+}
 const VARIANTS = {
+  "blank page (no app): pushState x1, reload, reload": async ({ page }) => blankReloadTwice(page, "pushState"),
+  "blank page (no app): location.hash x1, reload, reload": async ({ page }) => blankReloadTwice(page, "hash"),
+  "blank page (no app): no history write, reload, reload": async ({ page }) => blankReloadTwice(page, "none"),
+  "app: navigation, reload, then second reload via goto(url)": async ({ page }) => {
+    await page.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+    await page.waitForTimeout(300);
+    await reloadShowing(page, "Probe product");
+    return { goto: true };
+  },
+  "app: navigation, reload, reload": async ({ page }) => {
+    await page.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+    await page.waitForTimeout(300);
+    await reloadShowing(page, "Probe product");
+  },
+  "bisect: IndexedDB write + reload, then reload again": async ({ page }) => {
+    await putProductName(page, "Probe product");
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+  },
+  "bisect: reload (no write), then replace-current, reload": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+    await page.setInputFiles("[data-workspace-import]", path);
+    await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+    await page.check("[data-workspace-restore-decline]");
+    await page.click('[data-workspace-action="restore-replace"]');
+    await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+  },
+  "bisect: reload, then setInputFiles preview only, reload": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+    await page.setInputFiles("[data-workspace-import]", path);
+    await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+  },
+  "bisect: reload, then delete + empty-profile restore, reload": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await reloadShowing(page, "Probe product");
+    await openWorkspaceView(page);
+    await deleteWorkspace(page);
+    await restore(page, path);
+  },
+  "bisect: reload, then a saved Product change (no restore), reload": async ({ page }) => {
+    await reloadShowing(page, "Probe product");
+    await page.click('nav button[data-nav="product"]', { noWaitAfter: true });
+    const form = page.locator('form[data-ux-revision-form="product-truth"]');
+    await form.waitFor({ timeout: 10000 });
+    await form.locator('textarea[name="rationale"]').fill("Probe revision");
+    await form.locator('button[type="submit"]').click();
+    await page.waitForTimeout(1500);
+  },
+  "bisect: replace-current with in-page location.reload() for both reloads": async ({ page, path }) => {
+    await downloadBackup(page, path);
+    await putProductName(page, "Probe changed");
+    await Promise.all([page.waitForEvent("load"), page.evaluate(() => location.reload())]);
+    await page.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Probe changed"), undefined, { timeout: 10000 });
+    await openWorkspaceView(page);
+    await page.setInputFiles("[data-workspace-import]", path);
+    await page.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+    await page.check("[data-workspace-restore-decline]");
+    await page.click('[data-workspace-action="restore-replace"]');
+    await page.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
+    return { inPageReload: true };
+  },
+  "replace-current (decline point), reload": async ({ page, path }) => { await replaceCurrent(page, path); },
+  "replace-current, no reload before restore, reload": async ({ page, path }) => { await replaceCurrent(page, path, { reloadBefore: false }); },
+  "replace-current with recovery-point download, reload": async ({ page, path }) => { await replaceCurrent(page, path, { recoveryPoint: true }); },
+  "legacy localStorage start: migrate, reload": async () => {},
+  "legacy localStorage start: replace-current, reload": async ({ page, path }) => { await replaceCurrent(page, path, { recoveryPoint: true }); },
+  "legacy localStorage start: replace-current (decline point), reload": async ({ page, path }) => { await replaceCurrent(page, path); },
   "baseline: workspace, reload": async () => {},
   "accepted confirm() dialog, reload": async ({ page }) => {
     await page.evaluate(() => { window.confirm("probe"); });
@@ -236,6 +379,8 @@ async function runVariant(name, body, { serviceWorkers }) {
   const browser = await ENGINES[BROWSER].launch(launch);
   const context = await browser.newContext({ serviceWorkers, acceptDownloads: true });
   context.setDefaultTimeout(15_000);
+  const legacy = name.startsWith("legacy localStorage start");
+  if (legacy) await seedLegacyWorkspace(context);
   const page = await context.newPage();
   const events = [];
   let crashed = false;
@@ -262,12 +407,14 @@ async function runVariant(name, body, { serviceWorkers }) {
       await page.reload();
       if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) events.push("page not service-worker controlled");
     }
-    stage = "create workspace";
-    await createWorkspace(page);
+    stage = legacy ? "migrated workspace" : "create workspace";
+    if (legacy) await hasProduct(page); else await createWorkspace(page);
     stage = "steps";
     const how = (await body({ page, path, context })) ?? {};
     stage = "reload";
-    if (how.goto) await page.goto(page.url()); else await page.reload();
+    if (how.goto) await page.goto(page.url());
+    else if (how.inPageReload) await Promise.all([page.waitForEvent("load", { timeout: 15000 }), page.evaluate(() => location.reload())]);
+    else await page.reload();
     stage = "render after reload";
     if (how.anyView) await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0 && document.querySelector("#main")?.getAttribute("aria-busy") !== "true", undefined, { timeout: 10000 });
     else if (how.expectEmpty) await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0 && !document.querySelector("#main")?.textContent?.includes("Probe product"), undefined, { timeout: 10000 });
@@ -278,6 +425,7 @@ async function runVariant(name, body, { serviceWorkers }) {
   } finally {
     await browser.close().catch(() => undefined);
     await rm(path, { force: true });
+    await rm(`${path}.point.json`, { force: true });
   }
 }
 
