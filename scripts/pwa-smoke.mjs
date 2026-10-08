@@ -289,6 +289,27 @@ async function run() {
     }
   }
   
+  // Playwright's Linux WebKit hangs on the second reload of a history entry
+  // that pushState created, even on an app-free page with no service worker
+  // (restore/reload probe, CI runs 37787010731 and 37789427572; a
+  // location.hash entry or no history write reloads twice normally). Viable
+  // navigates with pushState, so a section that reloads twice uses fresh
+  // pages instead while this control reproduces the defect.
+  async function webkitPushStateDoubleReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const control = await (await isolated.newContext({ serviceWorkers: "block" })).newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await control.evaluate(() => history.pushState({ entry: 1 }, "", "#entry-1"));
+      await control.waitForTimeout(300);
+      const first = await withTimeout(control.reload(), 20_000, "control first reload").then(() => true, () => false);
+      if (!first) return false;
+      return await withTimeout(control.reload(), 20_000, "control second reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
+
   // Playwright's Linux WebKit can fail a reload while its context is
   // emulating offline mode even for an app-free page cached by a minimal
   // service worker. Run this control in a separate browser so a harness
@@ -690,14 +711,31 @@ async function run() {
 
     // Restore into an existing profile (#36): replace-current restore,
     // driven through the Workspace screen against real IndexedDB.
+    const freshPagesInsteadOfReload = BROWSER === "webkit" && await webkitPushStateDoubleReloadDefectPresent();
+    if (freshPagesInsteadOfReload) {
+      limitation("WebKit engine/harness defect: a second reload of a history entry created by pushState hangs, reproduced on an app-free page in a separate browser. The replace-current section loads a fresh page of the same profile wherever it would reload, so every check still runs against durable storage; Chromium and Firefox cover the reloads themselves");
+    }
     await section("replace-current restore", async () => {
       const replaceContext = await browser.newContext({ acceptDownloads: true });
-      const replace = await replaceContext.newPage();
-      replace.on("pageerror", (error) => errors.push(`replace pageerror: ${error.message}`));
-      replace.on("dialog", (dialog) => void dialog.accept());
+      const openReplacePage = async () => {
+        const created = await replaceContext.newPage();
+        created.on("pageerror", (error) => errors.push(`replace pageerror: ${error.message}`));
+        created.on("dialog", (dialog) => void dialog.accept());
+        return created;
+      };
+      let replace = await openReplacePage();
+      // A new document that reads the persisted workspace, by reloading or,
+      // under the WebKit defect above, by loading a fresh page.
+      const reloadReplace = async () => {
+        if (!freshPagesInsteadOfReload) return reload(replace);
+        const previous = replace;
+        replace = await openReplacePage();
+        await previous.close();
+        return replace.goto(`${origin}/`);
+      };
       const productKey = "viable.product-workspace.replace-ws";
       const named = (name) => ({ ...backup.contexts.product, id: "replace-ws", product: { ...backup.contexts.product.product, identity: { ...backup.contexts.product.product.identity, name } } });
-      await replace.addInitScript((value) => {
+      await replaceContext.addInitScript((value) => {
         if (!localStorage.getItem("viable.product-workspace.active")) {
           localStorage.setItem("viable.product-workspace.replace-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
           localStorage.setItem("viable.product-workspace.active", "replace-ws");
@@ -740,7 +778,7 @@ async function run() {
         const current = JSON.parse(await idb("get", productKey));
         current.workspace.product.identity.name = "Replace newer";
         await idb("put", productKey, JSON.stringify(current));
-        await reload(replace);
+        await reloadReplace();
         await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace newer"), undefined, { timeout: 10000 });
         await openWorkspace();
 
@@ -761,7 +799,7 @@ async function run() {
         await replace.click('[data-workspace-action="restore-replace"]');
         await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
         check((await storedName()) === "Replace original", "replace-current restore overwrites the existing workspace durably in IndexedDB");
-        await reload(replace);
+        await reloadReplace();
         const survived = await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original"), undefined, { timeout: 10000 }).then(() => true, () => false);
         check(survived, "the replaced workspace survives reload");
 
@@ -776,7 +814,7 @@ async function run() {
         // Corrupt stored data fails closed at startup without being changed,
         // and recovery mode makes the Workspace screen reachable (#36).
         await idb("put", "viable.signals-inbox.replace-ws", "{corrupt");
-        await reload(replace);
+        await reloadReplace();
         const failedClosed = await replace.waitForFunction(() => /could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 10000 }).then(() => true, () => false);
         check(
           failedClosed && (await idb("get", "viable.signals-inbox.replace-ws")) === "{corrupt" && (await storedName()) === "Replace newer",
