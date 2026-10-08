@@ -210,7 +210,32 @@ const reloadShowing = async (page, text) => {
   await page.reload();
   await page.waitForFunction((expected) => document.querySelector("#main")?.textContent?.includes(expected), text, { timeout: 10000 });
 };
+// App-free double-reload controls: does WebKit hang on a second reload of a
+// history entry written by pushState, with no Viable code at all?
+async function blankReloadTwice(page, write) {
+  await page.evaluate((kind) => {
+    if (kind === "pushState") history.pushState({ probe: 1 }, "", "#probe-1");
+    if (kind === "hash") location.hash = "probe-1";
+  }, write);
+  await page.waitForTimeout(300);
+  await page.reload();
+  await page.waitForSelector("#blank", { timeout: 10000 });
+}
 const VARIANTS = {
+  "blank page (no app): pushState x1, reload, reload": async ({ page }) => blankReloadTwice(page, "pushState"),
+  "blank page (no app): location.hash x1, reload, reload": async ({ page }) => blankReloadTwice(page, "hash"),
+  "blank page (no app): no history write, reload, reload": async ({ page }) => blankReloadTwice(page, "none"),
+  "app: navigation, reload, then second reload via goto(url)": async ({ page }) => {
+    await page.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+    await page.waitForTimeout(300);
+    await reloadShowing(page, "Probe product");
+    return { goto: true };
+  },
+  "app: navigation, reload, reload": async ({ page }) => {
+    await page.click('nav button[data-nav="workspace"]', { noWaitAfter: true });
+    await page.waitForTimeout(300);
+    await reloadShowing(page, "Probe product");
+  },
   "bisect: IndexedDB write + reload, then reload again": async ({ page }) => {
     await putProductName(page, "Probe product");
     await reloadShowing(page, "Probe product");
