@@ -67,7 +67,7 @@ export class CampaignsViewController {
   private readonly activationStore = new LocalStorageActivationLearningStore();
   private readonly productService = new ProductCoreService(this.productStore);
   private readonly campaignService = new CampaignService(this.campaignStore, this.productStore);
-  private readonly compositionService = new CompositionExperimentService(this.campaignStore, this.productStore);
+  private readonly compositionService = new CompositionExperimentService(this.campaignStore, this.productStore, this.activationStore);
   private product: ProductWorkspace | undefined;
   private campaigns: CampaignWorkspace | undefined;
   private activation: ActivationLearningWorkspace | undefined;
