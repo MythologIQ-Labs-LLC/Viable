@@ -1680,6 +1680,18 @@ function selectComparableObservation(
 
   if (candidates.length === 0) return { reason: `No ${metric} observation falls inside the ${ageBucket} observation-age policy bucket.` };
   const selected = candidates[0]!;
+  const selectedDefinitions = new Set(imports.flatMap((record) => record.observations)
+    .filter((observation) =>
+      normalizedMetricName(observation.metric) === metric
+      && observation.windowStartsAt === selected.observation.windowStartsAt
+      && observation.windowEndsAt === selected.observation.windowEndsAt)
+    .map((observation) => normalizedDefinition(observation.providerDefinition)));
+  if (selectedDefinitions.size > 1) {
+    return {
+      reason: "Provider/native metric definition is ambiguous within the selected reporting window.",
+      observationId: selected.observation.id,
+    };
+  }
   if (!["observed", "verified_zero"].includes(selected.observation.state) || selected.observation.value === undefined) {
     return {
       reason: `Strict cohort evidence excludes ${selected.observation.state} observations.`,
@@ -1764,7 +1776,8 @@ function cohortConfidence(
   const runnerUp = groups[1]!;
   const leaderObservations = included.filter((item) => item.groupValue === leader.groupValue);
   const consistent = leaderObservations.filter((item) => item.value > runnerUp.median).length;
-  if (included.length < 8 || consistent < 4) return "emerging";
+  if (consistent < 4) return "emerging";
+  if (included.length < 8) return "repeatable_candidate";
   const publicationTimes = included.map((item) => Date.parse(item.publicationObservedAt));
   const spanDays = (Math.max(...publicationTimes) - Math.min(...publicationTimes)) / 86_400_000;
   const nonNegative = included.every((item) => item.value >= 0);
