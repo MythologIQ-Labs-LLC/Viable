@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ProductWorkspace } from "../src/product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../src/product-core/ports/product-workspace-store.js";
+import type { ActivationLearningWorkspace } from "../src/activation-learning/domain/activation-learning.js";
+import type { ActivationLearningStore } from "../src/activation-learning/ports/activation-learning-store.js";
 import type { CampaignWorkspace } from "../src/campaigns/domain/campaign.js";
 import type { CampaignWorkspaceStore } from "../src/campaigns/ports/campaign-workspace-store.js";
 import { CampaignService } from "../src/campaigns/services/campaign-service.js";
@@ -17,6 +19,44 @@ class MemoryProductStore implements ProductWorkspaceStore {
   constructor(public value: ProductWorkspace) {}
   async load(): Promise<ProductWorkspace | undefined> { return this.value; }
   async save(workspace: ProductWorkspace): Promise<void> { this.value = workspace; }
+}
+
+class MemoryActivationStore implements ActivationLearningStore {
+  constructor(public value: ActivationLearningWorkspace) {}
+  async load(): Promise<ActivationLearningWorkspace | undefined> { return this.value; }
+  async save(workspace: ActivationLearningWorkspace): Promise<void> { this.value = workspace; }
+}
+
+function activationWorkspace(channel: "linkedin" | "website" = "linkedin"): ActivationLearningWorkspace {
+  return {
+    workspaceId: "workspace-1",
+    destinations: [{
+      id: "linkedin-founder",
+      workspaceId: "workspace-1",
+      label: "Founder LinkedIn",
+      channel,
+      accountReference: "manual",
+      accountOwner: "Founder",
+      ownershipConfirmed: true,
+      deliveryMode: "manual_only",
+      capabilityNotes: ["Manual first"],
+      rateLimitNotes: "Provider rules apply",
+      retryPolicy: "No blind retry",
+      dataHandlingNotes: "No credentials in workspace",
+      status: "active",
+      createdAt: "2026-10-11T12:00:00.000Z",
+      updatedAt: "2026-10-11T12:00:00.000Z",
+    }],
+    calendarEntries: [],
+    packages: [],
+    exportOperations: [],
+    deliveryOutcomes: [],
+    measurementPlans: [],
+    performanceImports: [],
+    retrospectives: [],
+    learningLedger: [],
+    updatedAt: "2026-10-11T12:00:00.000Z",
+  };
 }
 
 function productWorkspace(): ProductWorkspace {
@@ -82,6 +122,7 @@ function productWorkspace(): ProductWorkspace {
 async function fixture() {
   const campaigns = new MemoryCampaignStore();
   const products = new MemoryProductStore(productWorkspace());
+  const activation = new MemoryActivationStore(activationWorkspace());
   let campaignId = 0;
   const campaignService = new CampaignService(
     campaigns,
@@ -135,10 +176,11 @@ async function fixture() {
   const compositionService = new CompositionExperimentService(
     campaigns,
     products,
+    activation,
     () => new Date("2026-10-11T15:00:00.000Z"),
     () => "composition-id-" + ++compositionId,
   );
-  return { campaigns, products, campaignService, compositionService, campaignId: campaign.id, variantId: variant.id };
+  return { campaigns, products, activation, campaignService, compositionService, campaignId: campaign.id, variantId: variant.id };
 }
 
 test("composition brief reuses current Product Core authority and exposes separate readiness facets", async () => {
