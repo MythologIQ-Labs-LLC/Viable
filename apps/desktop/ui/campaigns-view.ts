@@ -64,10 +64,15 @@ const pill = (value: string): string => `<span class="pill ${tone(value)}">${esc
 export class CampaignsViewController {
   private readonly productStore = new LocalStorageProductWorkspaceStore();
   private readonly campaignStore = new LocalStorageCampaignWorkspaceStore();
+  private readonly activationStore = new LocalStorageActivationLearningStore();
   private readonly productService = new ProductCoreService(this.productStore);
   private readonly campaignService = new CampaignService(this.campaignStore, this.productStore);
+  private readonly compositionService = new CompositionExperimentService(this.campaignStore, this.productStore);
   private product: ProductWorkspace | undefined;
   private campaigns: CampaignWorkspace | undefined;
+  private activation: ActivationLearningWorkspace | undefined;
+  private readonly compositionAssessments = new Map<string, CompositionAssessment>();
+  private readonly experimentFreshness = new Map<string, ExperimentFreshness>();
   private failure: string | undefined;
 
   constructor(
@@ -76,8 +81,15 @@ export class CampaignsViewController {
   ) {}
 
   async load(): Promise<void> {
-    this.product = await this.productStore.load(this.workspaceId);
-    this.campaigns = await this.campaignStore.load(this.workspaceId) ?? emptyCampaignWorkspace(this.workspaceId);
+    const [product, campaigns, activation] = await Promise.all([
+      this.productStore.load(this.workspaceId),
+      this.campaignStore.load(this.workspaceId),
+      this.activationStore.load(this.workspaceId),
+    ]);
+    this.product = product;
+    this.campaigns = campaigns ?? emptyCampaignWorkspace(this.workspaceId);
+    this.activation = activation;
+    await this.refreshCompositionState();
   }
 
   render(page: "campaigns" | "studio"): string {
