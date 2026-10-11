@@ -1288,10 +1288,14 @@ async function run() {
         await cohortForm.locator('button[type="submit"]').click();
         await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Comparable publication cohort evaluated"), undefined, { timeout: 10000 });
         await settled(journey);
-        const cohortText = ((await journey.locator('section[aria-labelledby="cohort-evaluation-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        const cohortSection = journey.locator('section[aria-labelledby="cohort-evaluation-heading"]');
+        const cohortCard = cohortSection.locator("article").first();
+        const cohortText = ((await cohortSection.textContent()) ?? "").replace(/\s+/g, " ");
+        const comparableCount = ((await cohortCard.locator("dl div", { hasText: "Comparable publications" }).locator("dd").textContent()) ?? "").trim();
+        const confidenceText = ((await cohortCard.locator(".pill").first().textContent()) ?? "").trim();
         check(
-          cohortText.includes("insufficient")
-          && cohortText.includes("Comparable publications 1")
+          confidenceText === "insufficient"
+          && comparableCount === "1"
           && cohortText.includes("policy v1")
           && cohortText.includes("three publications each")
           && cohortText.includes("Group medians withheld until the evidence threshold is met")
