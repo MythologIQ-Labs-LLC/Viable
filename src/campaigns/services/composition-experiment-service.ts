@@ -153,14 +153,15 @@ export class CompositionExperimentService {
     this.validateCampaignAuthority(product, campaign);
     this.requiredCampaignDestination(activation, campaign, input.destinationId);
 
+    const { hookArchetype: _oldHook, callToAction: _oldCta, ...currentWithoutOptionalCopy } = current;
     const proposed: CompositionBrief = {
-      ...current,
+      ...currentWithoutOptionalCopy,
       objective: input.objective,
       primaryAudience: campaign.primaryAudience,
       desiredOutcome: input.desiredOutcome.trim(),
       topic: input.topic.trim(),
       contentFamily: input.contentFamily,
-      ...(input.hookArchetype?.trim() ? { hookArchetype: input.hookArchetype.trim() } : { hookArchetype: undefined }),
+      ...(input.hookArchetype?.trim() ? { hookArchetype: input.hookArchetype.trim() } : {}),
       toneConstraints: clean(input.toneConstraints),
       claimReferences: campaign.claimReferences.map((reference) => ({ ...reference, evidenceIds: [...reference.evidenceIds] })),
       evidenceIds: [...campaign.evidenceIds],
@@ -168,7 +169,7 @@ export class CompositionExperimentService {
       destinationId: input.destinationId.trim(),
       format: input.format,
       mediaAssetIds: clean(input.mediaAssetIds),
-      ...(input.callToAction?.trim() ? { callToAction: input.callToAction.trim() } : { callToAction: undefined }),
+      ...(input.callToAction?.trim() ? { callToAction: input.callToAction.trim() } : {}),
       externalLinkPolicy: input.externalLinkPolicy,
       hypothesis: input.hypothesis.trim(),
       updatedAt: this.clock().toISOString(),
