@@ -547,7 +547,7 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     if (entry.kind === "external_activation" && outcomes.length === 0) throw new Error("External-action retrospective requires delivery or failure evidence");
     const imports = workspace.performanceImports.filter((item) => item.calendarEntryId === entry.id);
     if (imports.length === 0) throw new Error("Retrospective requires a performance import, including explicit unavailable evidence when metrics are missing");
-    const comparisons = compareMetrics(plan.baseline, latestObservations(imports));
+    const comparisons = compareMetrics(plan.baseline, reconcileObservations(imports));
     const now = this.clock().toISOString();
     const retrospectiveId = this.createId();
     const retrospective: Retrospective = {
@@ -877,6 +877,11 @@ function validateMetricState(state: MetricEvidenceState, value: number | undefin
     if (value !== 0) throw new Error("Verified-zero metric requires value 0");
     return;
   }
+  if (state === "estimated") {
+    if (value === undefined || !Number.isFinite(value)) throw new Error("Estimated metric requires a finite numeric value");
+    if (!limitation?.trim()) throw new Error("Estimated metric requires a limitation");
+    return;
+  }
   if (state === "partial") {
     if (!limitation?.trim()) throw new Error("Partial metric requires a limitation");
     if (value !== undefined && !Number.isFinite(value)) throw new Error("Partial metric value must be finite when present");
@@ -895,20 +900,97 @@ function validateImportStatus(status: PerformanceImportStatus, observations: rea
   if (status === "unavailable" && [...states].some((state) => !["unavailable", "not_collected"].includes(state))) {
     throw new Error("Unavailable import may contain only unavailable or not-collected metric states");
   }
-  if (status === "partial" && ![...states].some((state) => ["partial", "delayed", "unavailable", "not_collected"].includes(state))) {
+  if (status === "partial" && ![...states].some((state) => ["estimated", "partial", "delayed", "unavailable", "unknown", "conflict", "not_collected"].includes(state))) {
     throw new Error("Partial import requires at least one incomplete metric state");
   }
 }
 
-function latestObservations(imports: readonly PerformanceImport[]): readonly MetricObservation[] {
-  const latest = new Map<string, MetricObservation>();
+function reconcileObservations(imports: readonly PerformanceImport[]): readonly MetricObservation[] {
+  const groups = new Map<string, MetricObservation[]>();
   for (const record of imports) {
     for (const observation of record.observations) {
-      const current = latest.get(observation.metric);
-      if (!current || Date.parse(observation.capturedAt) >= Date.parse(current.capturedAt)) latest.set(observation.metric, observation);
+      const key = [
+        observation.metric.trim().toLowerCase(),
+        observation.windowStartsAt,
+        observation.windowEndsAt,
+        (observation.unit ?? "").trim().toLowerCase(),
+      ].join("|");
+      groups.set(key, [...(groups.get(key) ?? []), observation]);
     }
   }
-  return [...latest.values()];
+
+  return [...groups.values()].map((group) => {
+    const unique = dedupeEquivalentObservations(group);
+    const numeric = unique.filter((item) =>
+      ["observed", "verified_zero"].includes(item.state) && item.value !== undefined);
+    const numericValues = new Set(numeric.map((item) => item.value));
+
+    if (numericValues.size > 1) {
+      const first = unique[0]!;
+      return {
+        id: `conflict:${unique.map((item) => item.id).sort().join(":")}`,
+        metric: first.metric,
+        state: "conflict",
+        windowStartsAt: first.windowStartsAt,
+        windowEndsAt: first.windowEndsAt,
+        capturedAt: latestCapturedAt(unique),
+        source: unique.map((item) => item.source).filter((value, index, values) => values.indexOf(value) === index).join(" | "),
+        evidenceReference: unique.map((item) => item.evidenceReference).filter((value, index, values) => values.indexOf(value) === index).join(" | "),
+        ...(first.unit ? { unit: first.unit } : {}),
+        limitation: `Conflicting observations for the same metric and reporting window: ${[...numericValues].join(" vs ")}. Newer evidence was not treated as truth authority.`,
+      };
+    }
+
+    if (numeric.length > 0) {
+      const value = numeric[0]!.value;
+      return numeric
+        .filter((item) => item.value === value)
+        .slice()
+        .sort((left, right) => left.id.localeCompare(right.id))[0]!;
+    }
+
+    return unique.slice().sort((left, right) =>
+      evidenceStateRank(left.state) - evidenceStateRank(right.state)
+      || left.id.localeCompare(right.id))[0]!;
+  });
+}
+
+function dedupeEquivalentObservations(observations: readonly MetricObservation[]): readonly MetricObservation[] {
+  const seen = new Set<string>();
+  const result: MetricObservation[] = [];
+  for (const observation of observations) {
+    const key = JSON.stringify({
+      metric: observation.metric.trim().toLowerCase(),
+      state: observation.state,
+      value: observation.value ?? null,
+      unit: observation.unit?.trim().toLowerCase() ?? null,
+      windowStartsAt: observation.windowStartsAt,
+      windowEndsAt: observation.windowEndsAt,
+      source: observation.source.trim(),
+      evidenceReference: observation.evidenceReference.trim(),
+      limitation: observation.limitation?.trim() ?? null,
+    });
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(observation);
+    }
+  }
+  return result;
+}
+
+function latestCapturedAt(observations: readonly MetricObservation[]): string {
+  return observations.reduce(
+    (latest, item) => Date.parse(item.capturedAt) > Date.parse(latest) ? item.capturedAt : latest,
+    observations[0]!.capturedAt,
+  );
+}
+
+function evidenceStateRank(state: MetricEvidenceState): number {
+  const order: readonly MetricEvidenceState[] = [
+    "conflict", "estimated", "partial", "delayed", "unavailable", "unknown", "not_collected", "observed", "verified_zero",
+  ];
+  const rank = order.indexOf(state);
+  return rank === -1 ? order.length : rank;
 }
 
 function compareMetrics(baseline: readonly MetricObservation[], outcomes: readonly MetricObservation[]): readonly MetricComparison[] {
