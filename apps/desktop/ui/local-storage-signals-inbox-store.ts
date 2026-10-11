@@ -12,7 +12,7 @@ export class LocalStorageSignalsInboxStore implements SignalsInboxStore {
       `${PREFIX}${workspaceId}`,
       "Signals Inbox workspace",
       { field: "workspaceId", expected: workspaceId },
-      { arrays: ["sources", "sourceHealth", "signals", "conversions"], strings: ["updatedAt"] },
+      { arrays: ["sources", "sourceHealth", "signals", "marketHypotheses", "conversions"], defaultArrays: ["marketHypotheses"], strings: ["updatedAt"] },
     );
   }
 
