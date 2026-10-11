@@ -140,6 +140,36 @@ export class CampaignsViewController {
         });
         return "Campaign brief created as a draft";
       }
+      if (kind === "campaign-create-composition") {
+        this.campaigns = await this.compositionService.createCompositionBrief(this.workspaceId, {
+          campaignId: String(form.get("campaignId")),
+          objective: String(form.get("objective")) as CompositionObjective,
+          desiredOutcome: String(form.get("desiredOutcome")),
+          topic: String(form.get("topic")),
+          contentFamily: String(form.get("contentFamily")) as ContentFamily,
+          hookArchetype: String(form.get("hookArchetype") ?? ""),
+          toneConstraints: lineValues(form.get("toneConstraints")),
+          prohibitedClaims: lineValues(form.get("prohibitedClaims")),
+          destinationId: String(form.get("destinationId")),
+          format: String(form.get("format")) as CompositionBrief["format"],
+          mediaAssetIds: lineValues(form.get("mediaAssetIds")),
+          callToAction: String(form.get("callToAction") ?? ""),
+          externalLinkPolicy: String(form.get("externalLinkPolicy")) as CompositionBrief["externalLinkPolicy"],
+          hypothesis: String(form.get("hypothesis")),
+        });
+        return "Composition brief saved as structured guidance; no content was generated";
+      }
+      if (kind === "campaign-bind-experiment") {
+        this.campaigns = await this.compositionService.bindPublicationExperiment(this.workspaceId, {
+          compositionBriefId: String(form.get("compositionBriefId")),
+          channelVariantId: String(form.get("channelVariantId")),
+          provider: String(form.get("provider")),
+          timezone: String(form.get("timezone")),
+          expectedOutcome: String(form.get("expectedOutcome")),
+          changedVariables: checkedValues(form, "changedVariables") as ExperimentVariable[],
+        });
+        return "Exact approved channel variant bound to the publication experiment";
+      }
       if (kind === "campaign-create-asset") {
         this.campaigns = await this.campaignService.createCanonicalAsset(this.workspaceId, {
           campaignId: String(form.get("campaignId")),
