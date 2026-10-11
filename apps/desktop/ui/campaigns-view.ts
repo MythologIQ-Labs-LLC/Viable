@@ -491,6 +491,77 @@ export class CampaignsViewController {
     return `<article class="record"><div class="record-top"><h4>Manual export · ${humanDate(record.createdAt)}</h4>${pill(record.status)}</div><p><strong>Included channels:</strong> ${escapeHtml(channels.map((channel) => CHANNEL_LABELS[channel]).join(" · "))}${legacy}</p><p><strong>Not approved for publishing.</strong> Not delivered. No destination or credential is included.</p><details><summary>Inspect manifest</summary><pre>${escapeHtml(record.manifest)}</pre></details><div class="actions"><button type="button" data-campaign-action="download-export" data-id="${record.id}">Download manifest</button></div></article>`;
   }
 
+  private compositionSection(approvedCampaigns: readonly CampaignBrief[]): string {
+    const workspace = this.campaigns!;
+    const briefs = workspace.compositionBriefs ?? [];
+    const experiments = workspace.publicationExperiments ?? [];
+    const destinations = (this.activation?.destinations ?? []).filter((record) => record.status === "active");
+    const approvedVariants = workspace.variants.filter((record) => record.status === "approved");
+    const canCreate = approvedCampaigns.length > 0 && destinations.length > 0;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const objectiveOptions = COMPOSITION_OBJECTIVES.map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("");
+    const familyOptions = CONTENT_FAMILIES.map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("");
+    const destinationOptions = destinations.map((record) => `<option value="${record.id}">${escapeHtml(record.label)} · ${escapeHtml(label(record.channel))}</option>`).join("");
+
+    return `<section class="panel" aria-labelledby="composition-heading">
+      <div class="section-heading"><div><p class="eyebrow">Composition experiments</p><h3 id="composition-heading">Structure the decision before writing the post</h3></div>${pill(`${briefs.length} briefs`)}</div>
+      <p class="guidance">Viable records objective, audience, evidence, hook, format and hypothesis without generating prose. Publication experiments bind only to an exact approved channel variant.</p>
+      ${canCreate ? `<details><summary>Create composition brief</summary><form data-form="campaign-create-composition">
+        <div class="two"><label>Approved campaign<select name="campaignId" required>${approvedCampaigns.map((record) => `<option value="${record.id}">${escapeHtml(record.title)}</option>`).join("")}</select></label>
+        <label>Destination<select name="destinationId" required>${destinationOptions}</select></label></div>
+        <div class="three"><label>Objective<select name="objective">${objectiveOptions}</select></label><label>Content family<select name="contentFamily">${familyOptions}</select></label><label>Format<select name="format"><option value="text">Text</option><option value="image">Image</option><option value="video">Video</option><option value="document">Document</option><option value="link">Link</option></select></label></div>
+        <div class="two"><label>Desired outcome<input name="desiredOutcome" required></label><label>Topic<input name="topic" required></label></div>
+        <div class="two"><label>Hook archetype<input name="hookArchetype" placeholder="Optional structured hook label"></label><label>Call to action<input name="callToAction" placeholder="Optional unless the objective requires it"></label></div>
+        <div class="two"><label>Tone constraints, one per line<textarea name="toneConstraints" rows="3"></textarea></label><label>Prohibited claims, one per line<textarea name="prohibitedClaims" rows="3"></textarea></label></div>
+        <div class="two"><label>Media references, one per line<textarea name="mediaAssetIds" rows="3"></textarea></label><label>External link policy<select name="externalLinkPolicy"><option value="none">No external link</option><option value="body">Link in body</option><option value="comment">Link in comment</option></select></label></div>
+        <label>Experiment hypothesis<textarea name="hypothesis" rows="3" required placeholder="What do you expect to learn, and why?"></textarea></label>
+        <button class="primary" type="submit">Save composition brief</button>
+      </form></details>` : `<div class="state warning"><strong>Composition planning is blocked.</strong><span>${approvedCampaigns.length === 0 ? "Approve a Campaign first." : "Create an active destination in Calendar / Activation first."}</span></div>`}
+      <div class="cards">${briefs.length ? briefs.slice().reverse().map((brief) => this.compositionCard(brief)).join("") : `<div class="state empty"><strong>No composition briefs yet.</strong><span>Create structured intent before comparing publishing experiments.</span></div>`}</div>
+      ${briefs.length && approvedVariants.length ? `<details><summary>Bind an exact approved variant to an experiment</summary><form data-form="campaign-bind-experiment">
+        <div class="two"><label>Composition brief<select name="compositionBriefId" required>${briefs.map((brief) => `<option value="${brief.id}">${escapeHtml(brief.topic)} · ${escapeHtml(label(brief.objective))}</option>`).join("")}</select></label>
+        <label>Approved variant<select name="channelVariantId" required>${approvedVariants.map((variant) => `<option value="${variant.id}">${escapeHtml(this.variantLabel(variant))}</option>`).join("")}</select></label></div>
+        <div class="three"><label>Provider / evidence source<input name="provider" required value="manual"></label><label>Timezone<input name="timezone" required value="${escapeHtml(timezone)}"></label><label>Expected outcome<input name="expectedOutcome" required></label></div>
+        <fieldset class="dimension"><legend>Variables intentionally changed</legend>${EXPERIMENT_VARIABLES.map((value) => `<label><input type="checkbox" name="changedVariables" value="${value}"> ${escapeHtml(label(value))}</label>`).join("")}</fieldset>
+        <button class="primary" type="submit">Bind exact approved variant</button>
+      </form></details>` : `<div class="state empty"><strong>No experiment can be bound yet.</strong><span>Create a composition brief and approve at least one channel variant.</span></div>`}
+      <div class="cards">${experiments.length ? experiments.slice().reverse().map((record) => this.experimentCard(record.id)).join("") : ""}</div>
+    </section>`;
+  }
+
+  private compositionCard(brief: CompositionBrief): string {
+    const assessment = this.compositionAssessments.get(brief.id);
+    const readiness = assessment?.readiness;
+    const facets = readiness
+      ? Object.entries(readiness).map(([name, state]) => `${pill(state)} <span>${escapeHtml(label(name))}</span>`).join(" ")
+      : pill("blocked");
+    const findings = assessment?.findings ?? [];
+    return `<article class="record"><div class="record-top"><h4>${escapeHtml(brief.topic)}</h4><div>${pill(brief.objective)}</div></div>
+      <p>${escapeHtml(brief.hypothesis)}</p>
+      <p class="guidance">${facets}</p>
+      <dl><div><dt>Audience</dt><dd>${escapeHtml(brief.primaryAudience)}</dd></div><div><dt>Outcome</dt><dd>${escapeHtml(brief.desiredOutcome)}</dd></div><div><dt>Family</dt><dd>${escapeHtml(label(brief.contentFamily))}</dd></div><div><dt>Format</dt><dd>${escapeHtml(label(brief.format))}</dd></div></dl>
+      ${findings.length ? `<details><summary>${findings.length} guidance finding${findings.length === 1 ? "" : "s"}</summary><ul>${findings.map((finding) => `<li><strong>${escapeHtml(label(finding.severity))}</strong>: ${escapeHtml(finding.message)}</li>`).join("")}</ul></details>` : `<p class="guidance">No deterministic guidance findings.</p>`}
+    </article>`;
+  }
+
+  private experimentCard(experimentId: string): string {
+    const record = (this.campaigns?.publicationExperiments ?? []).find((candidate) => candidate.id === experimentId);
+    if (!record) return "";
+    const freshness = this.experimentFreshness.get(record.id);
+    const state = freshness?.stale ? "stale" : "current";
+    const variant = this.campaigns?.variants.find((candidate) => candidate.id === record.channelVariantId);
+    return `<article class="record"><div class="record-top"><h4>${escapeHtml(variant ? this.variantLabel(variant) : record.channelVariantId)}</h4>${pill(state)}</div>
+      <p>${escapeHtml(record.expectedOutcome)}</p>
+      <dl><div><dt>Provider</dt><dd>${escapeHtml(record.provider)}</dd></div><div><dt>Exact revision</dt><dd>v${record.channelVariantVersion}</dd></div><div><dt>Changed variables</dt><dd>${escapeHtml(record.changedVariables.map(label).join(" · "))}</dd></div><div><dt>Fingerprint</dt><dd><code>${escapeHtml(record.channelVariantBodySha256.slice(0, 12))}…</code></dd></div></dl>
+      ${freshness?.reasons.length ? `<div class="state warning"><strong>Binding is stale.</strong><span>${escapeHtml(freshness.reasons.join(" "))}</span></div>` : `<p class="guidance">The exact approved content binding is current. This does not itself authorize publishing or claim delivery.</p>`}
+    </article>`;
+  }
+
+  private variantLabel(variant: ChannelVariant): string {
+    const asset = this.campaigns?.assets.find((record) => record.id === variant.canonicalAssetId);
+    return `${CHANNEL_LABELS[variant.channel]} · ${asset?.title ?? "Canonical asset"} · v${variant.version}`;
+  }
+
   private failureState(page: "campaigns" | "studio"): string {
     return this.failure ? `<section class="state error" role="alert"><div><strong>Campaign operation failed.</strong><p>${escapeHtml(this.failure)}</p></div><button type="button" data-campaign-action="recover" data-page="${page}">Return to saved campaign workspace</button></section>` : "";
   }
