@@ -731,7 +731,7 @@ ${escapeHtml(signal.summary)}</textarea></label>
         const signal = this.inbox?.signals.find((item) => item.id === link.signalId);
         return `<li>${pill(link.relation)} ${pill(link.applicability)} <strong>${escapeHtml(signal?.title ?? link.signalId)}</strong> · ${escapeHtml(link.rationale)} · rights: ${escapeHtml(link.reuseRights)} · retrieved ${humanDate(link.retrievedAt)}</li>`;
       }).join("")}</ul>` : `<p class="guidance">No evidence is linked. Absence of evidence is not counterevidence.</p>`}</details>
-      ${reviewedSignals.length && hypothesis.status !== "rejected" ? `<details><summary>Link reviewed observation</summary><form data-form="signals-market-hypothesis-link">
+      ${reviewedSignals.length && hypothesis.status !== "rejected" ? `<details><summary>${hypothesis.status === "stale" ? "Re-attest reviewed observation" : "Link reviewed observation"}</summary><form data-form="signals-market-hypothesis-link">
         <input type="hidden" name="hypothesisId" value="${escapeHtml(hypothesis.id)}">
         <div class="two"><label>Reviewed signal<select name="signalId">${reviewedSignals.map((signal) => `<option value="${signal.id}">${escapeHtml(signal.title)}</option>`).join("")}</select></label><label>Relationship<select name="relation"><option value="supporting">Supporting</option><option value="contradictory">Contradictory</option></select></label></div>
         <label>Applicability rationale<textarea name="rationale" rows="2" required placeholder="Why does this observation support or contradict this scoped hypothesis?"></textarea></label>
