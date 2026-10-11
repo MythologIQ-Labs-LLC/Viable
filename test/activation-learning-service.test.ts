@@ -435,6 +435,88 @@ test("conflicting observations for the same metric window withhold a retrospecti
   assert.match(comparison.limitation ?? "", /conflict/i);
 });
 
+test("derived ratio records formula version and mixed-source provenance without hiding it", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Provider export", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Provider reach", observations: [{
+      metric: "impressions", state: "observed", value: 100, unit: "count", ...window,
+      source: "Provider export", evidenceReference: "provider-impressions.csv", providerMetric: "Impressions",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Manual reach check", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Manual reached count", observations: [{
+      metric: "members_reached", state: "observed", value: 50, unit: "count", ...window,
+      source: "Manual reach check", evidenceReference: "reach-note-1",
+    }],
+  });
+  const deriveInput = {
+    calendarEntryId: entryId,
+    metric: "impressions_per_reached",
+    formula: "ratio" as const,
+    sourceMetrics: ["impressions", "members_reached"],
+    windowStartsAt: window.windowStartsAt,
+    windowEndsAt: window.windowEndsAt,
+    unit: "ratio",
+    createdBy: "Analyst",
+  };
+  workspace = await service.derivePerformanceMetric("workspace-1", deriveInput);
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.value, 2);
+  assert.equal(derived.state, "observed");
+  assert.equal(derived.formulaVersion, "1");
+  assert.deepEqual(derived.sourceClassifications, ["human_recorded", "provider_export"]);
+  assert.equal(derived.sourceImportIds.length, 2);
+  assert.equal(derived.sourceObservationIds.length, 2);
+  assert.match(derived.normalizedDigest, /^[0-9a-f]{64}$/);
+
+  workspace = await service.derivePerformanceMetric("workspace-1", deriveInput);
+  assert.equal(workspace.derivedMetrics!.length, 1);
+});
+
+test("derived ratio with a verified-zero denominator is unavailable rather than zero", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Manual metrics", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Observed impressions with verified-zero reach", observations: [
+      { metric: "impressions", state: "observed", value: 12, unit: "count", ...window, source: "Manual metrics", evidenceReference: "metric-1" },
+      { metric: "members_reached", state: "verified_zero", value: 0, unit: "count", ...window, source: "Manual metrics", evidenceReference: "metric-2" },
+    ],
+  });
+  workspace = await service.derivePerformanceMetric("workspace-1", {
+    calendarEntryId: entryId, metric: "impressions_per_reached", formula: "ratio",
+    sourceMetrics: ["impressions", "members_reached"], windowStartsAt: window.windowStartsAt, windowEndsAt: window.windowEndsAt,
+    unit: "ratio", createdBy: "Analyst",
+  });
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.state, "unavailable");
+  assert.equal(derived.value, undefined);
+  assert.match(derived.limitation ?? "", /Division by zero/);
+});
+
 test("authority changes invalidate scheduled work and its package", async () => {
   const { service, products } = fixture();
   let workspace = await packageReady(service);
