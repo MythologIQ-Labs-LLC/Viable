@@ -74,8 +74,10 @@ export type CompositionBrief = Readonly<{
   callToAction?: string;
   externalLinkPolicy: ExternalLinkPolicy;
   hypothesis: string;
+  version: number;
   createdAt: string;
   updatedAt: string;
+  history?: readonly AuthorityRevision[];
 }>;
 
 export type PublicationExperimentStatus =
@@ -91,6 +93,8 @@ export type PublicationExperiment = Readonly<{
   id: string;
   workspaceId: string;
   compositionBriefId: string;
+  compositionBriefVersion: number;
+  compositionBriefSha256: string;
   channelVariantId: string;
   channelVariantVersion: number;
   channelVariantBodySha256: string;
