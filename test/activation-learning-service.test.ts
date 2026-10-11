@@ -297,6 +297,51 @@ test("retrospective compares compatible metrics and writes a learning entry", as
   assert.match(workspace.learningLedger[0]!.reversibleNextAction, /Repeat one manual LinkedIn/);
 });
 
+test("conflicting observations for the same metric window withhold a retrospective delta", async () => {
+  const { service } = fixture();
+  let workspace = await packageReady(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.markExportDownloaded("workspace-1", workspace.exportOperations[0]!.id);
+  workspace = await service.recordDeliveryOutcome("workspace-1", {
+    calendarEntryId: entryId, packageId: workspace.packages[0]!.id, status: "delivered", evidenceClassification: "human_recorded",
+    source: "Operator", observedAt: "2026-07-17T13:05:00.000Z", recordedBy: "Operator", evidenceReferences: ["delivery-proof-1"], note: "Published manually",
+    deliveryUrl: "https://www.linkedin.com/posts/example",
+  });
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Provider export A", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "First export", observations: [outcomeObservation],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Provider export B", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Second export disagrees with the first",
+    observations: [{
+      ...outcomeObservation,
+      value: 9,
+      capturedAt: "2026-07-31T15:00:00.000Z",
+      source: "Provider export B",
+      evidenceReference: "outcome-note-2",
+    }],
+  });
+  workspace = await service.completeRetrospective("workspace-1", {
+    calendarEntryId: entryId, completedBy: "Campaign owner", summary: "Conflicting provider evidence must not produce a numeric conclusion",
+    learnings: ["Resolve the evidence conflict before drawing a conclusion"], decision: "inconclusive", attributionModel: "manual",
+    attributionUncertainty: "Two provider exports disagree for the same metric and reporting window",
+    evidenceReferences: ["delivery-proof-1", "outcome-note-1", "outcome-note-2"],
+    reversibleNextAction: "Review the underlying exports", icpConfidenceEffect: "unknown",
+    icpConfidenceRationale: "The disputed metric does not support an ICP conclusion",
+    positioningEffect: "No positioning change while evidence conflicts",
+    learningChange: "Do not change the campaign from disputed evidence", learningOutcome: "Numeric outcome withheld",
+    learningFollowUp: "Reconcile the source records",
+  });
+  const comparison = workspace.retrospectives[0]!.comparisons[0]!;
+  assert.equal(comparison.delta, undefined);
+  assert.match(comparison.limitation ?? "", /conflict/i);
+});
+
 test("authority changes invalidate scheduled work and its package", async () => {
   const { service, products } = fixture();
   let workspace = await packageReady(service);
