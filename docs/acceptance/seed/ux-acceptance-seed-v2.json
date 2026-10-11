@@ -958,6 +958,7 @@
       ],
       "performanceImports": [],
       "derivedMetrics": [],
+      "cohortEvaluations": [],
       "retrospectives": [],
       "learningLedger": [],
       "updatedAt": "2026-09-16T09:00:00.000Z",
@@ -970,5 +971,5 @@
     "videoProduction": null,
     "websiteWatch": null
   },
-  "checksum": "crc32:0813d161"
+  "checksum": "crc32:b707320a"
 }
