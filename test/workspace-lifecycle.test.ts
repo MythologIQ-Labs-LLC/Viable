@@ -41,7 +41,7 @@ function contextValue(name: string, workspaceId: string): Record<string, unknown
       claims: [{ id: "claim-1" }], evidence: [{ id: "evidence-1" }], icpHypotheses: [{ id: "icp-1" }], assessments: [], actions: [],
       drafts: { icp: { kind: "icp", name: "Draft audience" } },
     };
-    case "campaign": return { workspaceId, campaigns: [{ id: "campaign-1" }], contentBriefs: [], assets: [{ id: "asset-1" }], variants: [], exports: [{ id: "export-1" }], updatedAt: now().toISOString() };
+    case "campaign": return { workspaceId, campaigns: [{ id: "campaign-1" }], contentBriefs: [], compositionBriefs: [], publicationExperiments: [], assets: [{ id: "asset-1" }], variants: [], exports: [{ id: "export-1" }], updatedAt: now().toISOString() };
     case "signals": return { workspaceId, sources: [], sourceHealth: [], signals: [{ id: "signal-1" }], conversions: [], updatedAt: now().toISOString() };
     case "activation": return { workspaceId, destinations: [], calendarEntries: [{ id: "entry-1" }], packages: [], exportOperations: [], deliveryOutcomes: [], measurementPlans: [], performanceImports: [], retrospectives: [], learningLedger: [], updatedAt: now().toISOString() };
     case "repositoryGrowth": return { workspaceId, repositories: [{ id: "repo-1" }], assessments: [], plans: [], launchRooms: [], exports: [], retrospectives: [], updatedAt: now().toISOString() };
@@ -86,17 +86,37 @@ test("backup round-trip validates integrity and restores all contexts into an em
   assert.equal(target.getItem(PRODUCT_ACTIVE_KEY), "workspace-1");
 });
 
-test("legacy campaign workspace without additive content briefs remains backup-compatible", () => {
+test("legacy campaign workspace without additive campaign collections remains backup-compatible", () => {
   const storage = new MemoryStorage();
   seedWorkspace(storage, "workspace-1");
   const campaignKey = `${WORKSPACE_CONTEXTS[1].prefix}workspace-1`;
   const campaign = JSON.parse(storage.getItem(campaignKey)!) as Record<string, unknown>;
   delete campaign.contentBriefs;
+  delete campaign.compositionBriefs;
+  delete campaign.publicationExperiments;
   storage.setItem(campaignKey, JSON.stringify(campaign));
   const service = new WorkspaceLifecycleService(storage, now);
   const preview = service.inspect("workspace-1");
   assert.equal(preview.contexts.find((item) => item.name === "campaign")?.status, "present");
   assert.doesNotThrow(() => service.validateBackup(service.createBackup("workspace-1")));
+});
+
+test("composition briefs and publication experiments survive portable backup and restore", () => {
+  const source = new MemoryStorage();
+  seedWorkspace(source, "workspace-1");
+  const campaignKey = `${WORKSPACE_CONTEXTS[1].prefix}workspace-1`;
+  const campaign = JSON.parse(source.getItem(campaignKey)!) as Record<string, unknown>;
+  campaign.compositionBriefs = [{ id: "composition-1", workspaceId: "workspace-1", campaignId: "campaign-1", topic: "Governed publishing" }];
+  campaign.publicationExperiments = [{ id: "experiment-1", workspaceId: "workspace-1", compositionBriefId: "composition-1", channelVariantBodySha256: "a".repeat(64) }];
+  source.setItem(campaignKey, JSON.stringify(campaign));
+
+  const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
+  const target = new MemoryStorage();
+  new WorkspaceLifecycleService(target, now).restoreBackup(backup, "empty_profile");
+  const restored = JSON.parse(target.getItem(campaignKey)!) as { schemaVersion: number; workspace: Record<string, unknown> };
+  assert.equal(restored.schemaVersion, 1);
+  assert.deepEqual(restored.workspace.compositionBriefs, campaign.compositionBriefs);
+  assert.deepEqual(restored.workspace.publicationExperiments, campaign.publicationExperiments);
 });
 
 test("modified backup is rejected before any restore mutation", () => {
@@ -114,18 +134,23 @@ test("modified backup is rejected before any restore mutation", () => {
   assert.deepEqual(target.entries(), before);
 });
 
-test("malformed optional additive backup field is rejected before any restore mutation", () => {
+test("malformed optional additive campaign fields are rejected before any restore mutation", () => {
   const source = new MemoryStorage();
   seedWorkspace(source, "workspace-1");
   const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
-  const malformed = JSON.parse(backup) as { contexts: { campaign: Record<string, unknown> } };
-  malformed.contexts.campaign.contentBriefs = "not-an-array";
 
-  const target = new MemoryStorage();
-  target.setItem("unrelated.preference", "keep-me");
-  const before = target.entries();
-  assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"), /Campaigns and exports optional field contentBriefs must be an array when present/);
-  assert.deepEqual(target.entries(), before);
+  for (const field of ["contentBriefs", "compositionBriefs", "publicationExperiments"] as const) {
+    const malformed = JSON.parse(backup) as { contexts: { campaign: Record<string, unknown> } };
+    malformed.contexts.campaign[field] = "not-an-array";
+    const target = new MemoryStorage();
+    target.setItem("unrelated.preference", "keep-me");
+    const before = target.entries();
+    assert.throws(
+      () => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"),
+      new RegExp(`Campaigns and exports optional field ${field} must be an array when present`),
+    );
+    assert.deepEqual(target.entries(), before);
+  }
 });
 
 test("backup refuses credential-like fields instead of exporting them", () => {
