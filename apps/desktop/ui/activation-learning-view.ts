@@ -212,6 +212,23 @@ export class ActivationLearningViewController {
         await this.refreshReconciliation();
         return "Performance evidence imported idempotently without converting missing data into zero";
       }
+      if (kind === "activation-derived-metric") {
+        const multiplierText = String(form.get("multiplier") ?? "").trim();
+        const multiplier = multiplierText ? Number(multiplierText) : 1;
+        if (!Number.isFinite(multiplier)) throw new Error("Derived metric multiplier must be numeric");
+        this.activation = await this.service.derivePerformanceMetric(this.workspaceId, {
+          calendarEntryId: String(form.get("calendarEntryId")),
+          metric: String(form.get("metric")),
+          formula: String(form.get("formula")) as "ratio" | "sum",
+          sourceMetrics: cleanLines(form.get("sourceMetrics")),
+          windowStartsAt: toIso(form.get("windowStartsAt"), "Derived metric window start"),
+          windowEndsAt: toIso(form.get("windowEndsAt"), "Derived metric window end"),
+          unit: String(form.get("unit")),
+          multiplier,
+          createdBy: String(form.get("createdBy")),
+        });
+        return "Derived metric calculated from reconciled evidence with formula provenance";
+      }
       if (kind === "activation-retrospective") {
         this.activation = await this.service.completeRetrospective(this.workspaceId, {
           calendarEntryId: String(form.get("calendarEntryId")),
@@ -461,6 +478,21 @@ export class ActivationLearningViewController {
           const evidence = this.reconciledEvidence.get(plan.calendarEntryId) ?? [];
           return `<article><div class="card-heading"><div><h4>${escapeHtml(this.entryTitle(plan.calendarEntryId))}</h4><p>${evidence.length} reconciled metric${evidence.length === 1 ? "" : "s"}</p></div>${evidence.some((item) => item.state === "conflict") ? pill("conflict") : pill("current")}</div>${evidence.length ? evidence.map(metricSummary).join("") : `<div class="state empty"><strong>No outcome evidence yet.</strong><span>Record an analytics snapshot before reconciliation.</span></div>`}</article>`;
         }).join("")}</div>
+      </section>
+      <section aria-labelledby="derived-metric-heading"><div class="section-heading"><div><p class="eyebrow">Derived metrics</p><h4 id="derived-metric-heading">Calculate only from reconciled evidence</h4></div>${pill(`${workspace.derivedMetrics?.length ?? 0} derived`)}</div>
+        <p class="guidance">Formulas are versioned and preserve source imports, observations, and evidence classifications. Mixed manual/provider inputs remain visible. Division by zero or disputed inputs withhold the value.</p>
+        ${workspace.performanceImports.length ? `<details><summary>Create deterministic derived metric</summary><form data-form="activation-derived-metric">
+          <div class="two"><label>Calendar entry<select name="calendarEntryId">${workspace.measurementPlans.map((plan) => `<option value="${plan.calendarEntryId}">${escapeHtml(this.entryTitle(plan.calendarEntryId))}</option>`).join("")}</select></label><label>Derived metric family<input name="metric" required placeholder="engagement_per_reached"></label></div>
+          <div class="three"><label>Formula<select name="formula"><option value="ratio">Ratio</option><option value="sum">Sum</option></select></label><label>Output unit<input name="unit" required value="ratio"></label><label>Multiplier<input name="multiplier" type="number" step="any" value="1"></label></div>
+          <label>Source normalized metric families, one per line<textarea name="sourceMetrics" required rows="3" placeholder="engagements&#10;members_reached"></textarea></label>
+          <div class="three"><label>Reporting window starts<input type="datetime-local" name="windowStartsAt" required></label><label>Reporting window ends<input type="datetime-local" name="windowEndsAt" required></label><label>Calculated by<input name="createdBy" required value="${escapeHtml(this.defaultOwner)}"></label></div>
+          <button type="submit">Calculate derived metric</button>
+        </form></details>` : `<div class="state empty"><strong>No source analytics evidence exists.</strong><span>Record snapshots before deriving metrics.</span></div>`}
+        <div class="card-list">${(workspace.derivedMetrics ?? []).slice().reverse().map((record) => `<article><div class="card-heading"><div><h4>${escapeHtml(record.metric)}</h4><p>${escapeHtml(record.expression)} · formula v${record.formulaVersion}</p></div>${pill(record.state)}</div>
+          <span>${record.value !== undefined ? `${record.value} ${escapeHtml(record.unit)}` : "No numeric value"}</span>
+          <dl><div><dt>Source metrics</dt><dd>${escapeHtml(record.sourceMetrics.join(" · "))}</dd></div><div><dt>Evidence classes</dt><dd>${escapeHtml(record.sourceClassifications.map(label).join(" · ") || "No usable source evidence")}</dd></div><div><dt>Source imports</dt><dd>${record.sourceImportIds.length}</dd></div><div><dt>Source observations</dt><dd>${record.sourceObservationIds.length}</dd></div><div><dt>Digest</dt><dd><code>${escapeHtml(record.normalizedDigest.slice(0, 12))}…</code></dd></div></dl>
+          ${record.limitation ? `<p class="guidance">${escapeHtml(record.limitation)}</p>` : ""}
+        </article>`).join("")}</div>
       </section>
     </section>`;
   }
