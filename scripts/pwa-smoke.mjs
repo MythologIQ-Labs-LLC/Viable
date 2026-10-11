@@ -1054,6 +1054,155 @@ async function run() {
         const notice = ((await studios().locator("[data-existing-proposals]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
         check(notice.includes("Already proposed from this signal") && notice.includes("Review: Studio owners"), "converting a signal again first shows the proposal it already produced");
 
+        // #170: reviewed observations and market hypotheses have separate
+        // authority. Exercise the complete disputed-hypothesis path through
+        // visible Signals, Market, and Product Core controls.
+        await go("signals");
+        await openDisclosure(journey.locator("summary", { hasText: "Manage evidence sources" }).first());
+        await openDisclosure(journey.locator("summary", { hasText: "Advanced: raw JSON adapter imports" }).first());
+        const marketImport = journey.locator('form[data-form="signals-manual-import"]');
+        const marketPayload = JSON.stringify({
+          signals: [
+            {
+              externalId: "smoke-market-support",
+              title: "Scoped agency demand evidence",
+              summary: "A small US agency founder requested a governed marketability workflow.",
+              observedAt: "2026-10-10T12:00:00.000Z",
+              publisher: "Smoke research notebook",
+              publishedAt: "2026-10-10T13:00:00.000Z",
+              reuseRights: "citation_only",
+              methodology: "Structured founder interview",
+              limitations: ["Single interview"],
+              marketScope: {
+                breadth: "bounded",
+                geographies: ["United States"],
+                segments: ["small agencies"],
+                productCategories: ["marketability software"],
+                organizationTypes: ["agency"],
+                audiences: ["founders"],
+              },
+            },
+            {
+              externalId: "smoke-market-counter",
+              title: "Scoped agency hesitation evidence",
+              summary: "Another small US agency founder rejected the workflow as unnecessary.",
+              observedAt: "2026-10-10T14:00:00.000Z",
+              publisher: "Smoke research notebook",
+              methodology: "Structured founder interview",
+              limitations: ["Single interview", "Reuse rights not established"],
+              marketScope: {
+                breadth: "bounded",
+                geographies: ["United States"],
+                segments: ["small agencies"],
+                productCategories: ["marketability software"],
+                organizationTypes: ["agency"],
+                audiences: ["founders"],
+              },
+            },
+          ],
+        });
+        await marketImport.locator('textarea[name="payload"]').fill(marketPayload);
+        await marketImport.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Manual evidence imported for named review"), undefined, { timeout: 10000 });
+        await settled(journey);
+
+        const acceptMarketSignal = async (title) => {
+          const card = () => journey.locator("#main article", { hasText: title }).first();
+          await card().getByRole("button", { name: "Accept with named review" }).click();
+          const panel = card().locator("[data-contextual-review]");
+          await panel.locator('input[name="reviewer"]').fill("Smoke Source Reviewer");
+          await panel.getByRole("button", { name: "Accept evidence" }).click();
+          await journey.waitForFunction((expectedTitle) => [...document.querySelectorAll("#main article")].some((article) => article.textContent?.includes(expectedTitle) && article.textContent?.includes("reviewed")), title, { timeout: 10000 });
+          await settled(journey);
+        };
+        await acceptMarketSignal("Scoped agency demand evidence");
+        await acceptMarketSignal("Scoped agency hesitation evidence");
+
+        await go("market");
+        const createHypothesis = journey.locator("summary", { hasText: "Create market hypothesis" }).first();
+        await createHypothesis.click();
+        const hypothesisForm = journey.locator('form[data-form="signals-market-hypothesis-create"]');
+        await hypothesisForm.locator('textarea[name="statement"]').fill("Small US agencies show mixed demand for governed marketability workflows");
+        await hypothesisForm.locator('select[name="breadth"]').selectOption("bounded");
+        await hypothesisForm.locator('input[name="owner"]').fill("Smoke Market Lead");
+        await hypothesisForm.locator('input[name="nextValidationAction"]').fill("Interview additional small US agencies");
+        await hypothesisForm.locator('textarea[name="geographies"]').fill("United States");
+        await hypothesisForm.locator('textarea[name="segments"]').fill("small agencies");
+        await hypothesisForm.locator('textarea[name="productCategories"]').fill("marketability software");
+        await hypothesisForm.locator('textarea[name="organizationTypes"]').fill("agency");
+        await hypothesisForm.locator('textarea[name="audiences"]').fill("founders");
+        await hypothesisForm.locator('textarea[name="methodology"]').fill("Compare separately reviewed founder observations within the bounded scope.");
+        await hypothesisForm.locator('textarea[name="limitations"]').fill("Small convenience sample\nNo causal interpretation");
+        await hypothesisForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Market hypothesis created as a proposal"), undefined, { timeout: 10000 });
+        await settled(journey);
+
+        const hypothesisCard = () => journey.locator("#main article", { hasText: "Small US agencies show mixed demand for governed marketability workflows" }).first();
+        const linkEvidence = async (signalTitle, relation, rationale) => {
+          await hypothesisCard().locator("summary", { hasText: "Link reviewed observation" }).click();
+          const form = hypothesisCard().locator('form[data-form="signals-market-hypothesis-link"]');
+          await form.locator('select[name="signalId"]').selectOption({ label: signalTitle });
+          await form.locator('select[name="relation"]').selectOption(relation);
+          await form.locator('textarea[name="rationale"]').fill(rationale);
+          await form.locator('button[type="submit"]').click();
+          await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("linked to market hypothesis"), undefined, { timeout: 10000 });
+          await settled(journey);
+        };
+        await linkEvidence("Scoped agency demand evidence", "supporting", "Observed request is inside the exact bounded hypothesis scope.");
+        await linkEvidence("Scoped agency hesitation evidence", "contradictory", "Observed rejection is inside the same bounded scope and must remain visible.");
+
+        let hypothesisText = ((await hypothesisCard().textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          hypothesisText.includes("Supporting1")
+          && hypothesisText.includes("Contradictory1")
+          && hypothesisText.includes("Unknown reuse rights1")
+          && hypothesisText.includes("matching"),
+          "Market hypothesis shows symmetric matching support/counterevidence and unknown reuse rights without collapsing them into one score",
+        );
+
+        await hypothesisCard().locator('form[data-form="signals-market-hypothesis-submit"] button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("submitted for separate human review"), undefined, { timeout: 10000 });
+        await settled(journey);
+        await hypothesisCard().locator("summary", { hasText: "Record hypothesis review" }).click();
+        const hypothesisReview = hypothesisCard().locator('form[data-form="signals-market-hypothesis-review"]');
+        await hypothesisReview.locator('input[name="reviewer"]').fill("Smoke Hypothesis Reviewer");
+        await hypothesisReview.locator('select[name="outcome"]').selectOption("disputed");
+        await hypothesisReview.locator('textarea[name="note"]').fill("Both matching supporting and contradictory evidence remain material; validation is required.");
+        await hypothesisReview.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Market hypothesis review recorded"), undefined, { timeout: 10000 });
+        await settled(journey);
+        hypothesisText = ((await hypothesisCard().textContent()) ?? "").replace(/\s+/g, " ");
+        check(hypothesisText.includes("disputed") && hypothesisText.includes("Interview additional small US agencies"), "separate hypothesis review preserves dispute and next validation action");
+
+        await hypothesisCard().locator("summary", { hasText: "Create proposed validation work" }).click();
+        const hypothesisConversion = hypothesisCard().locator('form[data-form="signals-market-hypothesis-convert"]');
+        await hypothesisConversion.locator('select[name="kind"]').selectOption("icp_validation_action");
+        await hypothesisConversion.locator('input[name="title"]').fill("Validate mixed small-agency demand");
+        await hypothesisConversion.locator('input[name="owner"]').fill("Smoke Researcher");
+        await hypothesisConversion.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("converted into proposed validation work"), undefined, { timeout: 10000 });
+        await settled(journey);
+
+        await go("signals");
+        const hypothesisProposal = journey.locator("#main article", { hasText: "Validate mixed small-agency demand" }).first();
+        let proposalText = ((await hypothesisProposal.textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          proposalText.includes("Market hypothesis provenance")
+          && proposalText.includes("Small US agencies show mixed demand")
+          && proposalText.includes("disputed")
+          && proposalText.includes("proposed"),
+          "hypothesis validation proposal preserves disputed hypothesis provenance without becoming destination authority",
+        );
+        await hypothesisProposal.getByRole("button", { name: "Materialize in Product Core" }).click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("materialized into authoritative Product Core"), undefined, { timeout: 10000 });
+        await settled(journey);
+        proposalText = ((await journey.locator("#main article", { hasText: "Validate mixed small-agency demand" }).first().textContent()) ?? "").replace(/\s+/g, " ");
+        check(proposalText.includes("Authoritative destination") && proposalText.includes("product_core"), "hypothesis proposal materializes into Product Core while Signals retains the destination reference");
+
+        await go("market");
+        hypothesisText = ((await hypothesisCard().textContent()) ?? "").replace(/\s+/g, " ");
+        check(hypothesisText.includes("disputed"), "materializing downstream validation work does not silently change the Market hypothesis review state");
+
         // #167: composition planning and exact experiment identity must be
         // operable through visible Studio controls. The test writes no
         // Campaign state through internal APIs.
