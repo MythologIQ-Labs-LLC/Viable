@@ -1054,6 +1054,61 @@ async function run() {
         const notice = ((await studios().locator("[data-existing-proposals]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
         check(notice.includes("Already proposed from this signal") && notice.includes("Review: Studio owners"), "converting a signal again first shows the proposal it already produced");
 
+        // #167: composition planning and exact experiment identity must be
+        // operable through visible Studio controls. The test writes no
+        // Campaign state through internal APIs.
+        await go("studio");
+        const compositionDisclosure = journey.locator("summary", { hasText: "Create composition brief" }).first();
+        await compositionDisclosure.click();
+        const compositionForm = journey.locator('form[data-form="campaign-create-composition"]');
+        await compositionForm.locator('select[name="campaignId"]').selectOption("campaign-1");
+        await compositionForm.locator('select[name="destinationId"]').selectOption("destination-1");
+        await compositionForm.locator('select[name="objective"]').selectOption("product_proof");
+        await compositionForm.locator('select[name="contentFamily"]').selectOption("build_proof");
+        await compositionForm.locator('select[name="format"]').selectOption("text");
+        await compositionForm.locator('input[name="desiredOutcome"]').fill("One qualified beta review");
+        await compositionForm.locator('input[name="topic"]').fill("Human-reviewed receipt matching");
+        await compositionForm.locator('input[name="hookArchetype"]').fill("product_proof");
+        await compositionForm.locator('input[name="callToAction"]').fill("Join the private beta");
+        await compositionForm.locator('textarea[name="toneConstraints"]').fill("Direct\nNo hype");
+        await compositionForm.locator('textarea[name="prohibitedClaims"]').fill("Fully automatic reconciliation");
+        await compositionForm.locator('select[name="externalLinkPolicy"]').selectOption("comment");
+        await compositionForm.locator('textarea[name="hypothesis"]').fill("Concrete human-in-the-loop proof earns more qualified beta review than an automation claim.");
+        await compositionForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Composition brief saved"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const compositionCard = journey.locator("#main article", { hasText: "Human-reviewed receipt matching" }).first();
+        const compositionText = ((await compositionCard.textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          compositionText.includes("truth") && compositionText.includes("audience") && compositionText.includes("experiment") && compositionText.includes("approval"),
+          "Studio shows separate composition readiness facets instead of one opaque score",
+        );
+
+        const bindDisclosure = journey.locator("summary", { hasText: "Bind an exact approved variant to an experiment" }).first();
+        await bindDisclosure.click();
+        const experimentForm = journey.locator('form[data-form="campaign-bind-experiment"]');
+        await experimentForm.locator('select[name="channelVariantId"]').selectOption("variant-1");
+        await experimentForm.locator('input[name="provider"]').fill("manual_linkedin");
+        await experimentForm.locator('input[name="timezone"]').fill("America/Chicago");
+        await experimentForm.locator('input[name="expectedOutcome"]').fill("One qualified beta review");
+        await experimentForm.locator('input[name="changedVariables"][value="hook"]').check();
+        await experimentForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Exact approved channel variant bound"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const experimentText = ((await journey.locator("#main article", { hasText: "manual_linkedin" }).first().textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          experimentText.includes("current") && experimentText.includes("v1") && experimentText.includes("hook") && /[0-9a-f]{12}/.test(experimentText),
+          "Studio binds a current publication experiment to the exact approved variant revision and fingerprint",
+        );
+
+        // Re-enter Studio through normal navigation so the assertion comes
+        // from the durable Campaign store rather than retained form state.
+        await go("home");
+        await go("studio");
+        const durableComposition = ((await journey.locator("#main").textContent()) ?? "").includes("Human-reviewed receipt matching");
+        const durableExperiment = ((await journey.locator("#main").textContent()) ?? "").includes("manual_linkedin");
+        check(durableComposition && durableExperiment, "composition brief and exact experiment binding survive a normal view reload from durable workspace state");
+
         // Runtime panel results are announced (#161).
         await go("workspace");
         await Promise.all([journey.waitForEvent("download", { timeout: 10000 }), journey.click('[data-runtime-action="download-diagnostics"]')]);
