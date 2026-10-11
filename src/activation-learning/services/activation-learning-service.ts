@@ -1097,6 +1097,10 @@ function normalizedMetricName(value: string): string {
   return normalized;
 }
 
+function normalizedUnit(value?: string): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
 async function performanceImportDigest(input: Readonly<{
   calendarEntryId: string;
   publicationExperimentId?: string;
@@ -1182,7 +1186,6 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
         normalizedMetricName(observation.metric),
         observation.windowStartsAt,
         observation.windowEndsAt,
-        (observation.unit ?? "").trim().toLowerCase(),
       ].join("|");
       groups.set(key, [...(groups.get(key) ?? []), observation]);
     }
@@ -1193,9 +1196,17 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
     const numeric = unique.filter((item) =>
       ["observed", "verified_zero"].includes(item.state) && item.value !== undefined);
     const numericValues = new Set(numeric.map((item) => item.value));
+    const units = new Set(unique.map((item) => normalizedUnit(item.unit)).filter(Boolean));
+    const explicitConflict = unique.some((item) => item.state === "conflict");
+    const incompatibleUnits = units.size > 1;
 
-    if (numericValues.size > 1) {
+    if (explicitConflict || incompatibleUnits || numericValues.size > 1) {
       const first = unique[0]!;
+      const reasons = [
+        ...(explicitConflict ? ["one or more source observations are already disputed"] : []),
+        ...(incompatibleUnits ? [`units disagree (${[...units].join(" vs ")})`] : []),
+        ...(numericValues.size > 1 ? [`numeric values disagree (${[...numericValues].join(" vs ")})`] : []),
+      ];
       return {
         id: `conflict:${unique.map((item) => item.id).sort().join(":")}`,
         metric: normalizedMetricName(first.metric),
@@ -1205,8 +1216,7 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
         capturedAt: latestCapturedAt(unique),
         source: unique.map((item) => item.source).filter((value, index, values) => values.indexOf(value) === index).join(" | "),
         evidenceReference: unique.map((item) => item.evidenceReference).filter((value, index, values) => values.indexOf(value) === index).join(" | "),
-        ...(first.unit ? { unit: first.unit } : {}),
-        limitation: `Conflicting observations for the same metric and reporting window: ${[...numericValues].join(" vs ")}. Newer evidence was not treated as truth authority.`,
+        limitation: `Conflicting observations for the same metric and reporting window: ${reasons.join("; ")}. Newer evidence was not treated as truth authority.`,
       };
     }
 
@@ -1232,6 +1242,8 @@ function dedupeEquivalentObservations(observations: readonly MetricObservation[]
   for (const observation of observations) {
     const key = JSON.stringify({
       metric: normalizedMetricName(observation.metric),
+      providerMetric: observation.providerMetric?.trim() ?? null,
+      providerDefinition: observation.providerDefinition?.trim() ?? null,
       state: observation.state,
       value: observation.value ?? null,
       unit: observation.unit?.trim().toLowerCase() ?? null,
@@ -1272,6 +1284,16 @@ function compareMetrics(baseline: readonly MetricObservation[], outcomes: readon
     if (!outcome) return { metric, baselineState: base.state, outcomeState: "not_collected", limitation: "No outcome observation was imported" };
     const numeric = ["observed", "verified_zero"];
     if (numeric.includes(base.state) && numeric.includes(outcome.state) && base.value !== undefined && outcome.value !== undefined) {
+      if (normalizedUnit(base.unit) !== normalizedUnit(outcome.unit)) {
+        return {
+          metric,
+          baselineState: base.state,
+          outcomeState: outcome.state,
+          baselineValue: base.value,
+          outcomeValue: outcome.value,
+          limitation: `Metric units are not comparable (${base.unit ?? "unspecified"} vs ${outcome.unit ?? "unspecified"}).`,
+        };
+      }
       return {
         metric,
         baselineState: base.state,
