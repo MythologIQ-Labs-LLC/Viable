@@ -276,53 +276,93 @@ Authentication, scopes, quotas, review status, and runtime availability remain p
 
 A publishing-capable provider may legitimately report analytics as unavailable.
 
-## 4. Analytics snapshots
+## 4. Analytics snapshots and reconciliation
 
-### 4.1 Snapshots are append-only observations
+### 4.1 Implementation model
 
-Do not overwrite one mutable "current analytics" record.
+#168 evolves the existing Activation/Learning evidence model rather than creating a parallel analytics store.
+
+`PerformanceImport` is the append-only analytics snapshot envelope. `MetricObservation` remains the atomic evidence record.
+
+New imports preserve:
+
+- the normalized Viable metric family in `metric`;
+- the exact provider-native metric name in `providerMetric`, when one exists;
+- the provider-native definition or reporting note in `providerDefinition`, when known;
+- evidence state, numeric value when valid, unit, reporting window, capture time, source, evidence reference, and limitation;
+- source classification;
+- optional exact `publicationExperimentId`;
+- optional provider publication identifier linked to delivery evidence;
+- a SHA-256 `normalizedDigest` used for idempotence.
+
+The manual-first import path accepts only:
+
+- `human_recorded`;
+- `provider_export`.
+
+`provider_api` remains a domain classification reserved for a later authenticated provider adapter. The manual Analytics UI and current `importPerformance()` path cannot assert API provenance.
+
+The evidence states used by Activation/Learning are:
 
 ```ts
-type EvidenceState =
+type MetricEvidenceState =
   | "observed"
-  | "manual"
+  | "verified_zero"
   | "estimated"
+  | "delayed"
+  | "partial"
   | "unavailable"
-  | "unknown";
-
-interface AnalyticsObservation {
-  metric: string;
-  value?: number;
-  unit: "count" | "ratio" | "milliseconds" | "seconds";
-  evidenceState: EvidenceState;
-  providerMetric?: string;
-  limitation?: string;
-}
-
-interface AnalyticsSnapshot {
-  id: string;
-  publicationExperimentId: string;
-  capturedAt: string;
-  windowStartsAt?: string;
-  windowEndsAt?: string;
-  source: string;
-  observations: AnalyticsObservation[];
-}
+  | "unknown"
+  | "conflict"
+  | "not_collected";
 ```
 
-Suggested standard checkpoints are operational defaults, not hard requirements:
+These states are evidence semantics, not score bands. In particular:
 
-- approximately 1 hour;
-- 3 hours;
-- 24 hours;
-- 48 hours;
-- 7 days.
+- `observed` requires a finite non-zero value;
+- `verified_zero` requires explicit value `0`;
+- `estimated` requires a finite value and a limitation;
+- `partial` requires a limitation and may carry a finite partial value;
+- `delayed`, `unavailable`, `unknown`, `conflict`, and `not_collected` do not carry numeric values;
+- missing or unavailable evidence never becomes zero.
 
-If Viable is not running or the provider cannot be queried at the exact checkpoint, capture the next available observation and preserve the actual capture time.
+### 4.2 Idempotent append-only import
 
-### 4.2 Canonical metric families
+Before durable import, Viable canonicalizes the evidence-bearing fields and computes a SHA-256 digest. Importer name, freeform notes, import time, and generated observation IDs do not create a second evidence record when the normalized evidence itself is identical.
 
-Normalize provider-native metrics into families while preserving the original provider metric name.
+Therefore:
+
+- re-selecting the same validated evidence is idempotent;
+- genuinely different evidence remains append-only;
+- later capture time does not overwrite an earlier observation.
+
+Raw provider exports remain user-owned source material. Viable stores the normalized evidence and provenance required for learning, not a credential-bearing provider archive.
+
+### 4.3 Conflict-safe reconciliation
+
+Reconciliation groups observations by:
+
+1. normalized metric family;
+2. exact reporting-window start;
+3. exact reporting-window end.
+
+Equivalent observations count once for comparison purposes while their durable import records remain intact.
+
+The reconciled state becomes `conflict` when any of these are true:
+
+- source observations already include an explicit conflict;
+- numeric values disagree;
+- units disagree.
+
+The conflict record cites every contributing source and evidence reference. Capture time is retained as provenance but **never decides which conflicting value is true**.
+
+If compatible numeric observations agree, reconciliation returns one deterministic representative observation. Incomplete evidence remains incomplete.
+
+This replaces the prior newest-`capturedAt` behavior, which could silently turn contradictory evidence into a numeric retrospective delta.
+
+### 4.4 Canonical metric families
+
+Normalize provider-native metrics into stable families while preserving provider-native labels and definitions.
 
 **Distribution**
 
@@ -354,13 +394,18 @@ Normalize provider-native metrics into families while preserving the original pr
 - leads;
 - purchases/subscriptions.
 
-Missing metrics remain unavailable, never zero.
+Legacy human-readable metric labels are normalized at read/comparison time so older workspace evidence remains comparable without rewriting stored history.
 
 ## 5. Deterministic derived metrics
 
-Derived metrics are pure functions over snapshots.
+Derived metrics are separate `DerivedMetricRecord` evidence, never mutations of provider/manual snapshots.
 
-Examples:
+The first implementation exposes two primitives:
+
+- `ratio`;
+- `sum`.
+
+Those primitives can express formulas such as:
 
 ```text
 impressions_per_reached = impressions / members_reached
@@ -371,15 +416,33 @@ save_rate = saves / members_reached
 profile_conversion = profile_views_from_content / members_reached
 follower_conversion = followers_gained / members_reached
 out_of_network_share = out_of_network_impressions / impressions
-velocity_1h = impressions_at_1h / elapsed_hours
 ```
+
+Every derived record preserves:
+
+- normalized derived metric family;
+- formula and `formulaVersion`;
+- human-readable expression;
+- exact reporting window;
+- source normalized metric families;
+- source import IDs;
+- source observation IDs;
+- all contributing source classifications;
+- unit and multiplier;
+- evidence state and optional numeric result;
+- explicit limitation when a value is withheld;
+- deterministic SHA-256 digest for idempotence;
+- named creator and creation time.
 
 Rules:
 
-- division by zero returns unavailable, not zero;
-- every derived value records source snapshot IDs;
-- formulas are versioned;
-- provider and manually captured inputs may not be silently mixed without provenance.
+- derivation consumes reconciled evidence, not a favored raw import;
+- disputed source evidence produces `conflict`;
+- a missing/incomplete source produces `unavailable`;
+- division by zero produces `unavailable`, not zero;
+- incompatible units are conflicts before derivation/comparison;
+- mixed provider/manual provenance is allowed only when it remains explicitly visible;
+- repeating the same normalized derivation is idempotent.
 
 ## 6. Comparison cohorts
 
