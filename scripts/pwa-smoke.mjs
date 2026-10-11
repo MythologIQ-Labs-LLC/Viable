@@ -1130,6 +1130,25 @@ async function run() {
           "composition revision and stale exact experiment binding survive a normal view reload from durable workspace state",
         );
 
+        // The publication experiment needs real delivery evidence before it
+        // can participate in a comparable cohort. Record it through the
+        // visible Calendar controls, not by mutating storage.
+        await go("calendar");
+        const deliveryForm = journey.locator('form[data-form="activation-delivery-outcome"]');
+        await deliveryForm.locator('select[name="packageId"]').selectOption("activation-package-1");
+        await deliveryForm.locator('select[name="status"]').selectOption("delivered");
+        await deliveryForm.locator('select[name="evidenceClassification"]').selectOption("provider_evidence");
+        await deliveryForm.locator('input[name="observedAt"]').fill("2026-09-15T15:00");
+        await deliveryForm.locator('input[name="source"]').fill("LinkedIn publication receipt");
+        await deliveryForm.locator('input[name="recordedBy"]').fill("Smoke Analyst");
+        await deliveryForm.locator('textarea[name="evidenceReferences"]').fill("smoke-linkedin-publication-receipt");
+        await deliveryForm.locator('input[name="deliveryUrl"]').fill("https://www.linkedin.com/posts/smoke-example");
+        await deliveryForm.locator('input[name="publicationId"]').fill("smoke-publication-1");
+        await deliveryForm.locator('textarea[name="note"]').fill("Provider receipt captured for cohort timing authority");
+        await deliveryForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Delivery or failure evidence recorded"), undefined, { timeout: 10000 });
+        await settled(journey);
+
         // #168: analytics evidence must remain manual-first, idempotent, and
         // conflict-safe through the visible Analytics controls.
         await go("analytics");
@@ -1147,6 +1166,9 @@ async function run() {
           evidenceReference,
           providerMetric = "",
           providerDefinition = "",
+          windowStartsAt = "2026-09-15T15:00",
+          windowEndsAt = "2026-09-29T15:00",
+          capturedAt = "2026-09-29T15:05",
         }) => {
           const form = analyticsForm();
           await form.locator('select[name="calendarEntryId"]').selectOption("calendar-1");
@@ -1164,9 +1186,9 @@ async function run() {
           await form.locator('input[name="source"]').fill(source);
           await form.locator('input[name="evidenceReference"]').fill(evidenceReference);
           await form.locator('textarea[name="limitation"]').fill("");
-          await form.locator('input[name="windowStartsAt"]').fill("2026-09-15T15:00");
-          await form.locator('input[name="windowEndsAt"]').fill("2026-09-29T15:00");
-          await form.locator('input[name="capturedAt"]').fill("2026-09-29T15:05");
+          await form.locator('input[name="windowStartsAt"]').fill(windowStartsAt);
+          await form.locator('input[name="windowEndsAt"]').fill(windowEndsAt);
+          await form.locator('input[name="capturedAt"]').fill(capturedAt);
           await form.locator('textarea[name="notes"]').fill("Smoke analytics evidence");
           await form.locator('button[type="submit"]').click();
           await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Performance evidence imported idempotently"), undefined, { timeout: 10000 });
@@ -1239,6 +1261,41 @@ async function run() {
         check(
           analyticsText.includes("reaction_rate") && analyticsText.includes("0.2 ratio") && analyticsText.includes("formula v1") && analyticsText.includes("human recorded") && analyticsText.includes("provider export"),
           "derived analytics expose formula version, value, and mixed-source provenance",
+        );
+
+        // #169: one exact 24-hour observation is enough to prove the
+        // cohort workflow, but deliberately not enough for directional advice.
+        await fillAnalyticsSnapshot({
+          metric: "cohort_impressions",
+          value: 77,
+          sourceClassification: "provider_export",
+          source: "LinkedIn 24-hour export",
+          evidenceReference: "smoke-linkedin-24h.csv",
+          providerMetric: "Impressions",
+          providerDefinition: "Provider-native post impression count",
+          windowStartsAt: "2026-09-15T15:00",
+          windowEndsAt: "2026-09-16T15:00",
+          capturedAt: "2026-09-16T15:05",
+        });
+        const cohortDisclosure = journey.locator("summary", { hasText: "Evaluate a comparable publication cohort" }).first();
+        await cohortDisclosure.click();
+        const cohortForm = journey.locator('form[data-form="activation-cohort-evaluation"]');
+        if (experimentId) await cohortForm.locator('select[name="referenceExperimentId"]').selectOption(experimentId);
+        await cohortForm.locator('input[name="metric"]').fill("cohort_impressions");
+        await cohortForm.locator('select[name="ageBucket"]').selectOption("24h");
+        await cohortForm.locator('select[name="compareVariable"]').selectOption("hook");
+        await cohortForm.locator('input[name="createdBy"]').fill("Smoke Analyst");
+        await cohortForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Comparable publication cohort evaluated"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const cohortText = ((await journey.locator('section[aria-labelledby="cohort-evaluation-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          cohortText.includes("insufficient")
+          && cohortText.includes("Comparable publications 1")
+          && cohortText.includes("policy v1")
+          && cohortText.includes("three publications each")
+          && cohortText.includes("Next experiment"),
+          "small-sample cohort stays visibly insufficient and recommends another controlled experiment without declaring a winner",
         );
 
         // Runtime panel results are announced (#161).
