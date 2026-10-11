@@ -509,8 +509,8 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     validateImportStatus(input.status, observations);
     const normalizedDigest = await performanceImportDigest({
       calendarEntryId: input.calendarEntryId,
-      publicationExperimentId: publication.publicationExperimentId,
-      providerPublicationId: publication.providerPublicationId,
+      ...(publication.publicationExperimentId ? { publicationExperimentId: publication.publicationExperimentId } : {}),
+      ...(publication.providerPublicationId ? { providerPublicationId: publication.providerPublicationId } : {}),
       source: input.source.trim(),
       sourceClassification: input.sourceClassification,
       observations,
