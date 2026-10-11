@@ -619,7 +619,17 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
           value = (values[0]! / values[1]!) * multiplier;
         }
       } else {
-        value = values.reduce((total, current) => total + current, 0) * multiplier;
+        const sourceUnits = new Set(selected.map((item) => normalizedUnit(item!.unit)));
+        const sourceUnit = [...sourceUnits][0] ?? "";
+        if (sourceUnits.size > 1) {
+          state = "conflict";
+          limitation = `Sum source units disagree (${[...sourceUnits].map((unit) => unit || "unspecified").join(" vs ")}).`;
+        } else if (normalizedUnit(input.unit) !== sourceUnit) {
+          state = "unavailable";
+          limitation = `Sum output unit must match the source unit (${sourceUnit || "unspecified"}).`;
+        } else {
+          value = values.reduce((total, current) => total + current, 0) * multiplier;
+        }
       }
       if (value !== undefined) state = value === 0 ? "verified_zero" : "observed";
     }
@@ -1196,7 +1206,7 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
     const numeric = unique.filter((item) =>
       ["observed", "verified_zero"].includes(item.state) && item.value !== undefined);
     const numericValues = new Set(numeric.map((item) => item.value));
-    const units = new Set(unique.map((item) => normalizedUnit(item.unit)).filter(Boolean));
+    const units = new Set(unique.map((item) => normalizedUnit(item.unit)));
     const explicitConflict = unique.some((item) => item.state === "conflict");
     const incompatibleUnits = units.size > 1;
 
@@ -1204,7 +1214,7 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
       const first = unique[0]!;
       const reasons = [
         ...(explicitConflict ? ["one or more source observations are already disputed"] : []),
-        ...(incompatibleUnits ? [`units disagree (${[...units].join(" vs ")})`] : []),
+        ...(incompatibleUnits ? [`units disagree (${[...units].map((unit) => unit || "unspecified").join(" vs ")})`] : []),
         ...(numericValues.size > 1 ? [`numeric values disagree (${[...numericValues].join(" vs ")})`] : []),
       ];
       return {
