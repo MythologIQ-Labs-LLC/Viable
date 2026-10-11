@@ -110,11 +110,91 @@ export class CompositionExperimentService {
       ...(input.callToAction?.trim() ? { callToAction: input.callToAction.trim() } : {}),
       externalLinkPolicy: input.externalLinkPolicy,
       hypothesis: input.hypothesis.trim(),
+      version: 1,
       createdAt: now,
       updatedAt: now,
     };
     const next = { ...workspace, compositionBriefs: [...(workspace.compositionBriefs ?? []), brief], updatedAt: now };
     return this.persist(next);
+  }
+
+  async reviseCompositionBrief(workspaceId: string, briefId: string, input: Readonly<{
+    editor: string;
+    rationale: string;
+    objective: CompositionObjective;
+    desiredOutcome: string;
+    topic: string;
+    contentFamily: ContentFamily;
+    hookArchetype?: string;
+    toneConstraints: readonly string[];
+    prohibitedClaims: readonly string[];
+    destinationId: string;
+    format: CompositionFormat;
+    mediaAssetIds: readonly string[];
+    callToAction?: string;
+    externalLinkPolicy: ExternalLinkPolicy;
+    hypothesis: string;
+  }>): Promise<CampaignWorkspace> {
+    requireText(input.editor, "Named composition editor");
+    requireText(input.rationale, "Composition revision rationale");
+    requireText(input.desiredOutcome, "Desired outcome");
+    requireText(input.topic, "Composition topic");
+    requireText(input.destinationId, "Destination");
+    requireText(input.hypothesis, "Experiment hypothesis");
+
+    const [workspace, product, activation] = await Promise.all([
+      this.load(workspaceId),
+      this.requiredProduct(workspaceId),
+      this.requiredActivation(workspaceId),
+    ]);
+    const current = required(workspace.compositionBriefs ?? [], briefId, "Composition brief");
+    const campaign = required(workspace.campaigns, current.campaignId, "Campaign");
+    if (campaign.status !== "approved") throw new Error("Composition revision requires an approved campaign");
+    this.validateCampaignAuthority(product, campaign);
+    this.requiredCampaignDestination(activation, campaign, input.destinationId);
+
+    const proposed: CompositionBrief = {
+      ...current,
+      objective: input.objective,
+      primaryAudience: campaign.primaryAudience,
+      desiredOutcome: input.desiredOutcome.trim(),
+      topic: input.topic.trim(),
+      contentFamily: input.contentFamily,
+      ...(input.hookArchetype?.trim() ? { hookArchetype: input.hookArchetype.trim() } : { hookArchetype: undefined }),
+      toneConstraints: clean(input.toneConstraints),
+      claimReferences: campaign.claimReferences.map((reference) => ({ ...reference, evidenceIds: [...reference.evidenceIds] })),
+      evidenceIds: [...campaign.evidenceIds],
+      prohibitedClaims: clean(input.prohibitedClaims),
+      destinationId: input.destinationId.trim(),
+      format: input.format,
+      mediaAssetIds: clean(input.mediaAssetIds),
+      ...(input.callToAction?.trim() ? { callToAction: input.callToAction.trim() } : { callToAction: undefined }),
+      externalLinkPolicy: input.externalLinkPolicy,
+      hypothesis: input.hypothesis.trim(),
+      updatedAt: this.clock().toISOString(),
+    };
+    const changedFields = compositionChangedFields(current, proposed);
+    if (changedFields.length === 0) throw new Error("Change composition intent before saving a revision");
+    const now = this.clock().toISOString();
+    const revision = {
+      version: current.version,
+      changedAt: now,
+      changedBy: input.editor.trim(),
+      rationale: input.rationale.trim(),
+      changedFields,
+      snapshot: JSON.stringify(compositionIdentity(current)),
+    };
+    const revised: CompositionBrief = {
+      ...proposed,
+      version: current.version + 1,
+      updatedAt: now,
+      history: [...(current.history ?? []), revision],
+    };
+    return this.persist({
+      ...workspace,
+      compositionBriefs: (workspace.compositionBriefs ?? []).map((record) => record.id === briefId ? revised : record),
+      updatedAt: now,
+    });
   }
 
   async assessCompositionBrief(workspaceId: string, briefId: string): Promise<CompositionAssessment> {
@@ -225,6 +305,8 @@ export class CompositionExperimentService {
       id: this.createId(),
       workspaceId,
       compositionBriefId: brief.id,
+      compositionBriefVersion: brief.version,
+      compositionBriefSha256: await sha256(JSON.stringify(compositionIdentity(brief))),
       channelVariantId: variant.id,
       channelVariantVersion: variant.version,
       channelVariantBodySha256: await sha256(variant.body),
@@ -263,6 +345,10 @@ export class CompositionExperimentService {
   ): Promise<readonly string[]> {
     const brief = required(workspace.compositionBriefs ?? [], experiment.compositionBriefId, "Composition brief");
     const reasons: string[] = [];
+    if (brief.version !== experiment.compositionBriefVersion) reasons.push("Composition brief revision changed.");
+    if (await sha256(JSON.stringify(compositionIdentity(brief))) !== experiment.compositionBriefSha256) {
+      reasons.push("Composition brief experiment context changed.");
+    }
     const campaign = workspace.campaigns.find((record) => record.id === brief.campaignId);
     let destination: DestinationRecord | undefined;
     if (!campaign || campaign.status !== "approved") {
@@ -416,6 +502,40 @@ function errorMessage(error: unknown): string {
 
 function isCampaignChannel(value: string): value is ChannelKind {
   return ["linkedin", "facebook_page", "instagram_feed", "website", "github_release"].includes(value);
+}
+
+function compositionIdentity(brief: CompositionBrief): Readonly<Record<string, unknown>> {
+  return {
+    campaignId: brief.campaignId,
+    icpHypothesisId: brief.icpHypothesisId ?? null,
+    objective: brief.objective,
+    primaryAudience: brief.primaryAudience,
+    desiredOutcome: brief.desiredOutcome,
+    topic: brief.topic,
+    contentFamily: brief.contentFamily,
+    hookArchetype: brief.hookArchetype ?? null,
+    toneConstraints: [...brief.toneConstraints],
+    claimReferences: brief.claimReferences.map((reference) => ({
+      claimId: reference.claimId,
+      claimRevision: reference.claimRevision,
+      statement: reference.statement,
+      evidenceIds: [...reference.evidenceIds],
+    })),
+    evidenceIds: [...brief.evidenceIds],
+    prohibitedClaims: [...brief.prohibitedClaims],
+    destinationId: brief.destinationId,
+    format: brief.format,
+    mediaAssetIds: [...brief.mediaAssetIds],
+    callToAction: brief.callToAction ?? null,
+    externalLinkPolicy: brief.externalLinkPolicy,
+    hypothesis: brief.hypothesis,
+  };
+}
+
+function compositionChangedFields(current: CompositionBrief, proposed: CompositionBrief): readonly string[] {
+  const before = compositionIdentity(current);
+  const after = compositionIdentity(proposed);
+  return Object.keys(before).filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]));
 }
 
 async function sha256(value: string): Promise<string> {
