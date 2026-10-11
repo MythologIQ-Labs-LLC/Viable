@@ -842,6 +842,10 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
         excluded.push({ publicationExperimentId: experiment.id, reason: "Provider does not match the reference experiment." });
         continue;
       }
+      if (experiment.destinationId !== reference.destinationId) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: "Destination/account does not match the reference experiment." });
+        continue;
+      }
       const destination = workspace.destinations.find((record) => record.id === experiment.destinationId);
       if (!destination || destination.status !== "active") {
         excluded.push({ publicationExperimentId: experiment.id, reason: "Experiment destination is missing or disabled." });
@@ -1612,8 +1616,10 @@ function cohortContextMismatch(
   candidate: CompositionExperimentContext,
   compareVariable: ExperimentVariable,
 ): string | undefined {
-  const checks: readonly [ExperimentVariable | "objective" | "contentFamily", unknown, unknown][] = [
+  const checks: readonly [string, unknown, unknown][] = [
+    ["icp", reference.icpHypothesisId, candidate.icpHypothesisId],
     ["objective", reference.objective, candidate.objective],
+    ["desiredOutcome", reference.desiredOutcome, candidate.desiredOutcome],
     ["audience", reference.primaryAudience, candidate.primaryAudience],
     ["contentFamily", reference.contentFamily, candidate.contentFamily],
     ["topic", reference.topic, candidate.topic],
@@ -1622,6 +1628,7 @@ function cohortContextMismatch(
     ["format", reference.format, candidate.format],
     ["media", reference.mediaAssetIds.length > 0, candidate.mediaAssetIds.length > 0],
     ["cta", reference.callToAction, candidate.callToAction],
+    ["externalLinkPolicy", reference.externalLinkPolicy, candidate.externalLinkPolicy],
   ];
   for (const [dimension, left, right] of checks) {
     if (dimension === compareVariable) continue;
@@ -1773,10 +1780,10 @@ function cohortConfidence(
   groups: readonly CohortGroupSummary[],
   distinctPublicationDates: number,
 ): CohortConfidenceLabel {
-  if (included.length < 3 || distinctPublicationDates < 2) return "insufficient";
-  if (included.length < 5 || groups.length < 2) return "emerging";
-  const leader = groups[0]!;
-  const runnerUp = groups[1]!;
+  const comparisonGroups = groups.filter((group) => group.sampleSize >= 3);
+  if (included.length < 6 || distinctPublicationDates < 2 || comparisonGroups.length < 2) return "insufficient";
+  const leader = comparisonGroups[0]!;
+  const runnerUp = comparisonGroups[1]!;
   const leaderObservations = included.filter((item) => item.groupValue === leader.groupValue);
   const consistent = leaderObservations.filter((item) => item.value > runnerUp.median).length;
   if (consistent < 4) return "emerging";
@@ -1798,7 +1805,7 @@ function cohortAdvisory(
   confidence: CohortConfidenceLabel,
 ): string {
   if (confidence === "insufficient") {
-    return `Only ${included.length} comparable ${metric} observations are available. There is not enough evidence to recommend a ${compareVariable} choice.`;
+    return `${included.length} comparable ${metric} observations are available, but policy v1 requires at least two ${compareVariable} groups with three publications each before directional guidance is shown.`;
   }
   if (groups.length < 2) {
     return `The cohort has ${included.length} comparable observations but only one ${compareVariable} group. No comparative recommendation is supported.`;
@@ -1820,7 +1827,9 @@ function cohortLimitation(
     `Confidence is ${confidence.replaceAll("_", " ")} and is product guidance, not statistical proof.`,
   ];
   if (groups.length < 2) parts.push("At least two comparison groups are required for directional guidance.");
-  if (included.length < 3) parts.push("At least three comparable observations are required before an emerging pattern is shown.");
+  if (groups.filter((group) => group.sampleSize >= 3).length < 2) {
+    parts.push("Policy v1 requires at least three comparable publications in each of two groups before directional medians are advisory evidence.");
+  }
   return parts.join(" ");
 }
 
