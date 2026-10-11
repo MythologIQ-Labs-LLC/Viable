@@ -7,8 +7,17 @@ import { ActivationLearningService } from "../../../src/activation-learning/serv
 import { EventIntelligenceSignalSource } from "../../../src/signals/adapters/event-intelligence-signal-source.js";
 import { GitHubPublicRepositorySource } from "../../../src/signals/adapters/github-public-repository-source.js";
 import { ManualJsonSignalSource } from "../../../src/signals/adapters/manual-json-signal-source.js";
-import type { ConversionKind, SignalConversion, SignalRecord, SignalsInbox, SourceHealth } from "../../../src/signals/domain/signal.js";
-import { SignalsInboxService } from "../../../src/signals/services/signals-inbox-service.js";
+import type {
+  ConversionKind,
+  HypothesisEvidenceRelation,
+  MarketHypothesis,
+  MarketScope,
+  SignalConversion,
+  SignalRecord,
+  SignalsInbox,
+  SourceHealth,
+} from "../../../src/signals/domain/signal.js";
+import { assessMarketHypothesis, SignalsInboxService } from "../../../src/signals/services/signals-inbox-service.js";
 import { isCampaignMaterializationKind, isContentMaterializationKind, isProductMaterializationKind, isRepositoryGrowthMaterializationKind, isWebsiteWatchMaterializationKind, SignalWorkMaterializationService } from "../../../src/signals/services/signal-work-materialization-service.js";
 import { WebdogManualSignalSource, WebdogManualWebsiteWatchSource } from "../../../src/website-watch/adapters/webdog-manual-import-source.js";
 import type {
@@ -35,9 +44,9 @@ const humanDate = (value?: string): string => value ? new Date(value).toLocaleSt
 const lineValues = (value: FormDataEntryValue | null): string[] =>
   String(value ?? "").split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
 const statusTone = (status: string): string =>
-  ["success", "success_change_detected", "accepted", "reviewed", "converted", "change_detected", "scheduled", "materialized"].includes(status) ? "implemented"
-    : ["partial", "rate_limited", "saved", "suggested", "verified_empty", "verified_no_change", "baseline", "offline", "cancelled"].includes(status) ? "warning"
-      : ["transport_failed", "validation_failed", "authentication_failed", "unavailable", "forbidden", "unauthorized", "dismissed", "rejected", "disabled", "materialization_failed"].includes(status) ? "error"
+  ["success", "success_change_detected", "accepted", "reviewed", "converted", "change_detected", "scheduled", "materialized", "matching", "supporting"].includes(status) ? "implemented"
+    : ["partial", "rate_limited", "saved", "suggested", "verified_empty", "verified_no_change", "baseline", "offline", "cancelled", "proposed", "in_review", "disputed", "stale", "unknown"].includes(status) ? "warning"
+      : ["transport_failed", "validation_failed", "authentication_failed", "unavailable", "forbidden", "unauthorized", "dismissed", "rejected", "disabled", "materialization_failed", "out_of_scope", "contradictory"].includes(status) ? "error"
         : "neutral";
 const pill = (value: string): string => `<span class="pill ${statusTone(value)}">${escapeHtml(value.replaceAll("_", " "))}</span>`;
 const asBoolean = (value: FormDataEntryValue | null): boolean => value === "on";
@@ -220,6 +229,64 @@ export class SignalsViewController {
           relatedRecordId: observation.id,
         });
         return "Reviewed website change added to authoritative Calendar planning";
+      }
+      if (kind === "signals-market-hypothesis-create") {
+        this.inbox = await this.service.createMarketHypothesis(this.workspaceId, {
+          statement: String(form.get("statement")),
+          scope: {
+            breadth: String(form.get("breadth")) as MarketScope["breadth"],
+            geographies: lineValues(form.get("geographies")),
+            segments: lineValues(form.get("segments")),
+            productCategories: lineValues(form.get("productCategories")),
+            organizationTypes: lineValues(form.get("organizationTypes")),
+            audiences: lineValues(form.get("audiences")),
+          },
+          methodology: String(form.get("methodology")),
+          limitations: lineValues(form.get("limitations")),
+          owner: String(form.get("owner")),
+          nextValidationAction: String(form.get("nextValidationAction")),
+        });
+        return "Market hypothesis created as a proposal separate from reviewed source evidence";
+      }
+      if (kind === "signals-market-hypothesis-link") {
+        this.inbox = await this.service.linkMarketHypothesisEvidence(
+          this.workspaceId,
+          String(form.get("hypothesisId")),
+          {
+            signalId: String(form.get("signalId")),
+            relation: String(form.get("relation")) as HypothesisEvidenceRelation,
+            rationale: String(form.get("rationale")),
+          },
+        );
+        return "Reviewed observation linked to market hypothesis with explicit applicability";
+      }
+      if (kind === "signals-market-hypothesis-submit") {
+        this.inbox = await this.service.submitMarketHypothesis(this.workspaceId, String(form.get("hypothesisId")));
+        return "Market hypothesis submitted for separate human review";
+      }
+      if (kind === "signals-market-hypothesis-review") {
+        this.inbox = await this.service.reviewMarketHypothesis(
+          this.workspaceId,
+          String(form.get("hypothesisId")),
+          {
+            reviewer: String(form.get("reviewer")),
+            outcome: String(form.get("outcome")) as "reviewed" | "disputed" | "rejected",
+            note: String(form.get("note")),
+          },
+        );
+        return "Market hypothesis review recorded without changing Product Core or ICP authority";
+      }
+      if (kind === "signals-market-hypothesis-convert") {
+        this.inbox = await this.service.convertMarketHypothesis(
+          this.workspaceId,
+          String(form.get("hypothesisId")),
+          {
+            kind: String(form.get("kind")) as ConversionKind,
+            title: String(form.get("title")),
+            owner: String(form.get("owner")),
+          },
+        );
+        return "Market hypothesis converted into proposed validation work; destination authority remains unchanged";
       }
       if (kind === "signals-convert") {
         this.inbox = await this.service.convert(this.workspaceId, String(form.get("signalId")), {
@@ -595,20 +662,91 @@ ${escapeHtml(signal.summary)}</textarea></label>
   private renderMarket(): string {
     const inbox = this.inbox!;
     const reviewed = inbox.signals.filter((signal) => signal.evidenceState === "reviewed");
+    const hypotheses = inbox.marketHypotheses ?? [];
+    const assessments = new Map(hypotheses.map((hypothesis) => [hypothesis.id, assessMarketHypothesis(inbox, hypothesis)]));
     const byKind = new Map<string, number>();
     for (const signal of reviewed) byKind.set(signal.kind, (byKind.get(signal.kind) ?? 0) + 1);
-    const limitations = [...new Set(reviewed.flatMap((signal) => signal.limitations))];
+    const limitations = [...new Set([
+      ...reviewed.flatMap((signal) => signal.limitations),
+      ...hypotheses.flatMap((hypothesis) => hypothesis.limitations),
+    ])];
+    const disputed = hypotheses.filter((hypothesis) => {
+      const assessment = assessments.get(hypothesis.id);
+      return assessment?.effectiveStatus === "disputed" || (assessment?.contradictoryMatching ?? 0) > 0;
+    }).length;
+    const stale = hypotheses.filter((hypothesis) => assessments.get(hypothesis.id)?.effectiveStatus === "stale").length;
+
     return `
-      <header class="hero compact"><div><p class="eyebrow">Market evidence</p><h2>What the evidence says, and what it does not.</h2>
-        <p>This view summarizes reviewed signals, including reviewed website changes. It does not calculate ICP truth, qualify leads, or manufacture certainty.</p></div>${pill("evidence only")}</header>
-      <section class="metrics"><article><span>Reviewed signals</span><strong>${reviewed.length}</strong><small>Named human review</small></article>
-        <article><span>Event evidence</span><strong>${byKind.get("event") ?? 0}</strong><small>Bounded Event Intelligence</small></article>
-        <article><span>Repository evidence</span><strong>${(byKind.get("repository") ?? 0) + (byKind.get("repository_activity") ?? 0)}</strong><small>Public metadata and sampled activity</small></article>
-        <article><span>Website changes</span><strong>${byKind.get("website_change") ?? 0}</strong><small>Reviewed bounded evidence</small></article>
+      <header class="hero compact"><div><p class="eyebrow">Market evidence</p><h2>Observations are not conclusions.</h2>
+        <p>Reviewed signals remain source evidence. Market hypotheses are separate scoped interpretations with symmetric supporting and contradictory evidence. Neither becomes Product Core or ICP truth here.</p></div>${pill("evidence + hypotheses")}</header>
+      ${this.failure ? `<section class="state error" role="alert"><div><strong>Market evidence operation failed.</strong><p>${escapeHtml(this.failure)}</p></div><button type="button" data-nav="market">Return to saved market evidence</button></section>` : ""}
+      <section class="metrics"><article><span>Reviewed signals</span><strong>${reviewed.length}</strong><small>Named source review</small></article>
+        <article><span>Market hypotheses</span><strong>${hypotheses.length}</strong><small>Separate interpretation authority</small></article>
+        <article><span>Disputed</span><strong>${disputed}</strong><small>Counterevidence remains visible</small></article>
+        <article><span>Stale</span><strong>${stale}</strong><small>Evidence requires re-review</small></article>
         <article><span>Open limitations</span><strong>${limitations.length}</strong><small>Visible uncertainty</small></article></section>
-      <section class="panel"><div class="section-heading"><div><p class="eyebrow">Evidence map</p><h3>Reviewed evidence by type</h3></div></div>
-        <div class="cards">${reviewed.length ? reviewed.map((signal) => this.signalCard(signal, true)).join("") : `<div class="state empty"><strong>No reviewed market evidence.</strong><span>Accept a signal with named review before using it in this summary.</span></div>`}</div></section>
+      <section class="panel" aria-labelledby="hypothesis-create-heading">
+        <div class="section-heading"><div><p class="eyebrow">Hypothesis workbench</p><h3 id="hypothesis-create-heading">State the market claim and its scope explicitly</h3></div>${pill("hypothesis only")}</div>
+        <p class="guidance">Creating a hypothesis does not promote reviewed observations into market truth. Scope, methodology, limitations, evidence applicability, contradictions, and a separate named review remain visible.</p>
+        <details><summary>Create market hypothesis</summary><form data-form="signals-market-hypothesis-create">
+          <label>Hypothesis statement<textarea name="statement" rows="3" required placeholder="Within this bounded scope, what market statement should be tested?"></textarea></label>
+          <div class="three"><label>Scope breadth<select name="breadth"><option value="specific">Specific</option><option value="bounded" selected>Bounded</option><option value="broad">Broad</option></select></label><label>Named owner<input name="owner" required value="${escapeHtml(this.defaultOwner)}"></label><label>Next validation action<input name="nextValidationAction" required placeholder="Collect evidence from another segment"></label></div>
+          <div class="two"><label>Geographies<textarea name="geographies" rows="2" placeholder="One per line"></textarea></label><label>Market segments<textarea name="segments" rows="2" placeholder="One per line"></textarea></label></div>
+          <div class="three"><label>Product categories<textarea name="productCategories" rows="2"></textarea></label><label>Organization types<textarea name="organizationTypes" rows="2"></textarea></label><label>Audiences / roles<textarea name="audiences" rows="2"></textarea></label></div>
+          <label>Methodology<textarea name="methodology" rows="2" required placeholder="How should the evidence be interpreted?"></textarea></label>
+          <label>Known limitations<textarea name="limitations" rows="2" placeholder="One per line"></textarea></label>
+          <button class="primary" type="submit">Create hypothesis proposal</button>
+        </form></details>
+        <div class="cards">${hypotheses.length ? hypotheses.slice().reverse().map((hypothesis) => this.marketHypothesisCard(hypothesis, reviewed, assessments.get(hypothesis.id)!)).join("") : `<div class="state empty"><strong>No market hypotheses yet.</strong><span>Reviewed observations remain evidence until someone states and separately reviews a bounded hypothesis.</span></div>`}</div>
+      </section>
+      <section class="panel"><div class="section-heading"><div><p class="eyebrow">Evidence map</p><h3>Reviewed observations</h3></div>${pill(`${reviewed.length} reviewed`)}</div>
+        <p class="guidance">Signal review verifies an observation as usable evidence. It does not review any hypothesis that cites it.</p>
+        <div class="cards">${reviewed.length ? reviewed.map((signal) => this.signalCard(signal, true)).join("") : `<div class="state empty"><strong>No reviewed market evidence.</strong><span>Accept a signal with named review before linking it to a hypothesis.</span></div>`}</div></section>
       <section class="panel"><h3>Limitations and uncertainty</h3><ul class="limitations">${limitations.length ? limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("") : "<li>No reviewed evidence is available to assess limitations.</li>"}</ul></section>`;
+  }
+
+  private marketHypothesisCard(
+    hypothesis: MarketHypothesis,
+    reviewedSignals: readonly SignalRecord[],
+    assessment: ReturnType<typeof assessMarketHypothesis>,
+  ): string {
+    const support = hypothesis.evidenceLinks.filter((link) => link.relation === "supporting").length;
+    const counter = hypothesis.evidenceLinks.filter((link) => link.relation === "contradictory").length;
+    const effective = assessment.effectiveStatus;
+    const canReview = ["in_review", "stale", "disputed"].includes(hypothesis.status);
+    const canConvert = ["reviewed", "disputed"].includes(effective) && assessment.staleReasons.length === 0;
+    return `<article class="record market-hypothesis">
+      <div class="record-top"><h4>${escapeHtml(hypothesis.statement)}</h4><div>${pill(effective)} ${pill(hypothesis.scope.breadth)}</div></div>
+      <dl><div><dt>Owner</dt><dd>${escapeHtml(hypothesis.owner)}</dd></div><div><dt>Version</dt><dd>${hypothesis.version}</dd></div><div><dt>Supporting</dt><dd>${support}</dd></div><div><dt>Contradictory</dt><dd>${counter}</dd></div><div><dt>Partial / out of scope</dt><dd>${assessment.partialEvidence} / ${assessment.outOfScopeEvidence}</dd></div><div><dt>Unknown reuse rights</dt><dd>${assessment.unknownReuseRights}</dd></div></dl>
+      <p><strong>Scope:</strong> ${escapeHtml(scopeSummary(hypothesis.scope))}</p>
+      <p><strong>Methodology:</strong> ${escapeHtml(hypothesis.methodology)}</p>
+      <p><strong>Next validation:</strong> ${escapeHtml(hypothesis.nextValidationAction)}</p>
+      ${hypothesis.limitations.length ? `<p class="guidance"><strong>Limitations:</strong> ${escapeHtml(hypothesis.limitations.join(" · "))}</p>` : ""}
+      ${assessment.staleReasons.length ? `<div class="state warning"><strong>Hypothesis review is stale.</strong><span>${escapeHtml(assessment.staleReasons.join(" "))}</span></div>` : ""}
+      <details><summary>Evidence links (${hypothesis.evidenceLinks.length})</summary>${hypothesis.evidenceLinks.length ? `<ul>${hypothesis.evidenceLinks.map((link) => {
+        const signal = this.inbox?.signals.find((item) => item.id === link.signalId);
+        return `<li>${pill(link.relation)} ${pill(link.applicability)} <strong>${escapeHtml(signal?.title ?? link.signalId)}</strong> · ${escapeHtml(link.rationale)} · rights: ${escapeHtml(link.reuseRights)} · retrieved ${humanDate(link.retrievedAt)}</li>`;
+      }).join("")}</ul>` : `<p class="guidance">No evidence is linked. Absence of evidence is not counterevidence.</p>`}</details>
+      ${reviewedSignals.length && hypothesis.status !== "rejected" ? `<details><summary>Link reviewed observation</summary><form data-form="signals-market-hypothesis-link">
+        <input type="hidden" name="hypothesisId" value="${escapeHtml(hypothesis.id)}">
+        <div class="two"><label>Reviewed signal<select name="signalId">${reviewedSignals.map((signal) => `<option value="${signal.id}">${escapeHtml(signal.title)}</option>`).join("")}</select></label><label>Relationship<select name="relation"><option value="supporting">Supporting</option><option value="contradictory">Contradictory</option></select></label></div>
+        <label>Applicability rationale<textarea name="rationale" rows="2" required placeholder="Why does this observation support or contradict this scoped hypothesis?"></textarea></label>
+        <button type="submit">Link evidence</button>
+      </form></details>` : ""}
+      ${hypothesis.evidenceLinks.length && !["in_review", "rejected"].includes(hypothesis.status) ? `<form data-form="signals-market-hypothesis-submit"><input type="hidden" name="hypothesisId" value="${hypothesis.id}"><button type="submit">Submit hypothesis for review</button></form>` : ""}
+      ${canReview ? `<details><summary>Record hypothesis review</summary><form data-form="signals-market-hypothesis-review">
+        <input type="hidden" name="hypothesisId" value="${hypothesis.id}">
+        <div class="two"><label>Named reviewer<input name="reviewer" required value="${escapeHtml(this.defaultOwner)}"></label><label>Outcome<select name="outcome"><option value="reviewed">Reviewed</option><option value="disputed">Disputed</option><option value="rejected">Rejected</option></select></label></div>
+        <label>Review note<textarea name="note" rows="2" required></textarea></label><button type="submit">Record hypothesis review</button>
+      </form></details>` : ""}
+      ${canConvert ? `<details><summary>Create proposed validation work</summary><form data-form="signals-market-hypothesis-convert">
+        <input type="hidden" name="hypothesisId" value="${hypothesis.id}">
+        <label>Work type<select name="kind"><option value="icp_validation_action">ICP validation action</option><option value="product_action">Product action</option><option value="product_feedback">Product feedback</option>${effective === "reviewed" ? '<option value="campaign_brief">Campaign brief</option>' : ""}</select></label>
+        <label>Title<input name="title" required value="Validate: ${escapeHtml(hypothesis.statement)}"></label>
+        <label>Named owner<input name="owner" required value="${escapeHtml(hypothesis.owner)}"></label>
+        <button type="submit">Create proposed validation work</button>
+      </form></details>` : ""}
+    </article>`;
   }
 
   private sourceHealth(health: readonly SourceHealth[]): string {
@@ -622,7 +760,7 @@ ${escapeHtml(signal.summary)}</textarea></label>
       <div class="record-top"><h4>${escapeHtml(signal.title)}</h4><div>${pill(signal.kind)} ${pill(signal.status)} ${pill(signal.evidenceState)}</div></div>
       <p>${escapeHtml(signal.summary)}</p>
       <dl><div><dt>Source</dt><dd>${escapeHtml(this.sourceName(signal.sourceId))}</dd></div><div><dt>Retrieved</dt><dd>${humanDate(signal.provenance.retrievedAt)}</dd></div><div><dt>Freshness review</dt><dd>${humanDate(signal.freshnessReviewAt)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(signal.confidence)}</dd></div></dl>
-      <details><summary>Evidence drawer</summary><p><strong>Provenance:</strong> ${escapeHtml(signal.provenance.sourceUrl ?? "No validated source URL")}</p><p><strong>Limitations:</strong> ${escapeHtml(signal.limitations.join(" · "))}</p><p><strong>Facts:</strong> ${escapeHtml(JSON.stringify(signal.facts))}</p><p><strong>Relationships:</strong> ${escapeHtml(signal.relationships.map((item) => `${item.kind}: ${item.label}`).join(" · ") || "None")}</p></details>
+      <details><summary>Evidence drawer</summary><p><strong>Provenance:</strong> ${escapeHtml(signal.provenance.sourceUrl ?? "No validated source URL")}</p><p><strong>Publisher:</strong> ${escapeHtml(signal.provenance.publisher ?? "Unknown")}</p><p><strong>Reuse rights:</strong> ${escapeHtml(signal.provenance.reuseRights ?? "unknown")}</p><p><strong>Observed:</strong> ${humanDate(signal.observedAt)}</p><p><strong>Scope:</strong> ${escapeHtml(signal.marketScope ? scopeSummary(signal.marketScope) : "No structured market scope")}</p><p><strong>Methodology:</strong> ${escapeHtml(signal.methodology ?? "Not recorded")}</p><p><strong>Limitations:</strong> ${escapeHtml(signal.limitations.join(" · "))}</p><p><strong>Facts:</strong> ${escapeHtml(JSON.stringify(signal.facts))}</p><p><strong>Relationships:</strong> ${escapeHtml(signal.relationships.map((item) => `${item.kind}: ${item.label}`).join(" · ") || "None")}</p></details>
       ${signal.tags.length ? `<p class="tag-list">${signal.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</p>` : ""}
       ${!readonly ? `<div class="actions">${signal.evidenceState === "suggested" ? `<button type="button" data-signal-action="accept" data-id="${escapeHtml(signal.id)}">Accept with named review</button><button type="button" data-signal-action="dismiss" data-id="${escapeHtml(signal.id)}">Dismiss</button>` : ""}<button type="button" data-signal-action="save" data-id="${escapeHtml(signal.id)}">Save</button><button type="button" data-signal-action="tag" data-id="${escapeHtml(signal.id)}">Tag</button><button type="button" data-signal-action="assign" data-id="${escapeHtml(signal.id)}">Assign</button></div>
       <details><summary>Connect evidence</summary><form data-form="signals-connect"><input type="hidden" name="signalId" value="${escapeHtml(signal.id)}"><div class="three"><label>Relationship<select name="relationshipKind"><option value="product">Product</option><option value="icp_hypothesis">ICP hypothesis</option><option value="topic">Topic</option><option value="repository">Repository</option><option value="opportunity">Opportunity</option></select></label><label>Target identifier<input name="targetId" required></label><label>Label<input name="label" required></label></div><button type="submit">Connect signal</button></form></details>
@@ -641,6 +779,17 @@ ${escapeHtml(signal.summary)}</textarea></label>
     if (!observation) throw new Error("Website Watch observation not found");
     return observation;
   }
+}
+
+function scopeSummary(scope: MarketScope): string {
+  const dimensions = [
+    scope.geographies.length ? `geography: ${scope.geographies.join(", ")}` : "",
+    scope.segments.length ? `segments: ${scope.segments.join(", ")}` : "",
+    scope.productCategories.length ? `categories: ${scope.productCategories.join(", ")}` : "",
+    scope.organizationTypes.length ? `organizations: ${scope.organizationTypes.join(", ")}` : "",
+    scope.audiences.length ? `audiences: ${scope.audiences.join(", ")}` : "",
+  ].filter(Boolean);
+  return `${scope.breadth}${dimensions.length ? ` · ${dimensions.join(" · ")}` : " · unspecified dimensions"}`;
 }
 
 async function importPayload(form: FormData): Promise<string> {
