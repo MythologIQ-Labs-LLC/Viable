@@ -174,6 +174,32 @@ export type PerformanceImport = Readonly<{
   notes: string;
 }>;
 
+export type DerivedMetricFormula = "ratio" | "sum";
+
+export type DerivedMetricRecord = Readonly<{
+  id: string;
+  workspaceId: string;
+  calendarEntryId: string;
+  metric: string;
+  formula: DerivedMetricFormula;
+  formulaVersion: "1";
+  expression: string;
+  sourceMetrics: readonly string[];
+  sourceImportIds: readonly string[];
+  sourceObservationIds: readonly string[];
+  sourceClassifications: readonly PerformanceImport["sourceClassification"][];
+  windowStartsAt: string;
+  windowEndsAt: string;
+  state: MetricEvidenceState;
+  value?: number;
+  unit: string;
+  multiplier: number;
+  limitation?: string;
+  normalizedDigest: string;
+  createdAt: string;
+  createdBy: string;
+}>;
+
 export type MetricComparison = Readonly<{
   metric: string;
   baselineState: MetricEvidenceState;
@@ -231,6 +257,7 @@ export type ActivationLearningWorkspace = Readonly<{
   deliveryOutcomes: readonly DeliveryOutcome[];
   measurementPlans: readonly MeasurementPlan[];
   performanceImports: readonly PerformanceImport[];
+  derivedMetrics?: readonly DerivedMetricRecord[];
   retrospectives: readonly Retrospective[];
   learningLedger: readonly LearningLedgerEntry[];
   updatedAt: string;
