@@ -297,6 +297,31 @@ test("retrospective compares compatible metrics and writes a learning entry", as
   assert.match(workspace.learningLedger[0]!.reversibleNextAction, /Repeat one manual LinkedIn/);
 });
 
+test("re-importing identical normalized performance evidence is idempotent", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const input = {
+    calendarEntryId: entryId,
+    status: "complete" as const,
+    source: "Manual review log",
+    sourceClassification: "human_recorded" as const,
+    importedBy: "Analyst",
+    notes: "Outcome window complete",
+    observations: [outcomeObservation],
+  };
+  workspace = await service.importPerformance("workspace-1", input);
+  const firstDigest = workspace.performanceImports[0]!.normalizedDigest;
+  workspace = await service.importPerformance("workspace-1", { ...input, importedBy: "Second analyst", notes: "Same evidence re-selected" });
+  assert.equal(workspace.performanceImports.length, 1);
+  assert.match(firstDigest ?? "", /^[0-9a-f]{64}$/);
+  assert.equal(workspace.performanceImports[0]!.normalizedDigest, firstDigest);
+});
+
 test("conflicting observations for the same metric window withhold a retrospective delta", async () => {
   const { service } = fixture();
   let workspace = await packageReady(service);
