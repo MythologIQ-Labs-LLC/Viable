@@ -24,10 +24,19 @@ test("desktop exposes bounded Signals and Market workflows", async () => {
     "Authoritative destination",
     "Destination-specific fields and authority checks",
     "Evidence before action",
-    "does not calculate ICP truth",
+    "Observations are not conclusions",
+    "Create market hypothesis",
+    "Link reviewed observation",
+    "Record hypothesis review",
+    "Create proposed validation work",
+    "Market hypothesis provenance",
+    "Absence of evidence is not counterevidence",
+    "Neither becomes Product Core or ICP truth here",
   ]) assert.match(view, new RegExp(marker));
   assert.match(view, /SignalWorkMaterializationService/);
   assert.match(view, /materializeProductCore/);
+  assert.match(view, /assessMarketHypothesis/);
+  assert.doesNotMatch(view, /market winner/i);
 });
 
 test("Signals UI includes failure, verified-empty, partial, offline, and recovery language", async () => {
