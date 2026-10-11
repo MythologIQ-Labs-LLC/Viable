@@ -397,7 +397,11 @@ test("conflicting observations for the same metric window withhold a retrospecti
   });
   workspace = await service.importPerformance("workspace-1", {
     calendarEntryId: entryId, status: "complete", source: "Provider export A", sourceClassification: "provider_export", importedBy: "Analyst",
-    notes: "First export", observations: [outcomeObservation],
+    notes: "First export", observations: [{
+      ...outcomeObservation,
+      source: "Provider export A",
+      evidenceReference: "outcome-note-1",
+    }],
   });
   workspace = await service.importPerformance("workspace-1", {
     calendarEntryId: entryId, status: "complete", source: "Provider export B", sourceClassification: "provider_export", importedBy: "Analyst",
