@@ -4,6 +4,69 @@ export type SignalKind = "event" | "repository" | "repository_activity" | "websi
 export type SignalStatus = "new" | "accepted" | "saved" | "dismissed" | "converted";
 export type EvidenceState = "suggested" | "reviewed" | "rejected";
 export type Confidence = "low" | "medium" | "high";
+export type EvidenceReuseRights =
+  | "unknown"
+  | "citation_only"
+  | "quoted_excerpt_allowed"
+  | "redistribution_allowed";
+
+export type MarketScopeBreadth = "specific" | "bounded" | "broad";
+
+export type MarketScope = Readonly<{
+  breadth: MarketScopeBreadth;
+  geographies: readonly string[];
+  segments: readonly string[];
+  productCategories: readonly string[];
+  organizationTypes: readonly string[];
+  audiences: readonly string[];
+}>;
+
+export type EvidenceApplicability = "matching" | "partial" | "out_of_scope";
+export type HypothesisEvidenceRelation = "supporting" | "contradictory";
+export type MarketHypothesisStatus = "proposed" | "in_review" | "reviewed" | "disputed" | "rejected" | "stale";
+
+export type HypothesisEvidenceLink = Readonly<{
+  signalId: string;
+  signalFingerprint: string;
+  signalReviewedAt: string;
+  relation: HypothesisEvidenceRelation;
+  applicability: EvidenceApplicability;
+  rationale: string;
+  retrievedAt: string;
+  observedAt?: string;
+  publisher?: string;
+  reuseRights: EvidenceReuseRights;
+  evidenceScope?: MarketScope;
+}>;
+
+export type MarketHypothesisReviewEvent = Readonly<{
+  version: number;
+  status: Extract<MarketHypothesisStatus, "reviewed" | "disputed" | "rejected">;
+  reviewedBy: string;
+  reviewedAt: string;
+  note: string;
+}>;
+
+export type MarketHypothesis = Readonly<{
+  id: string;
+  workspaceId: string;
+  statement: string;
+  scope: MarketScope;
+  methodology: string;
+  limitations: readonly string[];
+  owner: string;
+  nextValidationAction: string;
+  status: MarketHypothesisStatus;
+  evidenceLinks: readonly HypothesisEvidenceLink[];
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  reviewHistory?: readonly MarketHypothesisReviewEvent[];
+}>;
+
 export type RelationshipKind =
   | "product" | "icp_hypothesis" | "event" | "repository" | "person"
   | "organization" | "campaign" | "opportunity" | "topic";
@@ -20,6 +83,9 @@ export type SignalProvenance = Readonly<{
   retrievedAt: string;
   sourceUrl?: string;
   externalId?: string;
+  publisher?: string;
+  publishedAt?: string;
+  reuseRights?: EvidenceReuseRights;
 }>;
 
 export type SignalRecord = Readonly<{
@@ -34,6 +100,8 @@ export type SignalRecord = Readonly<{
   freshnessReviewAt: string;
   confidence: Confidence;
   limitations: readonly string[];
+  methodology?: string;
+  marketScope?: MarketScope;
   facts: Readonly<Record<string, string | number | boolean | null>>;
   provenance: SignalProvenance;
   relationships: readonly SignalRelationship[];
@@ -93,6 +161,7 @@ export type SignalMaterializationFailure = Readonly<{
 export type SignalConversion = Readonly<{
   id: string;
   signalId: string;
+  hypothesisId?: string;
   kind: ConversionKind;
   title: string;
   owner: string;
@@ -107,6 +176,7 @@ export type SignalsInbox = Readonly<{
   sources: readonly SourceRegistration[];
   sourceHealth: readonly SourceHealth[];
   signals: readonly SignalRecord[];
+  marketHypotheses?: readonly MarketHypothesis[];
   conversions: readonly SignalConversion[];
   updatedAt: string;
 }>;
