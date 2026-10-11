@@ -812,8 +812,12 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     if (!campaigns) throw new Error("Campaign workspace not found");
 
     const reference = required(campaigns.publicationExperiments ?? [], input.referenceExperimentId, "Reference publication experiment");
+    if (reference.changedVariables.length !== 1 || reference.changedVariables[0] !== input.compareVariable) {
+      throw new Error(`Reference experiment must change only ${input.compareVariable} for this cohort comparison`);
+    }
     const referenceContext = await resolveExperimentCompositionContext(campaigns, reference);
     const referenceDestination = required(workspace.destinations, reference.destinationId, "Reference experiment destination");
+    if (referenceDestination.status !== "active") throw new Error("Reference experiment destination is disabled");
     const referenceImports = workspace.performanceImports.filter((record) => record.publicationExperimentId === reference.id);
     const referenceCandidate = selectComparableObservation(
       workspace,
@@ -840,6 +844,10 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
 
       if (experiment.provider !== reference.provider) {
         excluded.push({ publicationExperimentId: experiment.id, reason: "Provider does not match the reference experiment." });
+        continue;
+      }
+      if (experiment.timezone !== reference.timezone) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: "Experiment timezone does not match the reference experiment." });
         continue;
       }
       if (experiment.destinationId !== reference.destinationId) {
@@ -905,11 +913,11 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
         publicationObservedAt: candidate.publicationObservedAt,
         observationWindowEndsAt: candidate.observation.windowEndsAt,
         observationAgeHours: candidate.observationAgeHours,
-        publicationDate: candidate.publicationObservedAt.slice(0, 10),
+        publicationDate: localPublicationDate(candidate.publicationObservedAt, experiment.timezone),
         metric,
         value: candidate.observation.value!,
         ...(candidate.observation.unit ? { unit: candidate.observation.unit } : {}),
-        groupValue: experimentVariableValue(context, input.compareVariable, candidate.publicationObservedAt),
+        groupValue: experimentVariableValue(context, input.compareVariable, candidate.publicationObservedAt, experiment.timezone),
       });
     }
 
@@ -1742,6 +1750,7 @@ function experimentVariableValue(
   context: CompositionExperimentContext,
   variable: ExperimentVariable,
   publicationObservedAt: string,
+  timezone: string,
 ): string {
   if (variable === "topic") return context.topic;
   if (variable === "hook") return context.hookArchetype ?? "none";
@@ -1750,8 +1759,29 @@ function experimentVariableValue(
   if (variable === "media") return context.mediaAssetIds.length > 0 ? "media" : "no_media";
   if (variable === "audience") return context.primaryAudience;
   if (variable === "cta") return context.callToAction ?? "none";
-  const date = new Date(publicationObservedAt);
-  return `${date.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })} ${String(date.getUTCHours()).padStart(2, "0")}:00Z`;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: timezone,
+  }).formatToParts(new Date(publicationObservedAt));
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "Unknown";
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  return `${weekday} ${hour}:00 ${timezone}`;
+}
+
+function localPublicationDate(publicationObservedAt: string, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: timezone,
+  }).formatToParts(new Date(publicationObservedAt));
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) throw new Error("Publication date could not be normalized in the experiment timezone");
+  return `${year}-${month}-${day}`;
 }
 
 function summarizeCohortGroups(included: readonly CohortIncludedObservation[]): readonly CohortGroupSummary[] {
