@@ -1098,16 +1098,37 @@ async function run() {
         const experimentText = ((await journey.locator("#main article", { hasText: "manual_linkedin" }).first().textContent()) ?? "").replace(/\s+/g, " ");
         check(
           experimentText.includes("current") && experimentText.includes("v1") && experimentText.includes("hook") && /[0-9a-f]{12}/.test(experimentText),
-          "Studio binds a current publication experiment to the exact approved variant revision and fingerprint",
+          "Studio binds a current publication experiment to exact composition and approved-variant fingerprints",
         );
+
+        // Change the planning context through the visible revision form. The
+        // already-bound experiment must become stale rather than silently
+        // inheriting the new objective/hypothesis.
+        const reviseDisclosure = compositionCard.locator("summary", { hasText: "Revise composition intent" });
+        await reviseDisclosure.click();
+        const reviseForm = compositionCard.locator('form[data-form="campaign-revise-composition"]');
+        await reviseForm.locator('input[name="rationale"]').fill("Narrow the experiment to qualified pilot review");
+        await reviseForm.locator('select[name="objective"]').selectOption("lead_generation");
+        await reviseForm.locator('input[name="desiredOutcome"]').fill("One qualified pilot inquiry");
+        await reviseForm.locator('textarea[name="hypothesis"]').fill("Concrete proof plus a direct CTA earns a qualified pilot inquiry.");
+        await reviseForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Composition intent revised"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const revisedCard = journey.locator("#main article", { hasText: "Human-reviewed receipt matching" }).first();
+        const revisedText = ((await revisedCard.textContent()) ?? "").replace(/\s+/g, " ");
+        const staleExperimentText = ((await journey.locator("#main article", { hasText: "manual_linkedin" }).first().textContent()) ?? "").replace(/\s+/g, " ");
+        check(revisedText.includes("v2") && revisedText.includes("approval") && revisedText.includes("blocked"), "revising composition intent creates a new revision and blocks stale approval readiness");
+        check(staleExperimentText.includes("stale") && staleExperimentText.includes("Composition brief revision changed"), "existing publication experiment becomes visibly stale after composition revision");
 
         // Re-enter Studio through normal navigation so the assertion comes
         // from the durable Campaign store rather than retained form state.
         await go("home");
         await go("studio");
-        const durableComposition = ((await journey.locator("#main").textContent()) ?? "").includes("Human-reviewed receipt matching");
-        const durableExperiment = ((await journey.locator("#main").textContent()) ?? "").includes("manual_linkedin");
-        check(durableComposition && durableExperiment, "composition brief and exact experiment binding survive a normal view reload from durable workspace state");
+        const durableStudio = ((await journey.locator("#main").textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          durableStudio.includes("Human-reviewed receipt matching") && durableStudio.includes("manual_linkedin") && durableStudio.includes("v2") && durableStudio.includes("stale"),
+          "composition revision and stale exact experiment binding survive a normal view reload from durable workspace state",
+        );
 
         // Runtime panel results are announced (#161).
         await go("workspace");
