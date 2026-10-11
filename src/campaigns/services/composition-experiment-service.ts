@@ -143,9 +143,19 @@ export class CompositionExperimentService {
     const experiment = brief.hypothesis.trim() ? "ready" : "blocked";
     if (experiment === "blocked") findings.push(blocking("experiment.hypothesis_missing", "An explicit experiment hypothesis is required."));
 
-    const bound = (workspace.publicationExperiments ?? []).some((record) => record.compositionBriefId === brief.id);
-    const approval: ReadinessState = bound ? "ready" : "blocked";
-    if (!bound) findings.push(blocking("approval.variant_unbound", "No exact approved channel variant is bound to this composition brief.", "Approve a channel variant and bind a publication experiment."));
+    const bindings = (workspace.publicationExperiments ?? []).filter((record) => record.compositionBriefId === brief.id);
+    let approval: ReadinessState = "blocked";
+    for (const binding of bindings) {
+      if ((await this.experimentStalenessReasons(workspace, product, binding)).length === 0) {
+        approval = "ready";
+        break;
+      }
+    }
+    if (bindings.length === 0) {
+      findings.push(blocking("approval.variant_unbound", "No exact approved channel variant is bound to this composition brief.", "Approve a channel variant and bind a publication experiment."));
+    } else if (approval === "blocked") {
+      findings.push(blocking("approval.binding_stale", "Every bound publication experiment is stale.", "Revalidate authority and bind the current approved channel variant."));
+    }
 
     return { briefId, readiness: { truth, audience, message, channel, experiment, approval }, findings };
   }
@@ -211,6 +221,15 @@ export class CompositionExperimentService {
   async assessExperimentFreshness(workspaceId: string, experimentId: string): Promise<ExperimentFreshness> {
     const [workspace, product] = await Promise.all([this.load(workspaceId), this.requiredProduct(workspaceId)]);
     const experiment = required(workspace.publicationExperiments ?? [], experimentId, "Publication experiment");
+    const reasons = await this.experimentStalenessReasons(workspace, product, experiment);
+    return { experimentId, stale: reasons.length > 0, reasons };
+  }
+
+  private async experimentStalenessReasons(
+    workspace: CampaignWorkspace,
+    product: ProductWorkspace,
+    experiment: PublicationExperiment,
+  ): Promise<readonly string[]> {
     const brief = required(workspace.compositionBriefs ?? [], experiment.compositionBriefId, "Composition brief");
     const reasons: string[] = [];
     const campaign = workspace.campaigns.find((record) => record.id === brief.campaignId);
@@ -232,7 +251,7 @@ export class CompositionExperimentService {
       if (variant.version !== experiment.channelVariantVersion) reasons.push("Bound channel variant revision changed.");
       if (await sha256(variant.body) !== experiment.channelVariantBodySha256) reasons.push("Bound channel variant content fingerprint changed.");
     }
-    return { experimentId, stale: reasons.length > 0, reasons };
+    return reasons;
   }
 
   private async load(workspaceId: string): Promise<CampaignWorkspace> {
