@@ -80,6 +80,23 @@ const campaigns = (): CampaignWorkspace => ({
     createdAt: "2026-07-16T00:00:00.000Z", updatedAt: "2026-07-16T00:00:00.000Z",
     reviewedBy: "Campaign reviewer", reviewedAt: "2026-07-16T00:00:00.000Z", reviewNote: "Approved",
   }],
+  compositionBriefs: [{
+    id: "composition-1", workspaceId: "workspace-1", campaignId: "campaign-1",
+    objective: "product_proof", primaryAudience: "Founder operators", desiredOutcome: "Qualified review",
+    topic: "Governed launch", contentFamily: "build_proof", hookArchetype: "product_proof",
+    toneConstraints: ["Direct"], claimReferences: [claimReference], evidenceIds: ["evidence-1"], prohibitedClaims: [],
+    destinationId: "id-1", format: "text", mediaAssetIds: [], callToAction: "Review",
+    externalLinkPolicy: "none", hypothesis: "Concrete proof earns qualified review", version: 1,
+    createdAt: "2026-07-16T00:00:00.000Z", updatedAt: "2026-07-16T00:00:00.000Z",
+  }],
+  publicationExperiments: [{
+    id: "experiment-linkedin", workspaceId: "workspace-1", compositionBriefId: "composition-1",
+    compositionBriefVersion: 1, compositionBriefSha256: "b".repeat(64),
+    channelVariantId: "variant-linkedin", channelVariantVersion: 1, channelVariantBodySha256: "c".repeat(64),
+    destinationId: "id-1", provider: "linkedin", timezone: "America/New_York",
+    expectedOutcome: "Qualified review", changedVariables: ["hook"], status: "draft",
+    createdAt: "2026-07-16T00:00:00.000Z", updatedAt: "2026-07-16T00:00:00.000Z",
+  }],
   assets: [{
     id: "asset-1", workspaceId: "workspace-1", campaignId: "campaign-1", title: "Canonical launch asset",
     audience: "Founder operators", claimReferences: [claimReference], evidenceIds: ["evidence-1"], rights: ["Owned copy"],
@@ -312,14 +329,56 @@ test("re-importing identical normalized performance evidence is idempotent", asy
     sourceClassification: "human_recorded" as const,
     importedBy: "Analyst",
     notes: "Outcome window complete",
-    observations: [outcomeObservation],
+    observations: [{
+      ...outcomeObservation,
+      metric: "Qualified Reviews",
+      providerMetric: "Qualified review conversions",
+      providerDefinition: "Provider-native count of attributed review conversions",
+    }],
   };
   workspace = await service.importPerformance("workspace-1", input);
   const firstDigest = workspace.performanceImports[0]!.normalizedDigest;
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.metric, "qualified_reviews");
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.providerMetric, "Qualified review conversions");
   workspace = await service.importPerformance("workspace-1", { ...input, importedBy: "Second analyst", notes: "Same evidence re-selected" });
   assert.equal(workspace.performanceImports.length, 1);
   assert.match(firstDigest ?? "", /^[0-9a-f]{64}$/);
   assert.equal(workspace.performanceImports[0]!.normalizedDigest, firstDigest);
+});
+
+test("manual analytics snapshot can bind exact publication experiment and preserve provider-native provenance", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    publicationExperimentId: "experiment-linkedin",
+    providerPublicationId: "urn:li:share:123",
+    status: "complete",
+    source: "LinkedIn export",
+    sourceClassification: "provider_export",
+    importedBy: "Analyst",
+    notes: "Manual export from the provider dashboard",
+    observations: [{
+      ...outcomeObservation,
+      metric: "Post Impressions",
+      providerMetric: "Impressions",
+      providerDefinition: "Times the post was shown in LinkedIn",
+      value: 42,
+      source: "LinkedIn export",
+      evidenceReference: "linkedin-export-2026-07-31.csv",
+    }],
+  });
+  const record = workspace.performanceImports[0]!;
+  assert.equal(record.publicationExperimentId, "experiment-linkedin");
+  assert.equal(record.providerPublicationId, "urn:li:share:123");
+  assert.equal(record.observations[0]!.metric, "post_impressions");
+  assert.equal(record.observations[0]!.providerMetric, "Impressions");
+  assert.match(record.normalizedDigest ?? "", /^[0-9a-f]{64}$/);
 });
 
 test("conflicting observations for the same metric window withhold a retrospective delta", async () => {
@@ -351,6 +410,15 @@ test("conflicting observations for the same metric window withhold a retrospecti
       evidenceReference: "outcome-note-2",
     }],
   });
+  const reconciled = await service.reconcilePerformanceEvidence("workspace-1", entryId);
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0]!.state, "conflict");
+  assert.equal(reconciled[0]!.value, undefined);
+  assert.match(reconciled[0]!.source, /Provider export A/);
+  assert.match(reconciled[0]!.source, /Provider export B/);
+  assert.match(reconciled[0]!.evidenceReference, /outcome-note-1/);
+  assert.match(reconciled[0]!.evidenceReference, /outcome-note-2/);
+
   workspace = await service.completeRetrospective("workspace-1", {
     calendarEntryId: entryId, completedBy: "Campaign owner", summary: "Conflicting provider evidence must not produce a numeric conclusion",
     learnings: ["Resolve the evidence conflict before drawing a conclusion"], decision: "inconclusive", attributionModel: "manual",
