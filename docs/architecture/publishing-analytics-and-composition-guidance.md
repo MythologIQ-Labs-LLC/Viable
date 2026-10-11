@@ -451,7 +451,8 @@ Analytics are useful only when compared to a meaningful cohort.
 
 A `ComparisonCohort` can filter by:
 
-- destination;
+- exact destination/account under strict policy v1;
+- provider/platform;
 - objective;
 - audience;
 - content family;
@@ -472,9 +473,9 @@ Do not claim "best time" from one breakout post.
 
 An initial conservative policy:
 
-- **Insufficient**: fewer than 3 comparable observations in a cohort.
-- **Emerging**: at least 3 comparable observations across at least 2 different dates.
-- **Repeatable candidate**: at least 5 comparable observations and the direction of the effect is consistent in at least 4.
+- **Insufficient**: fewer than two comparison groups with at least 3 comparable publications in each group. A larger but badly imbalanced sample is still insufficient for directional group guidance.
+- **Emerging**: at least 2 groups with 3 comparable publications each, across at least 2 publication dates, but fewer than 4 observations in the leading group consistently exceed the runner-up median.
+- **Repeatable candidate**: the minimum group threshold is met and the direction of the effect is consistent in at least 4 observations; this may begin below 8 total observations when the group balance is valid.
 - **Established local pattern**: at least 8 comparable observations across at least 4 weeks, with no single post contributing more than half of the total outcome being cited.
 
 These labels are product guidance, not statistical proof. The UI must say so.
