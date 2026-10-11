@@ -485,7 +485,7 @@ Derived metrics consume reconciled evidence. They do not choose a favorable raw 
 
 A disputed source produces `conflict`. Missing or incomplete required evidence produces `unavailable`. Division by zero is `unavailable`, not zero.
 
-Manual and provider-export sources may contribute to one derived metric only with both provenance classes remaining visible.
+Manual and provider-export sources may contribute to one derived metric only with both provenance classes remaining visible. Sum formulas require compatible source units and the selected output unit must match them.
 
 ## Step 11: Complete a retrospective
 
