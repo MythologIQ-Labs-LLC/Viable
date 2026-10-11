@@ -440,7 +440,8 @@ Rules:
 - disputed source evidence produces `conflict`;
 - a missing/incomplete source produces `unavailable`;
 - division by zero produces `unavailable`, not zero;
-- incompatible units are conflicts before derivation/comparison;
+- incompatible units are conflicts before reconciliation/comparison;
+- sum derivations require compatible source units and an output unit matching those sources;
 - mixed provider/manual provenance is allowed only when it remains explicitly visible;
 - repeating the same normalized derivation is idempotent.
 
