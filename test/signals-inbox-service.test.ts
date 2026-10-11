@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { SignalsInbox } from "../src/signals/domain/signal.js";
+import type { MarketScope, SignalsInbox } from "../src/signals/domain/signal.js";
 import type { SignalSource } from "../src/signals/ports/signal-source.js";
 import type { SignalsInboxStore } from "../src/signals/ports/signals-inbox-store.js";
-import { SignalsInboxService } from "../src/signals/services/signals-inbox-service.js";
+import { assessMarketHypothesis, SignalsInboxService } from "../src/signals/services/signals-inbox-service.js";
 
 class MemoryStore implements SignalsInboxStore {
   value?: SignalsInbox;
@@ -21,6 +21,56 @@ const candidate = (sourceId: string, fingerprint = "one") => ({
   provenance: { provider: "manual_import" as const, sourceId, retrievedAt: now },
   relationships: [], tags: [],
 });
+
+const scope = (overrides: Partial<MarketScope> = {}): MarketScope => ({
+  breadth: "bounded",
+  geographies: ["United States"],
+  segments: ["small agencies"],
+  productCategories: ["marketability software"],
+  organizationTypes: ["agency"],
+  audiences: ["founders"],
+  ...overrides,
+});
+
+const scopedCandidate = (
+  sourceId: string,
+  fingerprint: string,
+  overrides: Readonly<Record<string, unknown>> = {},
+) => ({
+  ...candidate(sourceId, fingerprint),
+  observedAt: "2026-07-15T12:00:00.000Z",
+  freshnessReviewAt: "2026-08-16T00:00:00.000Z",
+  marketScope: scope(),
+  methodology: "Structured founder interview",
+  provenance: {
+    provider: "manual_import" as const,
+    sourceId,
+    retrievedAt: now,
+    publisher: "Research notebook",
+    reuseRights: "citation_only" as const,
+  },
+  ...overrides,
+});
+
+async function reviewedSignalsFixture(
+  records: readonly ReturnType<typeof scopedCandidate>[],
+): Promise<Readonly<{ store: MemoryStore; service: SignalsInboxService; signalIds: readonly string[] }>> {
+  const store = new MemoryStore();
+  let sequence = 0;
+  const service = new SignalsInboxService(store, () => new Date(now), () => `id-${++sequence}`);
+  const source: SignalSource = {
+    registration: registration("market"),
+    collect: async () => ({
+      source: registration("market"),
+      status: "success",
+      signals: records,
+      retrievedAt: now,
+    }),
+  };
+  let inbox = await service.collect("workspace", [source]);
+  for (const signal of inbox.signals) inbox = await service.review("workspace", signal.id, "Research reviewer", true);
+  return { store, service, signalIds: inbox.signals.map((signal) => signal.id) };
+}
 
 test("successful evidence survives another source failure and failure never becomes empty success", async () => {
   const store = new MemoryStore();
@@ -55,6 +105,214 @@ test("only reviewed signals can convert into named proposed work", async () => {
   const converted = await service.convert("workspace", "signal", { kind: "product_feedback", title: "Investigate", owner: "Kevin" });
   assert.equal(converted.conversions[0]?.status, "proposed");
   assert.equal(converted.signals[0]?.status, "converted");
+});
+
+test("narrow reviewed evidence cannot silently support a broad market hypothesis", async () => {
+  const { store, service, signalIds } = await reviewedSignalsFixture([
+    scopedCandidate("market", "narrow"),
+  ]);
+  let inbox = await service.createMarketHypothesis("workspace", {
+    statement: "All global enterprise software teams urgently need this product",
+    scope: scope({
+      breadth: "broad",
+      geographies: ["Global"],
+      segments: ["enterprise software"],
+      organizationTypes: ["enterprise"],
+    }),
+    methodology: "Compare reviewed market observations",
+    limitations: ["One bounded source"],
+    owner: "Market lead",
+    nextValidationAction: "Collect enterprise evidence in additional geographies",
+  });
+  const hypothesisId = inbox.marketHypotheses![0]!.id;
+  inbox = await service.linkMarketHypothesisEvidence("workspace", hypothesisId, {
+    signalId: signalIds[0]!,
+    relation: "supporting",
+    rationale: "The source reports demand, but only in a narrow agency scope",
+  });
+  assert.equal(inbox.marketHypotheses![0]!.evidenceLinks[0]!.applicability, "out_of_scope");
+  inbox = await service.submitMarketHypothesis("workspace", hypothesisId);
+  await assert.rejects(
+    service.reviewMarketHypothesis("workspace", hypothesisId, {
+      reviewer: "Market reviewer",
+      outcome: "reviewed",
+      note: "Attempt to generalize",
+    }),
+    /matching supporting observation/,
+  );
+  assert.equal(store.value!.marketHypotheses![0]!.status, "in_review");
+});
+
+test("supporting and contradictory observations remain symmetric and force a disputed review", async () => {
+  const { store, service, signalIds } = await reviewedSignalsFixture([
+    scopedCandidate("market", "support"),
+    scopedCandidate("market", "counter", {
+      title: "Observed rejection",
+      summary: "Founder rejected the proposed workflow",
+    }),
+  ]);
+  let inbox = await service.createMarketHypothesis("workspace", {
+    statement: "Small US agencies show demand for governed marketability workflows",
+    scope: scope(),
+    methodology: "Compare reviewed founder interviews",
+    limitations: ["Small local sample"],
+    owner: "Market lead",
+    nextValidationAction: "Interview additional agencies",
+  });
+  const id = inbox.marketHypotheses![0]!.id;
+  inbox = await service.linkMarketHypothesisEvidence("workspace", id, {
+    signalId: signalIds[0]!, relation: "supporting", rationale: "Explicit demand signal",
+  });
+  inbox = await service.linkMarketHypothesisEvidence("workspace", id, {
+    signalId: signalIds[1]!, relation: "contradictory", rationale: "Explicit rejection signal",
+  });
+  assert.deepEqual(
+    inbox.marketHypotheses![0]!.evidenceLinks.map((link) => link.relation).sort(),
+    ["contradictory", "supporting"],
+  );
+  inbox = await service.submitMarketHypothesis("workspace", id);
+  await assert.rejects(
+    service.reviewMarketHypothesis("workspace", id, {
+      reviewer: "Market reviewer", outcome: "reviewed", note: "Ignore counterevidence",
+    }),
+    /contradictory evidence/,
+  );
+  inbox = await service.reviewMarketHypothesis("workspace", id, {
+    reviewer: "Market reviewer", outcome: "disputed", note: "Both directions are materially supported",
+  });
+  assert.equal(inbox.marketHypotheses![0]!.status, "disputed");
+  assert.equal(inbox.marketHypotheses![0]!.reviewHistory?.length, 1);
+});
+
+test("future-dated market evidence fails closed", async () => {
+  const { service, signalIds } = await reviewedSignalsFixture([
+    scopedCandidate("market", "future", {
+      observedAt: "2026-07-17T00:00:00.000Z",
+    }),
+  ]);
+  const inbox = await service.createMarketHypothesis("workspace", {
+    statement: "Small agencies show demand",
+    scope: scope(),
+    methodology: "Reviewed observations",
+    limitations: [],
+    owner: "Market lead",
+    nextValidationAction: "Collect more evidence",
+  });
+  await assert.rejects(
+    service.linkMarketHypothesisEvidence("workspace", inbox.marketHypotheses![0]!.id, {
+      signalId: signalIds[0]!, relation: "supporting", rationale: "Future observation should be unusable",
+    }),
+    /future-dated/,
+  );
+});
+
+test("missing reuse rights remain explicit without deleting factual evidence", async () => {
+  const { service, signalIds } = await reviewedSignalsFixture([
+    scopedCandidate("market", "rights", {
+      provenance: { provider: "manual_import" as const, sourceId: "market", retrievedAt: now, publisher: "External analyst" },
+    }),
+  ]);
+  let inbox = await service.createMarketHypothesis("workspace", {
+    statement: "Small US agencies show demand for governed workflows",
+    scope: scope(),
+    methodology: "Reviewed observations",
+    limitations: ["Quotation rights not yet established"],
+    owner: "Market lead",
+    nextValidationAction: "Confirm source reuse terms",
+  });
+  const id = inbox.marketHypotheses![0]!.id;
+  inbox = await service.linkMarketHypothesisEvidence("workspace", id, {
+    signalId: signalIds[0]!, relation: "supporting", rationale: "Factual evidence retained independently of quotation rights",
+  });
+  assert.equal(inbox.marketHypotheses![0]!.evidenceLinks[0]!.reuseRights, "unknown");
+  const assessment = assessMarketHypothesis(inbox, inbox.marketHypotheses![0]!, () => new Date(now));
+  assert.equal(assessment.unknownReuseRights, 1);
+  assert.equal(assessment.supportingMatching, 1);
+});
+
+test("re-reviewing linked evidence makes prior hypothesis review stale", async () => {
+  const { service, signalIds } = await reviewedSignalsFixture([
+    scopedCandidate("market", "stale"),
+  ]);
+  let inbox = await service.createMarketHypothesis("workspace", {
+    statement: "Small US agencies show demand for governed workflows",
+    scope: scope(),
+    methodology: "Reviewed observations",
+    limitations: [],
+    owner: "Market lead",
+    nextValidationAction: "Repeat interviews next month",
+  });
+  const id = inbox.marketHypotheses![0]!.id;
+  inbox = await service.linkMarketHypothesisEvidence("workspace", id, {
+    signalId: signalIds[0]!, relation: "supporting", rationale: "Reviewed matching observation",
+  });
+  inbox = await service.submitMarketHypothesis("workspace", id);
+  inbox = await service.reviewMarketHypothesis("workspace", id, {
+    reviewer: "Market reviewer", outcome: "reviewed", note: "Bounded claim follows from reviewed evidence",
+  });
+  assert.equal(inbox.marketHypotheses![0]!.status, "reviewed");
+
+  inbox = await service.review("workspace", signalIds[0]!, "Second source reviewer", true);
+  assert.equal(inbox.marketHypotheses![0]!.status, "stale");
+  const assessment = assessMarketHypothesis(inbox, inbox.marketHypotheses![0]!, () => new Date(now));
+  assert.ok(assessment.staleReasons.some((reason) => /review changed/.test(reason)));
+  await assert.rejects(
+    service.convertMarketHypothesis("workspace", id, {
+      kind: "icp_validation_action", title: "Validate agency demand", owner: "Researcher",
+    }),
+    /reviewed or explicitly disputed|Stale/,
+  );
+});
+
+test("reviewed hypothesis conversion preserves hypothesis provenance and does not mutate signal review", async () => {
+  const { service, signalIds } = await reviewedSignalsFixture([
+    scopedCandidate("market", "convert"),
+  ]);
+  let inbox = await service.createMarketHypothesis("workspace", {
+    statement: "Small US agencies show demand for governed workflows",
+    scope: scope(),
+    methodology: "Reviewed observations",
+    limitations: [],
+    owner: "Market lead",
+    nextValidationAction: "Run an ICP validation experiment",
+  });
+  const id = inbox.marketHypotheses![0]!.id;
+  inbox = await service.linkMarketHypothesisEvidence("workspace", id, {
+    signalId: signalIds[0]!, relation: "supporting", rationale: "Matching reviewed demand observation",
+  });
+  inbox = await service.submitMarketHypothesis("workspace", id);
+  inbox = await service.reviewMarketHypothesis("workspace", id, {
+    reviewer: "Market reviewer", outcome: "reviewed", note: "Bounded hypothesis is supported",
+  });
+  const signalStatus = inbox.signals[0]!.status;
+  inbox = await service.convertMarketHypothesis("workspace", id, {
+    kind: "icp_validation_action",
+    title: "Validate agency segment demand",
+    owner: "Researcher",
+  });
+  assert.equal(inbox.conversions[0]!.hypothesisId, id);
+  assert.equal(inbox.conversions[0]!.signalId, signalIds[0]);
+  assert.equal(inbox.conversions[0]!.status, "proposed");
+  assert.equal(inbox.signals[0]!.status, signalStatus);
+  assert.equal(inbox.marketHypotheses![0]!.status, "reviewed");
+});
+
+test("absence of evidence does not create contradictory evidence", async () => {
+  const store = new MemoryStore();
+  const service = new SignalsInboxService(store, () => new Date(now), () => "hypothesis");
+  const inbox = await service.createMarketHypothesis("workspace", {
+    statement: "Demand may exist",
+    scope: scope(),
+    methodology: "No evidence collected yet",
+    limitations: ["No reviewed evidence"],
+    owner: "Market lead",
+    nextValidationAction: "Collect evidence",
+  });
+  const hypothesis = inbox.marketHypotheses![0]!;
+  const assessment = assessMarketHypothesis(inbox, hypothesis, () => new Date(now));
+  assert.equal(assessment.supportingMatching, 0);
+  assert.equal(assessment.contradictoryMatching, 0);
+  assert.equal(hypothesis.evidenceLinks.length, 0);
 });
 
 test("tag, assignment, and relationships remain explicit local metadata", async () => {
