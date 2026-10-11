@@ -588,6 +588,70 @@ test("24h cohort uses historical experiment context, one observation per experim
   assert.match(evaluation.limitation, /product guidance, not statistical proof/i);
 });
 
+test("reference cohort must itself be a single-variable experiment", async () => {
+  const fixtureValue = await seedComparableCohort();
+  fixtureValue.campaignStore.value = {
+    ...fixtureValue.campaignStore.value,
+    publicationExperiments: fixtureValue.campaignStore.value.publicationExperiments!.map((record) =>
+      record.id === "experiment-reference" ? { ...record, changedVariables: ["hook", "timing"] } : record),
+  };
+  await assert.rejects(
+    fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+      referenceExperimentId: "experiment-reference",
+      metric: "impressions",
+      ageBucket: "24h",
+      compareVariable: "hook",
+      createdBy: "Analyst",
+    }),
+    /Reference experiment must change only hook/,
+  );
+});
+
+test("cohort excludes timezone mismatch and records publication date in the declared timezone", async () => {
+  const fixtureValue = await seedComparableCohort();
+  appendComparableQuestionExperiment(fixtureValue, "cross-midnight", "2026-07-01T02:00:00.000Z", 15);
+  appendComparableQuestionExperiment(fixtureValue, "wrong-timezone", "2026-07-25T12:00:00.000Z", 16);
+  fixtureValue.campaignStore.value = {
+    ...fixtureValue.campaignStore.value,
+    publicationExperiments: fixtureValue.campaignStore.value.publicationExperiments!.map((record) =>
+      record.id === "experiment-wrong-timezone" ? { ...record, timezone: "UTC" } : record),
+  };
+
+  const workspace = await fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const evaluation = workspace.cohortEvaluations![0]!;
+  assert.equal(
+    evaluation.included.find((item) => item.publicationExperimentId === "experiment-cross-midnight")?.publicationDate,
+    "2026-06-30",
+  );
+  assert.ok(evaluation.excluded.some((item) =>
+    item.publicationExperimentId === "experiment-wrong-timezone" && /timezone does not match/.test(item.reason)));
+});
+
+test("invalid reference timezone fails with a bounded cohort error", async () => {
+  const fixtureValue = await seedComparableCohort();
+  fixtureValue.campaignStore.value = {
+    ...fixtureValue.campaignStore.value,
+    publicationExperiments: fixtureValue.campaignStore.value.publicationExperiments!.map((record) =>
+      record.id === "experiment-reference" ? { ...record, timezone: "Not/AZone" } : record),
+  };
+  await assert.rejects(
+    fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+      referenceExperimentId: "experiment-reference",
+      metric: "impressions",
+      ageBucket: "24h",
+      compareVariable: "hook",
+      createdBy: "Analyst",
+    }),
+    /Experiment timezone is invalid/,
+  );
+});
+
 test("strict cohort evidence excludes estimated unknown and conflicting observations before value selection", async () => {
   const fixtureValue = await seedComparableCohort();
   appendComparableQuestionExperiment(fixtureValue, "estimated", "2026-07-11T12:00:00.000Z", 500, { state: "estimated" });
