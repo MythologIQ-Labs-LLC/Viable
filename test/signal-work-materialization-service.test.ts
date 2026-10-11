@@ -38,11 +38,21 @@ const source: SignalSource = {
       kind: "manual",
       title: "Observed demand",
       summary: "Founder requested a concrete solution",
+      observedAt: "2026-09-22T20:00:00.000Z",
       freshnessReviewAt: now,
       confidence: "medium",
       limitations: [],
+      methodology: "Structured founder interview",
+      marketScope: {
+        breadth: "bounded",
+        geographies: ["United States"],
+        segments: ["small agencies"],
+        productCategories: ["marketability software"],
+        organizationTypes: ["agency"],
+        audiences: ["founders"],
+      },
       facts: {},
-      provenance: { provider: "manual_import", sourceId: "manual", retrievedAt: now },
+      provenance: { provider: "manual_import", sourceId: "manual", retrievedAt: now, publisher: "Research notebook", reuseRights: "citation_only" },
       relationships: [],
       tags: [],
     }],
@@ -87,6 +97,68 @@ for (const [conversionKind, actionKind] of [
     assert.equal(signals.value!.conversions[0]!.materialization?.recordId, first.action.id);
   });
 }
+
+test("reviewed market hypothesis materializes validation work once and later hypothesis staleness cannot mutate Product Core", async () => {
+  const signals = new MemorySignalsStore();
+  const products = new MemoryProductStore();
+  let sequence = 0;
+  const inboxService = new SignalsInboxService(signals, () => new Date(now), () => `id-${++sequence}`);
+  const productService = new ProductCoreService(products, () => new Date(now), () => "workspace");
+  await productService.createWorkspace({
+    identity: { name: "Viable", description: "Local-first marketability operating system", lifecycle: "prototype", supportedEnvironments: ["desktop"] },
+    createdBy: "Kevin",
+  });
+  await inboxService.collect("workspace", [source]);
+  const signalId = signals.value!.signals[0]!.id;
+  await inboxService.review("workspace", signalId, "Source reviewer", true);
+  let inbox = await inboxService.createMarketHypothesis("workspace", {
+    statement: "Small US agencies show demand for governed marketability workflows",
+    scope: {
+      breadth: "bounded",
+      geographies: ["United States"],
+      segments: ["small agencies"],
+      productCategories: ["marketability software"],
+      organizationTypes: ["agency"],
+      audiences: ["founders"],
+    },
+    methodology: "Reviewed founder observation",
+    limitations: ["Single source"],
+    owner: "Market lead",
+    nextValidationAction: "Run a bounded ICP validation experiment",
+  });
+  const hypothesisId = inbox.marketHypotheses![0]!.id;
+  inbox = await inboxService.linkMarketHypothesisEvidence("workspace", hypothesisId, {
+    signalId,
+    relation: "supporting",
+    rationale: "Observed request is inside the bounded hypothesis scope",
+  });
+  inbox = await inboxService.submitMarketHypothesis("workspace", hypothesisId);
+  inbox = await inboxService.reviewMarketHypothesis("workspace", hypothesisId, {
+    reviewer: "Market reviewer",
+    outcome: "reviewed",
+    note: "The bounded claim follows from the reviewed observation",
+  });
+  inbox = await inboxService.convertMarketHypothesis("workspace", hypothesisId, {
+    kind: "icp_validation_action",
+    title: "Validate small-agency demand",
+    owner: "Researcher",
+  });
+  const conversionId = inbox.conversions[0]!.id;
+  assert.equal(inbox.conversions[0]!.hypothesisId, hypothesisId);
+
+  const materializer = new SignalWorkMaterializationService(signals, products, () => new Date(now));
+  const first = await materializer.materializeProductCore("workspace", conversionId);
+  const actionSnapshot = JSON.stringify(first.action);
+  assert.equal(first.action.kind, "icp_experiment");
+  assert.equal(first.action.sourceId, conversionId);
+
+  inbox = await inboxService.review("workspace", signalId, "Second source reviewer", true);
+  assert.equal(inbox.marketHypotheses![0]!.status, "stale");
+  assert.equal(JSON.stringify(products.value!.actions[0]), actionSnapshot);
+  const retried = await materializer.materializeProductCore("workspace", conversionId);
+  assert.equal(retried.action.id, first.action.id);
+  assert.equal(JSON.stringify(retried.action), actionSnapshot);
+});
 
 test("Product Core materialization failure remains visible and can be retried", async () => {
   const signals = new MemorySignalsStore();
