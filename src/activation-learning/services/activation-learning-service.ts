@@ -1663,7 +1663,7 @@ function selectComparableObservation(
   if (reconciled.length === 0) return { reason: "Requested normalized metric is not present for this experiment." };
 
   const bounds = ageBucketBounds(ageBucket);
-  const candidates = reconciled
+  const ageEligible = reconciled
     .map((observation) => ({
       observation,
       ageHours: (Date.parse(observation.windowEndsAt) - publicationTime) / 3_600_000,
@@ -1672,14 +1672,23 @@ function selectComparableObservation(
     .filter((item) =>
       item.startsAfterPublication
       && item.ageHours > bounds.minimumExclusiveHours
-      && item.ageHours <= bounds.maximumInclusiveHours)
+      && item.ageHours <= bounds.maximumInclusiveHours);
+
+  if (ageEligible.length === 0) return { reason: `No ${metric} observation falls inside the ${ageBucket} observation-age policy bucket.` };
+
+  const strictCandidates = ageEligible
+    .filter((item) => ["observed", "verified_zero"].includes(item.observation.state) && item.observation.value !== undefined)
     .sort((left, right) =>
       Math.abs(bounds.targetHours - left.ageHours) - Math.abs(bounds.targetHours - right.ageHours)
       || left.observation.windowEndsAt.localeCompare(right.observation.windowEndsAt)
       || left.observation.id.localeCompare(right.observation.id));
 
-  if (candidates.length === 0) return { reason: `No ${metric} observation falls inside the ${ageBucket} observation-age policy bucket.` };
-  const selected = candidates[0]!;
+  if (strictCandidates.length === 0) {
+    const states = [...new Set(ageEligible.map((item) => item.observation.state))].sort().join(", ");
+    return { reason: `Strict cohort evidence excludes ${states} observation(s).` };
+  }
+
+  const selected = strictCandidates[0]!;
   const selectedDefinitions = new Set(imports.flatMap((record) => record.observations)
     .filter((observation) =>
       normalizedMetricName(observation.metric) === metric
@@ -1692,15 +1701,9 @@ function selectComparableObservation(
       observationId: selected.observation.id,
     };
   }
-  if (!["observed", "verified_zero"].includes(selected.observation.state) || selected.observation.value === undefined) {
-    return {
-      reason: `Strict cohort evidence excludes ${selected.observation.state} observations.`,
-      observationId: selected.observation.id,
-    };
-  }
   const performanceImportIds = imports
     .filter((record) => record.observations.some((observation) =>
-      observation.metric === metric
+      normalizedMetricName(observation.metric) === metric
       && observation.windowStartsAt === selected.observation.windowStartsAt
       && observation.windowEndsAt === selected.observation.windowEndsAt))
     .map((record) => record.id)
