@@ -465,12 +465,14 @@ function appendComparableQuestionExperiment(
     state?: MetricEvidenceState;
     providerDefinition?: string;
     conflictingValue?: number;
+    group?: "question" | "product_proof";
   }> = {},
 ): void {
   const { activation, campaignStore } = fixtureValue;
   const campaign = campaignStore.value!;
   const workspace = activation.value!;
-  const baseExperiment = campaign.publicationExperiments!.find((record) => record.id === "experiment-question")!;
+  const baseExperiment = campaign.publicationExperiments!.find((record) =>
+    record.id === (options.group === "product_proof" ? "experiment-reference" : "experiment-question"))!;
   const baseImport = workspace.performanceImports.find((record) => record.publicationExperimentId === "experiment-question")!;
   const baseObservation = baseImport.observations.find((record) => record.metric === "impressions")!;
   const experimentId = `experiment-${suffix}`;
@@ -639,9 +641,30 @@ test("strict cohort chooses eligible evidence before age closeness", async () =>
   assert.equal(question?.value, 11);
 });
 
-test("three comparable publication experiments produce emerging guidance without mutating canonical authorities", async () => {
+test("imbalanced three-post cohort remains insufficient under the balanced policy", async () => {
   const fixtureValue = await seedComparableCohort();
   appendComparableQuestionExperiment(fixtureValue, "question-two", "2026-07-17T12:00:00.000Z", 13);
+
+  const workspace = await fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const evaluation = workspace.cohortEvaluations![0]!;
+  assert.equal(evaluation.sampleSize, 3);
+  assert.equal(evaluation.confidence, "insufficient");
+  assert.match(evaluation.advisory, /three publications each/i);
+  assert.match(evaluation.limitation, /three comparable publications in each of two groups/i);
+});
+
+test("balanced three-per-group cohort produces emerging advisory guidance without mutating canonical authorities", async () => {
+  const fixtureValue = await seedComparableCohort();
+  appendComparableQuestionExperiment(fixtureValue, "question-two", "2026-07-17T12:00:00.000Z", 13);
+  appendComparableQuestionExperiment(fixtureValue, "question-three", "2026-07-19T12:00:00.000Z", 14);
+  appendComparableQuestionExperiment(fixtureValue, "proof-two", "2026-07-21T12:00:00.000Z", 9, { group: "product_proof" });
+  appendComparableQuestionExperiment(fixtureValue, "proof-three", "2026-07-23T12:00:00.000Z", 8, { group: "product_proof" });
   const productBefore = JSON.stringify(fixtureValue.products.value);
   const campaignBefore = JSON.stringify(fixtureValue.campaignStore.value);
 
@@ -653,9 +676,14 @@ test("three comparable publication experiments produce emerging guidance without
     createdBy: "Analyst",
   });
   const evaluation = workspace.cohortEvaluations![0]!;
-  assert.equal(evaluation.sampleSize, 3);
-  assert.equal(evaluation.distinctPublicationDates, 3);
+  assert.equal(evaluation.sampleSize, 6);
+  assert.equal(evaluation.distinctPublicationDates, 6);
   assert.equal(evaluation.confidence, "emerging");
+  assert.deepEqual(evaluation.groups.map((group) => [group.groupValue, group.sampleSize]), [
+    ["question", 3],
+    ["product_proof", 3],
+  ]);
+  assert.match(evaluation.advisory, /higher median impressions/i);
   assert.match(evaluation.advisory, /not proof of causality/i);
   assert.match(evaluation.nextExperimentSuggestion, /Repeat a single-variable hook experiment/i);
   assert.equal(JSON.stringify(fixtureValue.products.value), productBefore);
