@@ -6,7 +6,7 @@
 |---|---|
 | Status | Authoritative implementation-status record |
 | Last reviewed | 2026-10-11 |
-| Reviewed against | `main` through `82b445618e57cde337db35b45e2ff5ba972ccae8` (#172 merged), plus the #168 analytics-reconciliation candidate on this branch and the open human/release gates listed below |
+| Reviewed against | `main` through `aa6f35ff032e1b807ebf8d88e517dea625343c47` (#173 merged), plus the #169 comparable-cohort candidate on this branch and the open human/release gates listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -45,7 +45,7 @@ npm run pwa:selfhost   # serves http://localhost:4175
 
 The native Tauri runtime is retained only where a capability earns it: the OS credential vault and connected provider publishing.
 
-**2026-10-11 productization-learning resumption:** issue #156 is decomposed into #167–#169. #167 merged through PR #172 at `82b445618e57cde337db35b45e2ff5ba972ccae8` after exact-head CI, real-browser PWA smoke, Rust tests, desktop bundle, and Debian validation passed. #168 is the active candidate: append-only analytics evidence, normalized/provider-native metric provenance, SHA-256 import idempotence, conflict-safe reconciliation, and versioned deterministic derived metrics. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
+**2026-10-11 productization-learning resumption:** issue #156 is decomposed into #167–#169. #167 merged through PR #172 at `82b445618e57cde337db35b45e2ff5ba972ccae8`. #168 merged through PR #173 at `aa6f35ff032e1b807ebf8d88e517dea625343c47` after exact-head CI, production Chromium PWA smoke, Rust tests, desktop bundle, and Debian validation passed. #169 is the active candidate: historical experiment-context verification, comparable-age cohort eligibility, balanced evidence thresholds, explicit exclusions, source-citing group summaries, and conservative advisory next experiments. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
 
 Viable is suitable for **persistent local dogfooding in a Chromium desktop browser**. It is **not** a supported end-user release: human acceptance, generalized schema migration/rollback, per-browser storage-eviction evidence, public-origin deployment trust, and operational support remain open.
 
@@ -224,12 +224,14 @@ The implementation does not install or execute ViMax, invoke generation provider
 - delivery, failure, cancellation, and unknown outcomes;
 - explicit evidence classifications;
 - measurement plans, baselines, observation windows, and metric evidence states;
-- append-only manual/provider-export analytics snapshots with optional exact publication-experiment and provider-publication linkage (#168 candidate);
+- append-only manual/provider-export analytics snapshots with optional exact publication-experiment and provider-publication linkage (#168 merged);
 - normalized metric families while preserving provider-native metric names/definitions;
 - SHA-256 normalized-import identity so identical evidence is idempotent;
 - conflict-safe reconciliation that preserves incompatible values/units instead of trusting the newest capture;
 - explicit estimated, unknown, unavailable, not-collected, verified-zero, and conflict semantics;
 - versioned ratio/sum derived metrics with source import/observation/classification provenance and no zero-division fabrication;
+- strict comparable-age publication cohorts using historical experiment context, exact destination/provider controls, 24h/48h/7d reporting-age buckets, one observation per experiment, explicit exclusions, and a balanced three-per-group minimum before directional guidance (#169 candidate);
+- advisory cohort confidence, limitations, source IDs, group medians/ranges, and reversible next-experiment guidance without causal or "winner" claims;
 - performance retrospectives, attribution uncertainty, and learning-ledger entries;
 - advisory ICP and positioning effects without automatic Product Core mutation.
 
