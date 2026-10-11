@@ -19,6 +19,8 @@ import type {
   DeliveryStatus,
   DestinationChannel,
   DestinationRecord,
+  DerivedMetricFormula,
+  DerivedMetricRecord,
   ExportOperation,
   LearningLedgerEntry,
   ManualActivationPackage,
@@ -540,6 +542,143 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     return reconcileObservations(workspace.performanceImports.filter((record) => record.calendarEntryId === calendarEntryId));
   }
 
+  async derivePerformanceMetric(workspaceId: string, input: Readonly<{
+    calendarEntryId: string;
+    metric: string;
+    formula: DerivedMetricFormula;
+    sourceMetrics: readonly string[];
+    windowStartsAt: string;
+    windowEndsAt: string;
+    unit: string;
+    multiplier?: number;
+    createdBy: string;
+  }>): Promise<ActivationLearningWorkspace> {
+    requireText(input.metric, "Derived metric name");
+    requireText(input.unit, "Derived metric unit");
+    requireText(input.createdBy, "Derived metric owner");
+    validateWindow(input.windowStartsAt, input.windowEndsAt, "Derived metric window");
+    const multiplier = input.multiplier ?? 1;
+    if (!Number.isFinite(multiplier)) throw new Error("Derived metric multiplier must be finite");
+    const sourceMetrics = unique(input.sourceMetrics.map(normalizedMetricName));
+    if (input.formula === "ratio" && sourceMetrics.length !== 2) throw new Error("Ratio derivation requires exactly two source metrics");
+    if (input.formula === "sum" && sourceMetrics.length === 0) throw new Error("Sum derivation requires at least one source metric");
+    rejectSecrets([input.metric, input.unit, input.createdBy, ...sourceMetrics]);
+
+    const workspace = await this.load(workspaceId);
+    required(workspace.calendarEntries, input.calendarEntryId, "Calendar entry");
+    const windowStartsAt = normalizedDate(input.windowStartsAt, "Derived metric window start");
+    const windowEndsAt = normalizedDate(input.windowEndsAt, "Derived metric window end");
+    const imports = workspace.performanceImports.filter((record) => record.calendarEntryId === input.calendarEntryId);
+    const reconciled = reconcileObservations(imports);
+    const selected = sourceMetrics.map((metric) =>
+      reconciled.find((item) =>
+        item.metric === metric
+        && item.windowStartsAt === windowStartsAt
+        && item.windowEndsAt === windowEndsAt));
+
+    const sourceObservationIds: string[] = [];
+    const sourceImportIds: string[] = [];
+    const sourceClassifications: PerformanceImport["sourceClassification"][] = [];
+    for (const record of imports) {
+      let used = false;
+      for (const observation of record.observations) {
+        if (
+          sourceMetrics.includes(observation.metric)
+          && observation.windowStartsAt === windowStartsAt
+          && observation.windowEndsAt === windowEndsAt
+        ) {
+          sourceObservationIds.push(observation.id);
+          used = true;
+        }
+      }
+      if (used) {
+        sourceImportIds.push(record.id);
+        sourceClassifications.push(record.sourceClassification);
+      }
+    }
+
+    let state: MetricEvidenceState = "observed";
+    let value: number | undefined;
+    let limitation: string | undefined;
+    if (selected.some((item) => !item)) {
+      state = "unavailable";
+      limitation = "A required source metric is missing for the selected reporting window.";
+    } else if (selected.some((item) => item!.state === "conflict")) {
+      state = "conflict";
+      limitation = "A required source metric is disputed; the derived value is withheld.";
+    } else if (selected.some((item) => !["observed", "verified_zero"].includes(item!.state) || item!.value === undefined)) {
+      state = "unavailable";
+      limitation = "A required source metric is not complete numeric evidence.";
+    } else {
+      const values = selected.map((item) => item!.value!);
+      if (input.formula === "ratio") {
+        if (values[1] === 0) {
+          state = "unavailable";
+          limitation = "Division by zero is unavailable, not zero.";
+        } else {
+          value = (values[0]! / values[1]!) * multiplier;
+        }
+      } else {
+        value = values.reduce((total, current) => total + current, 0) * multiplier;
+      }
+      if (value !== undefined) state = value === 0 ? "verified_zero" : "observed";
+    }
+
+    const metric = normalizedMetricName(input.metric);
+    const expression = input.formula === "ratio"
+      ? `${sourceMetrics[0]} / ${sourceMetrics[1]} × ${multiplier}`
+      : `sum(${sourceMetrics.join(", ")}) × ${multiplier}`;
+    const normalizedDigest = await sha256Text(JSON.stringify({
+      calendarEntryId: input.calendarEntryId,
+      metric,
+      formula: input.formula,
+      formulaVersion: "1",
+      expression,
+      sourceMetrics,
+      sourceImportIds: [...new Set(sourceImportIds)].sort(),
+      sourceObservationIds: [...new Set(sourceObservationIds)].sort(),
+      sourceClassifications: [...new Set(sourceClassifications)].sort(),
+      windowStartsAt,
+      windowEndsAt,
+      state,
+      value: value ?? null,
+      unit: input.unit.trim(),
+      multiplier,
+      limitation: limitation ?? null,
+    }));
+    if ((workspace.derivedMetrics ?? []).some((record) => record.normalizedDigest === normalizedDigest)) return workspace;
+
+    const now = this.clock().toISOString();
+    const record: DerivedMetricRecord = {
+      id: this.createId(),
+      workspaceId,
+      calendarEntryId: input.calendarEntryId,
+      metric,
+      formula: input.formula,
+      formulaVersion: "1",
+      expression,
+      sourceMetrics,
+      sourceImportIds: [...new Set(sourceImportIds)].sort(),
+      sourceObservationIds: [...new Set(sourceObservationIds)].sort(),
+      sourceClassifications: [...new Set(sourceClassifications)].sort(),
+      windowStartsAt,
+      windowEndsAt,
+      state,
+      ...(value !== undefined ? { value } : {}),
+      unit: input.unit.trim(),
+      multiplier,
+      ...(limitation ? { limitation } : {}),
+      normalizedDigest,
+      createdAt: now,
+      createdBy: input.createdBy.trim(),
+    };
+    return this.persist({
+      ...workspace,
+      derivedMetrics: [...(workspace.derivedMetrics ?? []), record],
+      updatedAt: now,
+    });
+  }
+
   async completeRetrospective(workspaceId: string, input: Readonly<{
     calendarEntryId: string;
     completedBy: string;
@@ -883,6 +1022,7 @@ function emptyWorkspace(workspaceId: string, now: string): ActivationLearningWor
     deliveryOutcomes: [],
     measurementPlans: [],
     performanceImports: [],
+    derivedMetrics: [],
     retrospectives: [],
     learningLedger: [],
     updatedAt: now,
@@ -989,7 +1129,11 @@ async function performanceImportDigest(input: Readonly<{
     sourceClassification: input.sourceClassification,
     observations,
   });
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return sha256Text(canonical);
+}
+
+async function sha256Text(value: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
