@@ -476,10 +476,14 @@ export class SignalsViewController {
     const websiteWatchMaterialization = isWebsiteWatchMaterializationKind(item.kind);
     const destination = item.materialization;
     const failure = item.materializationFailure;
+    const hypothesis = item.hypothesisId
+      ? this.inbox?.marketHypotheses?.find((candidate) => candidate.id === item.hypothesisId)
+      : undefined;
     return `<article class="record signal-conversion">
       <div class="record-top"><h4>${escapeHtml(item.title)}</h4>${pill(item.status)}</div>
       <p>${escapeHtml(item.kind.replaceAll("_", " "))}</p>
       <small>Owner: ${escapeHtml(item.owner)} · Created ${humanDate(item.createdAt)}</small>
+      ${item.hypothesisId ? `<p><strong>Market hypothesis provenance:</strong> ${escapeHtml(hypothesis?.statement ?? item.hypothesisId)} · ${pill(hypothesis?.status ?? "unknown")}</p>` : ""}
       ${destination ? `<p><strong>Authoritative destination:</strong> ${escapeHtml(destination.context)} · <code>${escapeHtml(destination.recordId)}</code> · ${humanDate(destination.materializedAt)}</p>` : ""}
       ${failure ? `<div class="inline-warning"><strong>Materialization failed.</strong> ${escapeHtml(failure.detail)} · ${humanDate(failure.attemptedAt)}</div>` : ""}
       ${productMaterialization && item.status !== "materialized" ? `<button type="button" data-signal-action="materialize-product" data-id="${escapeHtml(item.id)}">${item.status === "materialization_failed" ? "Retry Product Core materialization" : "Materialize in Product Core"}</button>` : ""}
