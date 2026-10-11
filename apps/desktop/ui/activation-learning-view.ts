@@ -26,8 +26,8 @@ const escapeHtml = (value: unknown): string => String(value ?? "")
 const cleanLines = (value: FormDataEntryValue | null): string[] => String(value ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
 const label = (value: string): string => value.replaceAll("_", " ");
 const tone = (value: string): string =>
-  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero", "current"].includes(value) ? "implemented"
-    : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected"].includes(value) ? "warning"
+  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero", "current", "repeatable_candidate", "established_local_pattern"].includes(value) ? "implemented"
+    : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected", "insufficient", "emerging"].includes(value) ? "warning"
       : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable", "conflict"].includes(value) ? "error" : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
@@ -538,7 +538,11 @@ export class ActivationLearningViewController {
           <div><dt>Reference experiment</dt><dd>${escapeHtml(this.publicationExperimentLabel(record.referenceExperimentId))}</dd></div>
           <div><dt>Excluded candidates</dt><dd>${record.excluded.length}</dd></div>
         </dl>
-        ${record.groups.length ? `<div class="comparison-list">${record.groups.map((group) => `<div><strong>${escapeHtml(group.groupValue)}</strong><span>median ${group.median} · range ${group.minimum}–${group.maximum}</span><small>N=${group.sampleSize}</small></div>`).join("")}</div>` : ""}
+        ${record.confidence !== "insufficient" && record.groups.length
+          ? `<div class="comparison-list">${record.groups.map((group) => `<div><strong>${escapeHtml(group.groupValue)}</strong><span>median ${group.median} · range ${group.minimum}–${group.maximum}</span><small>N=${group.sampleSize}</small></div>`).join("")}</div>`
+          : record.groups.length
+            ? `<div class="state warning"><strong>Group medians withheld until the evidence threshold is met.</strong><span>${escapeHtml(record.groups.map((group) => `${group.groupValue}: N=${group.sampleSize}`).join(" · "))}</span></div>`
+            : ""}
         <details><summary>Included evidence (${record.included.length})</summary><ul>${record.included.map((item) => `<li><code>${escapeHtml(item.publicationExperimentId)}</code> · ${item.value}${item.unit ? ` ${escapeHtml(item.unit)}` : ""} · ${item.observationAgeHours.toFixed(1)}h · ${escapeHtml(item.observationId)}</li>`).join("")}</ul></details>
         <details><summary>Excluded candidates (${record.excluded.length})</summary>${record.excluded.length ? `<ul>${record.excluded.map((item) => `<li>${item.publicationExperimentId ? `<code>${escapeHtml(item.publicationExperimentId)}</code> · ` : ""}${escapeHtml(item.reason)}</li>`).join("")}</ul>` : `<p class="guidance">No candidates were excluded.</p>`}</details>
         <p class="guidance"><strong>Limitations:</strong> ${escapeHtml(record.limitation)}</p>
