@@ -812,6 +812,7 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     if (!campaigns) throw new Error("Campaign workspace not found");
 
     const reference = required(campaigns.publicationExperiments ?? [], input.referenceExperimentId, "Reference publication experiment");
+    requireValidTimeZone(reference.timezone);
     if (reference.changedVariables.length !== 1 || reference.changedVariables[0] !== input.compareVariable) {
       throw new Error(`Reference experiment must change only ${input.compareVariable} for this cohort comparison`);
     }
@@ -1768,6 +1769,14 @@ function experimentVariableValue(
   const weekday = parts.find((part) => part.type === "weekday")?.value ?? "Unknown";
   const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
   return `${weekday} ${hour}:00 ${timezone}`;
+}
+
+function requireValidTimeZone(timezone: string): void {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
+  } catch {
+    throw new Error(`Experiment timezone is invalid: ${timezone}`);
+  }
 }
 
 function localPublicationDate(publicationObservedAt: string, timezone: string): string {
