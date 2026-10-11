@@ -203,6 +203,7 @@ test("composition brief reuses current Product Core authority and exposes separa
   });
   const brief = workspace.compositionBriefs![0]!;
   assert.equal(brief.primaryAudience, "Founder operators");
+  assert.equal(brief.version, 1);
   assert.equal(brief.claimReferences[0]!.claimRevision, 3);
   assert.deepEqual(brief.evidenceIds, ["evidence-1"]);
 
@@ -244,6 +245,8 @@ test("publication experiment binds exact approved variant revision and SHA-256 c
     changedVariables: ["hook"],
   });
   const experiment = workspace.publicationExperiments![0]!;
+  assert.equal(experiment.compositionBriefVersion, 1);
+  assert.match(experiment.compositionBriefSha256, /^[0-9a-f]{64}$/);
   assert.equal(experiment.channelVariantVersion, 1);
   assert.match(experiment.channelVariantBodySha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(experiment.changedVariables, ["hook"]);
@@ -260,6 +263,66 @@ test("publication experiment binds exact approved variant revision and SHA-256 c
     }),
     /already bound/,
   );
+});
+
+test("composition revision preserves history and makes the prior experiment context stale", async () => {
+  const { compositionService, campaignId, variantId } = await fixture();
+  let workspace = await compositionService.createCompositionBrief("workspace-1", {
+    campaignId,
+    objective: "awareness",
+    desiredOutcome: "Qualified awareness",
+    topic: "Human-reviewed reconciliation",
+    contentFamily: "observation",
+    hookArchetype: "concrete_experience",
+    toneConstraints: ["Direct"],
+    prohibitedClaims: [],
+    destinationId: "linkedin-founder",
+    format: "text",
+    mediaAssetIds: [],
+    externalLinkPolicy: "none",
+    hypothesis: "A concrete workflow observation earns useful attention.",
+  });
+  const brief = workspace.compositionBriefs![0]!;
+  workspace = await compositionService.bindPublicationExperiment("workspace-1", {
+    compositionBriefId: brief.id,
+    channelVariantId: variantId,
+    provider: "manual_linkedin",
+    timezone: "America/New_York",
+    expectedOutcome: "Useful attention",
+    changedVariables: ["hook"],
+  });
+  const experiment = workspace.publicationExperiments![0]!;
+
+  workspace = await compositionService.reviseCompositionBrief("workspace-1", brief.id, {
+    editor: "Campaign owner",
+    rationale: "Test product proof instead of general awareness",
+    objective: "product_proof",
+    desiredOutcome: "One qualified pilot review",
+    topic: "Human-reviewed reconciliation",
+    contentFamily: "build_proof",
+    hookArchetype: "product_proof",
+    toneConstraints: ["Direct", "No hype"],
+    prohibitedClaims: ["Fully automatic reconciliation"],
+    destinationId: "linkedin-founder",
+    format: "text",
+    mediaAssetIds: [],
+    callToAction: "Review the pilot",
+    externalLinkPolicy: "comment",
+    hypothesis: "Concrete product proof earns a qualified pilot review.",
+  });
+  const revised = workspace.compositionBriefs![0]!;
+  assert.equal(revised.version, 2);
+  assert.equal(revised.history?.length, 1);
+  assert.equal(revised.history?.[0]?.version, 1);
+  assert.ok(revised.history?.[0]?.changedFields.includes("objective"));
+
+  const freshness = await compositionService.assessExperimentFreshness("workspace-1", experiment.id);
+  assert.equal(freshness.stale, true);
+  assert.ok(freshness.reasons.some((reason) => reason.includes("Composition brief revision changed")));
+  assert.ok(freshness.reasons.some((reason) => reason.includes("experiment context changed")));
+  const assessment = await compositionService.assessCompositionBrief("workspace-1", brief.id);
+  assert.equal(assessment.readiness.approval, "blocked");
+  assert.ok(assessment.findings.some((finding) => finding.ruleId === "approval.binding_stale"));
 });
 
 test("variant revision or Product Core authority drift makes the exact experiment stale", async () => {
