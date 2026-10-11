@@ -435,6 +435,62 @@ test("conflicting observations for the same metric window withhold a retrospecti
   assert.match(comparison.limitation ?? "", /conflict/i);
 });
 
+test("same normalized metric and reporting window with incompatible units reconciles as conflict", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Export A", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Count metric", observations: [{
+      ...outcomeObservation, metric: "Post impressions", value: 100, unit: "count", source: "Export A", evidenceReference: "a.csv",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Export B", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Ratio mislabeled as the same normalized metric", observations: [{
+      ...outcomeObservation, metric: "post_impressions", value: 0.5, unit: "ratio", source: "Export B", evidenceReference: "b.csv",
+    }],
+  });
+  const reconciled = await service.reconcilePerformanceEvidence("workspace-1", entryId);
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0]!.state, "conflict");
+  assert.match(reconciled[0]!.limitation ?? "", /units disagree/i);
+});
+
+test("estimated and unknown metric states preserve uncertainty instead of becoming observed or zero", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  await assert.rejects(service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "partial", source: "Estimate", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Missing limitation", observations: [{
+      ...outcomeObservation, metric: "reach", state: "estimated", value: 25, source: "Estimate", evidenceReference: "estimate-1",
+    }],
+  }), /Estimated metric requires a limitation/);
+  await assert.rejects(service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "partial", source: "Unknown", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Unknown cannot be numeric", observations: [{
+      ...outcomeObservation, metric: "reach", state: "unknown", value: 0, source: "Unknown", evidenceReference: "unknown-1", limitation: "Provider does not expose this metric",
+    }],
+  }), /unknown metric cannot include a numeric value/i);
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "partial", source: "Estimate", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Explicit estimate", observations: [{
+      ...outcomeObservation, metric: "reach", state: "estimated", value: 25, source: "Estimate", evidenceReference: "estimate-1", limitation: "Estimated from a sampled dashboard",
+    }],
+  });
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.state, "estimated");
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.value, 25);
+});
+
 test("derived ratio records formula version and mixed-source provenance without hiding it", async () => {
   const { service } = fixture();
   let workspace = await approvedSchedule(service);
