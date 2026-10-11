@@ -566,10 +566,40 @@ export class CampaignsViewController {
     return this.failure ? `<section class="state error" role="alert"><div><strong>Campaign operation failed.</strong><p>${escapeHtml(this.failure)}</p></div><button type="button" data-campaign-action="recover" data-page="${page}">Return to saved campaign workspace</button></section>` : "";
   }
 
+  private async refreshCompositionState(): Promise<void> {
+    this.compositionAssessments.clear();
+    this.experimentFreshness.clear();
+    for (const brief of this.campaigns?.compositionBriefs ?? []) {
+      try {
+        this.compositionAssessments.set(brief.id, await this.compositionService.assessCompositionBrief(this.workspaceId, brief.id));
+      } catch {
+        // The visible operation failure path handles mutations. A stale/malformed saved record
+        // stays visibly blocked instead of preventing the rest of Studio from rendering.
+      }
+    }
+    for (const experiment of this.campaigns?.publicationExperiments ?? []) {
+      try {
+        this.experimentFreshness.set(experiment.id, await this.compositionService.assessExperimentFreshness(this.workspaceId, experiment.id));
+      } catch (error) {
+        this.experimentFreshness.set(experiment.id, {
+          experimentId: experiment.id,
+          stale: true,
+          reasons: [error instanceof Error ? error.message : "Experiment authority could not be revalidated."],
+        });
+      }
+    }
+  }
+
   private async reloadProduct(): Promise<void> {
-    this.product = await this.productStore.load(this.workspaceId);
-    const savedCampaigns = await this.campaignStore.load(this.workspaceId);
+    const [product, savedCampaigns, activation] = await Promise.all([
+      this.productStore.load(this.workspaceId),
+      this.campaignStore.load(this.workspaceId),
+      this.activationStore.load(this.workspaceId),
+    ]);
+    this.product = product;
     if (savedCampaigns) this.campaigns = savedCampaigns;
+    this.activation = activation;
+    await this.refreshCompositionState();
   }
 }
 
@@ -583,7 +613,17 @@ function asDecision(value?: string): "approved" | "rejected" | "changes_requeste
 }
 
 function emptyCampaignWorkspace(workspaceId: string): CampaignWorkspace {
-  return { workspaceId, campaigns: [], assets: [], variants: [], exports: [], updatedAt: new Date().toISOString() };
+  return {
+    workspaceId,
+    campaigns: [],
+    contentBriefs: [],
+    compositionBriefs: [],
+    publicationExperiments: [],
+    assets: [],
+    variants: [],
+    exports: [],
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function downloadManifest(record: ManualExportPackage): void {
