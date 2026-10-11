@@ -172,7 +172,8 @@ export class SignalsInboxService {
       throw new Error("Only reviewed signals can support or contradict a market hypothesis");
     }
     validateSignalEvidenceDates(signal, this.clock());
-    if (hypothesis.evidenceLinks.some((link) => link.signalId === signal.id)) {
+    const existingIndex = hypothesis.evidenceLinks.findIndex((link) => link.signalId === signal.id);
+    if (existingIndex >= 0 && hypothesis.status !== "stale") {
       throw new Error("This signal is already linked to the market hypothesis");
     }
 
@@ -190,11 +191,18 @@ export class SignalsInboxService {
       reuseRights: signal.provenance.reuseRights ?? "unknown",
       ...(signal.marketScope ? { evidenceScope: normalizeMarketScope(signal.marketScope) } : {}),
     } as const;
-    const status = ["reviewed", "disputed"].includes(hypothesis.status) ? "stale" as const : hypothesis.status;
+    const evidenceLinks = existingIndex >= 0
+      ? hypothesis.evidenceLinks.map((item, index) => index === existingIndex ? link : item)
+      : [...hypothesis.evidenceLinks, link];
+    const status = existingIndex >= 0 && hypothesis.status === "stale"
+      ? "proposed" as const
+      : ["reviewed", "disputed"].includes(hypothesis.status)
+        ? "stale" as const
+        : hypothesis.status;
     const updated: MarketHypothesis = {
       ...hypothesis,
       status,
-      evidenceLinks: [...hypothesis.evidenceLinks, link],
+      evidenceLinks,
       version: hypothesis.version + 1,
       updatedAt: now,
     };
@@ -408,8 +416,6 @@ export function assessMarketHypothesis(
   let partialEvidence = 0;
   let outOfScopeEvidence = 0;
   let unknownReuseRights = 0;
-  const now = clock();
-
   for (const link of hypothesis.evidenceLinks) {
     const signal = inbox.signals.find((candidate) => candidate.id === link.signalId);
     if (!signal) {
@@ -442,7 +448,10 @@ export function assessMarketHypothesis(
     if (link.reuseRights === "unknown") unknownReuseRights += 1;
   }
 
-  const effectiveStatus = staleReasons.length > 0 && ["reviewed", "disputed"].includes(hypothesis.status)
+  if (hypothesis.status === "stale" && staleReasons.length === 0) {
+    staleReasons.push("Hypothesis review was invalidated because linked evidence was re-reviewed.");
+  }
+  const effectiveStatus = staleReasons.length > 0 && ["reviewed", "disputed", "stale"].includes(hypothesis.status)
     ? "stale"
     : hypothesis.status;
   return {
