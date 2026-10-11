@@ -1,9 +1,12 @@
+import type { ActivationLearningWorkspace, DestinationRecord } from "../../activation-learning/domain/activation-learning.js";
+import type { ActivationLearningStore } from "../../activation-learning/ports/activation-learning-store.js";
 import { isReviewedEvidence } from "../../product-core/domain/evidence.js";
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
 import type {
   CampaignBrief,
   CampaignWorkspace,
+  ChannelKind,
   CompositionBrief,
   CompositionFormat,
   CompositionObjective,
@@ -51,6 +54,7 @@ export class CompositionExperimentService {
   constructor(
     private readonly store: CampaignWorkspaceStore,
     private readonly productStore: ProductWorkspaceStore,
+    private readonly activationStore: ActivationLearningStore,
     private readonly clock: Clock = () => new Date(),
     private readonly createId: IdFactory = () => globalThis.crypto.randomUUID(),
   ) {}
@@ -75,10 +79,15 @@ export class CompositionExperimentService {
     requireText(input.topic, "Composition topic");
     requireText(input.destinationId, "Destination");
     requireText(input.hypothesis, "Experiment hypothesis");
-    const [workspace, product] = await Promise.all([this.load(workspaceId), this.requiredProduct(workspaceId)]);
+    const [workspace, product, activation] = await Promise.all([
+      this.load(workspaceId),
+      this.requiredProduct(workspaceId),
+      this.requiredActivation(workspaceId),
+    ]);
     const campaign = required(workspace.campaigns, input.campaignId, "Campaign");
     if (campaign.status !== "approved") throw new Error("Composition briefs require an approved campaign");
     this.validateCampaignAuthority(product, campaign);
+    this.requiredCampaignDestination(activation, campaign, input.destinationId);
     const now = this.clock().toISOString();
     const brief: CompositionBrief = {
       id: this.createId(),
@@ -109,7 +118,11 @@ export class CompositionExperimentService {
   }
 
   async assessCompositionBrief(workspaceId: string, briefId: string): Promise<CompositionAssessment> {
-    const [workspace, product] = await Promise.all([this.load(workspaceId), this.requiredProduct(workspaceId)]);
+    const [workspace, product, activation] = await Promise.all([
+      this.load(workspaceId),
+      this.requiredProduct(workspaceId),
+      this.requiredActivation(workspaceId),
+    ]);
     const brief = required(workspace.compositionBriefs ?? [], briefId, "Composition brief");
     const campaign = required(workspace.campaigns, brief.campaignId, "Campaign");
     const findings: GuidanceFinding[] = [];
@@ -134,9 +147,15 @@ export class CompositionExperimentService {
       findings.push(warning("message.cta_missing", "This objective normally requires an explicit call to action."));
     }
 
-    const channel = brief.destinationId.trim() ? "ready" : "blocked";
-    if (channel === "blocked") findings.push(blocking("channel.destination_missing", "A destination is required."));
+    let channel: ReadinessState = "ready";
+    try {
+      this.requiredCampaignDestination(activation, campaign, brief.destinationId);
+    } catch (error) {
+      channel = "blocked";
+      findings.push(blocking("channel.destination_invalid", errorMessage(error), "Select an active destination that matches the approved Campaign channel."));
+    }
     if (["image", "video"].includes(brief.format) && brief.mediaAssetIds.length === 0) {
+      channel = "blocked";
       findings.push(blocking("channel.media_missing", "The selected format requires at least one media asset."));
     }
 
@@ -174,7 +193,11 @@ export class CompositionExperimentService {
     const changedVariables = unique(input.changedVariables);
     if (changedVariables.length === 0) throw new Error("At least one tracked experiment variable is required");
 
-    const [workspace, product] = await Promise.all([this.load(workspaceId), this.requiredProduct(workspaceId)]);
+    const [workspace, product, activation] = await Promise.all([
+      this.load(workspaceId),
+      this.requiredProduct(workspaceId),
+      this.requiredActivation(workspaceId),
+    ]);
     const brief = required(workspace.compositionBriefs ?? [], input.compositionBriefId, "Composition brief");
     const campaign = required(workspace.campaigns, brief.campaignId, "Campaign");
     if (campaign.status !== "approved") throw new Error("Publication experiment requires an approved campaign");
@@ -183,6 +206,9 @@ export class CompositionExperimentService {
 
     const variant = required(workspace.variants, input.channelVariantId, "Channel variant");
     if (variant.status !== "approved") throw new Error("Publication experiment requires an approved channel variant");
+    const destination = this.requiredCampaignDestination(activation, campaign, brief.destinationId);
+    if (destination.channel !== variant.channel) throw new Error("Publication experiment destination must match the approved channel variant");
+    if (!campaign.channels.includes(variant.channel)) throw new Error("Approved channel variant is outside the Campaign channel plan");
     const asset = required(workspace.assets, variant.canonicalAssetId, "Canonical asset");
     if (asset.status !== "approved" || asset.campaignId !== campaign.id) {
       throw new Error("Channel variant does not belong to the approved composition campaign");
@@ -219,26 +245,33 @@ export class CompositionExperimentService {
   }
 
   async assessExperimentFreshness(workspaceId: string, experimentId: string): Promise<ExperimentFreshness> {
-    const [workspace, product] = await Promise.all([this.load(workspaceId), this.requiredProduct(workspaceId)]);
+    const [workspace, product, activation] = await Promise.all([
+      this.load(workspaceId),
+      this.requiredProduct(workspaceId),
+      this.requiredActivation(workspaceId),
+    ]);
     const experiment = required(workspace.publicationExperiments ?? [], experimentId, "Publication experiment");
-    const reasons = await this.experimentStalenessReasons(workspace, product, experiment);
+    const reasons = await this.experimentStalenessReasons(workspace, product, activation, experiment);
     return { experimentId, stale: reasons.length > 0, reasons };
   }
 
   private async experimentStalenessReasons(
     workspace: CampaignWorkspace,
     product: ProductWorkspace,
+    activation: ActivationLearningWorkspace,
     experiment: PublicationExperiment,
   ): Promise<readonly string[]> {
     const brief = required(workspace.compositionBriefs ?? [], experiment.compositionBriefId, "Composition brief");
     const reasons: string[] = [];
     const campaign = workspace.campaigns.find((record) => record.id === brief.campaignId);
+    let destination: DestinationRecord | undefined;
     if (!campaign || campaign.status !== "approved") {
       reasons.push("Parent campaign approval is no longer current.");
     } else {
       try {
         this.validateCampaignAuthority(product, campaign);
         this.validateBriefAuthority(product, brief);
+        destination = this.requiredCampaignDestination(activation, campaign, brief.destinationId);
       } catch (error) {
         reasons.push(errorMessage(error));
       }
@@ -250,6 +283,8 @@ export class CompositionExperimentService {
       if (variant.status !== "approved") reasons.push("Bound channel variant is no longer approved.");
       if (variant.version !== experiment.channelVariantVersion) reasons.push("Bound channel variant revision changed.");
       if (await sha256(variant.body) !== experiment.channelVariantBodySha256) reasons.push("Bound channel variant content fingerprint changed.");
+      if (campaign && !campaign.channels.includes(variant.channel)) reasons.push("Bound channel variant is outside the Campaign channel plan.");
+      if (destination && destination.channel !== variant.channel) reasons.push("Bound destination no longer matches the channel variant.");
     }
     return reasons;
   }
@@ -280,6 +315,24 @@ export class CompositionExperimentService {
     const product = await this.productStore.load(workspaceId);
     if (!product) throw new Error("Product workspace not found");
     return product;
+  }
+
+  private async requiredActivation(workspaceId: string): Promise<ActivationLearningWorkspace> {
+    const activation = await this.activationStore.load(workspaceId);
+    if (!activation) throw new Error("Calendar / Activation workspace not found");
+    return activation;
+  }
+
+  private requiredCampaignDestination(
+    activation: ActivationLearningWorkspace,
+    campaign: CampaignBrief,
+    destinationId: string,
+  ): DestinationRecord {
+    const destination = activation.destinations.find((record) => record.id === destinationId && record.status === "active");
+    if (!destination) throw new Error("Composition destination is missing or disabled");
+    if (!isCampaignChannel(destination.channel)) throw new Error("Composition destination is not a Campaign publishing channel");
+    if (!campaign.channels.includes(destination.channel)) throw new Error("Composition destination is outside the Campaign channel plan");
+    return destination;
   }
 
   private validateCampaignAuthority(product: ProductWorkspace, campaign: CampaignBrief): void {
@@ -359,6 +412,10 @@ function required<T extends { id: string }>(values: readonly T[], id: string, la
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Authority validation failed";
+}
+
+function isCampaignChannel(value: string): value is ChannelKind {
+  return ["linkedin", "facebook_page", "instagram_feed", "website", "github_release"].includes(value);
 }
 
 async function sha256(value: string): Promise<string> {
