@@ -761,6 +761,7 @@
           "evidenceState": "suggested"
         }
       ],
+      "marketHypotheses": [],
       "conversions": [],
       "updatedAt": "2026-09-08T09:00:03.000Z"
     },
@@ -971,5 +972,5 @@
     "videoProduction": null,
     "websiteWatch": null
   },
-  "checksum": "crc32:b707320a"
+  "checksum": "crc32:fba6811d"
 }
