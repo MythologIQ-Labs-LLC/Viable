@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { MarketScope, SignalsInbox } from "../src/signals/domain/signal.js";
+import type { MarketScope, SignalRecord, SignalsInbox } from "../src/signals/domain/signal.js";
 import type { SignalSource } from "../src/signals/ports/signal-source.js";
 import type { SignalsInboxStore } from "../src/signals/ports/signals-inbox-store.js";
 import { assessMarketHypothesis, SignalsInboxService } from "../src/signals/services/signals-inbox-service.js";
@@ -32,11 +32,13 @@ const scope = (overrides: Partial<MarketScope> = {}): MarketScope => ({
   ...overrides,
 });
 
+type SignalCandidate = Omit<SignalRecord, "id" | "workspaceId" | "status" | "evidenceState">;
+
 const scopedCandidate = (
   sourceId: string,
   fingerprint: string,
-  overrides: Readonly<Record<string, unknown>> = {},
-) => ({
+  overrides: Partial<SignalCandidate> = {},
+): SignalCandidate => ({
   ...candidate(sourceId, fingerprint),
   observedAt: "2026-07-15T12:00:00.000Z",
   freshnessReviewAt: "2026-08-16T00:00:00.000Z",
@@ -255,13 +257,28 @@ test("re-reviewing linked evidence makes prior hypothesis review stale", async (
   inbox = await service.review("workspace", signalIds[0]!, "Second source reviewer", true);
   assert.equal(inbox.marketHypotheses![0]!.status, "stale");
   const assessment = assessMarketHypothesis(inbox, inbox.marketHypotheses![0]!, () => new Date(now));
-  assert.ok(assessment.staleReasons.some((reason) => /review changed/.test(reason)));
+  assert.ok(assessment.staleReasons.some((reason) => /invalidated|review changed/.test(reason)));
   await assert.rejects(
     service.convertMarketHypothesis("workspace", id, {
       kind: "icp_validation_action", title: "Validate agency demand", owner: "Researcher",
     }),
     /reviewed or explicitly disputed|Stale/,
   );
+
+  inbox = await service.linkMarketHypothesisEvidence("workspace", id, {
+    signalId: signalIds[0]!,
+    relation: "supporting",
+    rationale: "Re-attest the same source after its second named review",
+  });
+  assert.equal(inbox.marketHypotheses![0]!.status, "proposed");
+  inbox = await service.submitMarketHypothesis("workspace", id);
+  inbox = await service.reviewMarketHypothesis("workspace", id, {
+    reviewer: "Second market reviewer",
+    outcome: "reviewed",
+    note: "Re-attested source remains in scope after the source review changed",
+  });
+  assert.equal(inbox.marketHypotheses![0]!.status, "reviewed");
+  assert.equal(inbox.marketHypotheses![0]!.reviewHistory?.length, 2);
 });
 
 test("reviewed hypothesis conversion preserves hypothesis provenance and does not mutate signal review", async () => {
