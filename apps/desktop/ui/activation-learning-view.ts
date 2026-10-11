@@ -6,6 +6,7 @@ import type {
   ConfidenceEffect,
   DestinationChannel,
   MetricEvidenceState,
+  MetricObservation,
   RetrospectiveDecision,
 } from "../../../src/activation-learning/domain/activation-learning.js";
 import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
@@ -24,9 +25,9 @@ const escapeHtml = (value: unknown): string => String(value ?? "")
 const cleanLines = (value: FormDataEntryValue | null): string[] => String(value ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
 const label = (value: string): string => value.replaceAll("_", " ");
 const tone = (value: string): string =>
-  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero"].includes(value) ? "implemented"
-    : ["draft", "in_review", "ready_for_manual_activation", "partial", "delayed", "interrupted", "outcome_unknown", "not_collected"].includes(value) ? "warning"
-      : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable"].includes(value) ? "error" : "neutral";
+  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero", "current"].includes(value) ? "implemented"
+    : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected"].includes(value) ? "warning"
+      : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable", "conflict"].includes(value) ? "error" : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
 const toIso = (value: FormDataEntryValue | null, name: string): string => {
@@ -60,6 +61,7 @@ export class ActivationLearningViewController {
   private campaigns?: CampaignWorkspace;
   private repositories?: RepositoryGrowthWorkspace;
   private videos?: VideoProductionWorkspace;
+  private readonly reconciledEvidence = new Map<string, readonly MetricObservation[]>();
   private failure?: string;
 
   constructor(readonly workspaceId: string, private readonly defaultOwner: string) {}
@@ -75,6 +77,7 @@ export class ActivationLearningViewController {
     this.campaigns = campaigns;
     this.repositories = repositories;
     this.videos = videos;
+    await this.refreshReconciliation();
   }
 
   render(page: "calendar" | "analytics"): string {
@@ -206,6 +209,7 @@ export class ActivationLearningViewController {
           importedBy: String(form.get("importedBy")),
           notes: String(form.get("notes")),
         });
+        await this.refreshReconciliation();
         return "Performance evidence imported idempotently without converting missing data into zero";
       }
       if (kind === "activation-retrospective") {
@@ -451,7 +455,24 @@ export class ActivationLearningViewController {
         <p>${escapeHtml(record.notes)}</p>
         <dl><div><dt>Source class</dt><dd>${escapeHtml(label(record.sourceClassification))}</dd></div><div><dt>Experiment</dt><dd>${record.publicationExperimentId ? escapeHtml(this.publicationExperimentLabel(record.publicationExperimentId)) : "Not linked"}</dd></div><div><dt>Provider publication</dt><dd>${escapeHtml(record.providerPublicationId ?? "Not recorded")}</dd></div><div><dt>Normalized digest</dt><dd>${record.normalizedDigest ? `<code>${escapeHtml(record.normalizedDigest.slice(0, 12))}…</code>` : "Legacy import without digest"}</dd></div></dl>
         ${record.observations.map(metricSummary).join("")}</article>`).join("")}</div>
+      <section aria-labelledby="reconciled-evidence-heading"><div class="section-heading"><div><p class="eyebrow">Reconciliation</p><h4 id="reconciled-evidence-heading">What Viable can safely compare</h4></div>${pill("computed")}</div>
+        <p class="guidance">Equivalent evidence counts once. Missing evidence stays missing. Conflicting values for the same normalized metric and reporting window remain a conflict; capture time does not decide truth.</p>
+        <div class="card-list">${workspace.measurementPlans.map((plan) => {
+          const evidence = this.reconciledEvidence.get(plan.calendarEntryId) ?? [];
+          return `<article><div class="card-heading"><div><h4>${escapeHtml(this.entryTitle(plan.calendarEntryId))}</h4><p>${evidence.length} reconciled metric${evidence.length === 1 ? "" : "s"}</p></div>${evidence.some((item) => item.state === "conflict") ? pill("conflict") : pill("current")}</div>${evidence.length ? evidence.map(metricSummary).join("") : `<div class="state empty"><strong>No outcome evidence yet.</strong><span>Record an analytics snapshot before reconciliation.</span></div>`}</article>`;
+        }).join("")}</div>
+      </section>
     </section>`;
+  }
+
+  private async refreshReconciliation(): Promise<void> {
+    this.reconciledEvidence.clear();
+    for (const plan of this.activation?.measurementPlans ?? []) {
+      this.reconciledEvidence.set(
+        plan.calendarEntryId,
+        await this.service.reconcilePerformanceEvidence(this.workspaceId, plan.calendarEntryId),
+      );
+    }
   }
 
   private publicationExperimentLabel(id: string): string {
