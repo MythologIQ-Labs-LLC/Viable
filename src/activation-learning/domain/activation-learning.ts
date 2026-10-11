@@ -134,6 +134,8 @@ export type DeliveryOutcome = Readonly<{
 export type MetricObservation = Readonly<{
   id: string;
   metric: string;
+  providerMetric?: string;
+  providerDefinition?: string;
   state: MetricEvidenceState;
   windowStartsAt: string;
   windowEndsAt: string;
@@ -160,6 +162,9 @@ export type PerformanceImport = Readonly<{
   id: string;
   workspaceId: string;
   calendarEntryId: string;
+  publicationExperimentId?: string;
+  providerPublicationId?: string;
+  normalizedDigest?: string;
   status: PerformanceImportStatus;
   source: string;
   sourceClassification: "human_recorded" | "provider_export" | "provider_api";
