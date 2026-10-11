@@ -542,6 +542,68 @@ test("derived ratio records formula version and mixed-source provenance without 
   assert.equal(workspace.derivedMetrics!.length, 1);
 });
 
+test("derived sum with incompatible source units is a conflict instead of arithmetic", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Mixed units", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Two numeric sources with incompatible units", observations: [
+      { metric: "reactions", state: "observed", value: 10, unit: "count", ...window, source: "Mixed units", evidenceReference: "mixed-1" },
+      { metric: "engagement_rate", state: "observed", value: 0.2, unit: "ratio", ...window, source: "Mixed units", evidenceReference: "mixed-2" },
+    ],
+  });
+  workspace = await service.derivePerformanceMetric("workspace-1", {
+    calendarEntryId: entryId, metric: "nonsense_total", formula: "sum",
+    sourceMetrics: ["reactions", "engagement_rate"], windowStartsAt: window.windowStartsAt, windowEndsAt: window.windowEndsAt,
+    unit: "count", createdBy: "Analyst",
+  });
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.state, "conflict");
+  assert.equal(derived.value, undefined);
+  assert.match(derived.limitation ?? "", /source units disagree/i);
+});
+
+test("derived sum output unit must match compatible source units", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Counts", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Compatible counts", observations: [
+      { metric: "reactions", state: "observed", value: 10, unit: "count", ...window, source: "Counts", evidenceReference: "count-1" },
+      { metric: "comments", state: "observed", value: 2, unit: "count", ...window, source: "Counts", evidenceReference: "count-2" },
+    ],
+  });
+  workspace = await service.derivePerformanceMetric("workspace-1", {
+    calendarEntryId: entryId, metric: "engagements", formula: "sum",
+    sourceMetrics: ["reactions", "comments"], windowStartsAt: window.windowStartsAt, windowEndsAt: window.windowEndsAt,
+    unit: "ratio", createdBy: "Analyst",
+  });
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.state, "unavailable");
+  assert.equal(derived.value, undefined);
+  assert.match(derived.limitation ?? "", /output unit must match/i);
+});
+
 test("derived ratio with a verified-zero denominator is unavailable rather than zero", async () => {
   const { service } = fixture();
   let workspace = await approvedSchedule(service);
