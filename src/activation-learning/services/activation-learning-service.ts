@@ -583,7 +583,7 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
       let used = false;
       for (const observation of record.observations) {
         if (
-          sourceMetrics.includes(observation.metric)
+          sourceMetrics.includes(normalizedMetricName(observation.metric))
           && observation.windowStartsAt === windowStartsAt
           && observation.windowEndsAt === windowEndsAt
         ) {
@@ -1179,7 +1179,7 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
   for (const record of imports) {
     for (const observation of record.observations) {
       const key = [
-        observation.metric.trim().toLowerCase(),
+        normalizedMetricName(observation.metric),
         observation.windowStartsAt,
         observation.windowEndsAt,
         (observation.unit ?? "").trim().toLowerCase(),
@@ -1198,7 +1198,7 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
       const first = unique[0]!;
       return {
         id: `conflict:${unique.map((item) => item.id).sort().join(":")}`,
-        metric: first.metric,
+        metric: normalizedMetricName(first.metric),
         state: "conflict",
         windowStartsAt: first.windowStartsAt,
         windowEndsAt: first.windowEndsAt,
@@ -1212,15 +1212,17 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
 
     if (numeric.length > 0) {
       const value = numeric[0]!.value;
-      return numeric
+      const selected = numeric
         .filter((item) => item.value === value)
         .slice()
         .sort((left, right) => left.id.localeCompare(right.id))[0]!;
+      return { ...selected, metric: normalizedMetricName(selected.metric) };
     }
 
-    return unique.slice().sort((left, right) =>
+    const selected = unique.slice().sort((left, right) =>
       evidenceStateRank(left.state) - evidenceStateRank(right.state)
       || left.id.localeCompare(right.id))[0]!;
+    return { ...selected, metric: normalizedMetricName(selected.metric) };
   });
 }
 
@@ -1229,7 +1231,7 @@ function dedupeEquivalentObservations(observations: readonly MetricObservation[]
   const result: MetricObservation[] = [];
   for (const observation of observations) {
     const key = JSON.stringify({
-      metric: observation.metric.trim().toLowerCase(),
+      metric: normalizedMetricName(observation.metric),
       state: observation.state,
       value: observation.value ?? null,
       unit: observation.unit?.trim().toLowerCase() ?? null,
@@ -1263,14 +1265,15 @@ function evidenceStateRank(state: MetricEvidenceState): number {
 }
 
 function compareMetrics(baseline: readonly MetricObservation[], outcomes: readonly MetricObservation[]): readonly MetricComparison[] {
-  const byMetric = new Map(outcomes.map((item) => [item.metric, item]));
+  const byMetric = new Map(outcomes.map((item) => [normalizedMetricName(item.metric), item]));
   return baseline.map((base) => {
-    const outcome = byMetric.get(base.metric);
-    if (!outcome) return { metric: base.metric, baselineState: base.state, outcomeState: "not_collected", limitation: "No outcome observation was imported" };
+    const metric = normalizedMetricName(base.metric);
+    const outcome = byMetric.get(metric);
+    if (!outcome) return { metric, baselineState: base.state, outcomeState: "not_collected", limitation: "No outcome observation was imported" };
     const numeric = ["observed", "verified_zero"];
     if (numeric.includes(base.state) && numeric.includes(outcome.state) && base.value !== undefined && outcome.value !== undefined) {
       return {
-        metric: base.metric,
+        metric,
         baselineState: base.state,
         outcomeState: outcome.state,
         baselineValue: base.value,
@@ -1279,7 +1282,7 @@ function compareMetrics(baseline: readonly MetricObservation[], outcomes: readon
       };
     }
     return {
-      metric: base.metric,
+      metric,
       baselineState: base.state,
       outcomeState: outcome.state,
       ...(base.value !== undefined ? { baselineValue: base.value } : {}),
