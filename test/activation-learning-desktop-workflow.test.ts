@@ -66,6 +66,7 @@ test("Analytics exposes baseline explicit evidence retrospective and learning jo
     "Evaluate a comparable publication cohort",
     "Compare like with like, then keep the conclusion advisory",
     "Excluded candidates",
+    "Group medians withheld until the evidence threshold is met",
     "Next experiment",
     "Verified zero",
     "Estimated",
