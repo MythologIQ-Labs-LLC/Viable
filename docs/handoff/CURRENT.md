@@ -11,7 +11,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `caf8c1ea4ae5d8356619e2bb098273d4dd87bb86` (through #165). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
+- `main` at review: `82b445618e57cde337db35b45e2ff5ba972ccae8` (#172 merged). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
@@ -23,11 +23,12 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 
 | PR | What it is | What remains |
 |---|---|---|
-| #172 | #167 composition brief + exact publication-experiment identity | Active candidate. Finish exact-head validation and independent review; do not close #167 until the visible Studio journey and portability contract pass. |
+| Candidate #168 branch | Manual-first analytics evidence, conflict reconciliation, and derived metrics | Finish documentation/branch normalization, then exact-head CI, real-browser Analytics journey, Desktop/Tauri validation, and review before merge. |
 | #144 | Cross-origin migration proof through the portable backup (#36) | Release-foundation evidence. Keep it isolated from product changes. |
 | Dependabot #121 | Development-tooling bumps | Triage independently. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Recently merged convergence work:
+- #172: #167 composition guidance and exact publication-experiment identity is on `main` at `82b445618e57cde337db35b45e2ff5ba972ccae8`; exact-head CI, Chromium PWA journey, Rust tests, desktop bundle, and Debian validation passed.
 - #109: LinkedIn member publishing implementation is on `main`. Exact-head CI, real-browser PWA smoke, Rust tests, desktop bundle, and Debian package validation passed. #107 stays open for the two human evidence gates.
 - #112: bounded discoverability strategy is on `main`; #110 stays open for real-content dogfood and the later evidence loop.
 - #124: Firefox/WebKit startup, bounded storage load, throttled-history tolerance, and the `aria-busy` startup fix. Chromium and Firefox pass; Playwright Linux WebKit passes with controlled engine/harness limitations. Safari remains unsupported pending a real-Safari hand test.
@@ -126,7 +127,7 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 
 ## Next priorities
 
-1. Complete the owner-directed #156 productization-learning tranche in bounded order: #167 / PR #172 first, then #168 manual-first analytics evidence/reconciliation, then #169 comparable-age cohorts and conservative advisory learning.
+1. Complete the owner-directed #156 productization-learning tranche in bounded order: #167 is merged; #168 manual-first analytics evidence/reconciliation is the active candidate; #169 comparable-age cohorts and conservative advisory learning follows only after #168 lands.
 2. Preserve #79/#81 human acceptance as a release gate. The existing `ux-candidate-2026-10-07c.md` remains the frozen pre-#172 candidate; a new candidate must be recorded after product-facing #156 work stabilizes rather than pretending the old human-acceptance target covers new UI.
 3. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
 4. Progress the remaining #36 release-foundation evidence through isolated work such as #144. Leave public hosting until external distribution is justified.
