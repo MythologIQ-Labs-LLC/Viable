@@ -207,6 +207,17 @@ test("publication experiment binds exact approved variant revision and SHA-256 c
   assert.deepEqual(experiment.changedVariables, ["hook"]);
   assert.equal((await compositionService.assessExperimentFreshness("workspace-1", experiment.id)).stale, false);
   assert.equal((await compositionService.assessCompositionBrief("workspace-1", brief.id)).readiness.approval, "ready");
+  await assert.rejects(
+    compositionService.bindPublicationExperiment("workspace-1", {
+      compositionBriefId: brief.id,
+      channelVariantId: variantId,
+      provider: "linkedin",
+      timezone: "America/New_York",
+      expectedOutcome: "Duplicate should fail",
+      changedVariables: ["hook"],
+    }),
+    /already bound/,
+  );
 });
 
 test("variant revision or Product Core authority drift makes the exact experiment stale", async () => {
@@ -246,6 +257,9 @@ test("variant revision or Product Core authority drift makes the exact experimen
   assert.equal(freshness.stale, true);
   assert.ok(freshness.reasons.some((reason) => reason.includes("revision changed")));
   assert.ok(freshness.reasons.some((reason) => reason.includes("fingerprint changed")));
+  const staleAssessment = await compositionService.assessCompositionBrief("workspace-1", brief.id);
+  assert.equal(staleAssessment.readiness.approval, "blocked");
+  assert.ok(staleAssessment.findings.some((finding) => finding.ruleId === "approval.binding_stale"));
 
   products.value = {
     ...products.value,
