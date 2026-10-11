@@ -7,12 +7,23 @@ import type {
   CanonicalAsset,
   ChannelKind,
   ChannelVariant,
+  CompositionBrief,
+  CompositionObjective,
+  ContentFamily,
+  ExperimentVariable,
   ManualExportPackage,
 } from "../../../src/campaigns/domain/campaign.js";
 import { CampaignService } from "../../../src/campaigns/services/campaign-service.js";
+import {
+  CompositionExperimentService,
+  type CompositionAssessment,
+  type ExperimentFreshness,
+} from "../../../src/campaigns/services/composition-experiment-service.js";
+import type { ActivationLearningWorkspace } from "../../../src/activation-learning/domain/activation-learning.js";
 import { discoverabilityFieldset, discoverabilityFromForm, discoverabilityPanel } from "./discoverability-view.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
+import { LocalStorageActivationLearningStore } from "./local-storage-activation-learning-store.js";
 
 const CHANNELS: readonly ChannelKind[] = ["linkedin", "facebook_page", "instagram_feed", "website", "github_release"];
 const CHANNEL_LABELS: Record<ChannelKind, string> = {
@@ -23,6 +34,18 @@ const CHANNEL_LABELS: Record<ChannelKind, string> = {
   github_release: "GitHub release",
 };
 
+const COMPOSITION_OBJECTIVES: readonly CompositionObjective[] = [
+  "awareness", "problem_education", "product_proof", "release", "repository_growth",
+  "lead_generation", "customer_evidence", "market_learning", "other",
+];
+const CONTENT_FAMILIES: readonly ContentFamily[] = [
+  "observation", "contradiction", "problem_solution", "build_proof", "release_note",
+  "case_evidence", "how_it_works", "opinion", "other",
+];
+const EXPERIMENT_VARIABLES: readonly ExperimentVariable[] = [
+  "topic", "hook", "tone", "format", "media", "timing", "audience", "cta",
+];
+
 const escapeHtml = (value: unknown): string => String(value ?? "")
   .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -32,9 +55,9 @@ const checkedValues = (form: FormData, name: string): string[] => form.getAll(na
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not reviewed";
 const label = (value: string): string => value.replaceAll("_", " ");
 const tone = (status: string): string =>
-  ["approved", "manual_export_ready"].includes(status) ? "implemented"
-  : ["draft", "in_review", "changes_requested", "approval_invalidated", "proposed"].includes(status) ? "warning"
-  : ["rejected", "error"].includes(status) ? "error"
+  ["approved", "manual_export_ready", "ready", "current"].includes(status) ? "implemented"
+  : ["draft", "in_review", "changes_requested", "approval_invalidated", "proposed", "blocked"].includes(status) ? "warning"
+  : ["rejected", "error", "stale"].includes(status) ? "error"
   : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
 
