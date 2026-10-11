@@ -411,6 +411,7 @@ export class CampaignsViewController {
         <article><span>Channel variants</span><strong>${workspace.variants.length}</strong><small>${workspace.variants.filter((item) => item.status === "approved").length} approved</small></article>
         <article><span>Manual exports</span><strong>${workspace.exports.length}</strong><small>Never publishing approval</small></article>
       </section>
+      ${this.compositionSection(approvedCampaigns)}
       <section class="panel" aria-labelledby="asset-create-heading">
         <div class="section-heading"><div><p class="eyebrow">Canonical asset</p><h3 id="asset-create-heading">Create the source of meaning</h3></div>${pill(approvedCampaigns.length ? "ready" : "blocked")}</div>
         ${approvedCampaigns.length ? this.assetForm(approvedCampaigns) : `<div class="state empty"><strong>No approved campaign is available.</strong><span>Approve a campaign brief before creating a canonical asset.</span></div>`}
