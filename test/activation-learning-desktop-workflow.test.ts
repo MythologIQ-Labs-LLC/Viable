@@ -59,15 +59,20 @@ test("Analytics exposes baseline explicit evidence retrospective and learning jo
   const view = await read("apps/desktop/ui/activation-learning-view.ts");
   for (const marker of [
     "Record what was true before the outcome window",
-    "Import one explicit metric observation",
+    "Record an append-only analytics snapshot",
+    "Provider-native metric name",
+    "What Viable can safely compare",
+    "Create deterministic derived metric",
     "Verified zero",
-    "Delayed",
-    "Unavailable",
+    "Estimated",
+    "Unknown",
+    "Conflict",
     "Choose what changes because of the evidence",
     "Attribution uncertainty",
     "One reversible next action",
     "Evidence, decision, change, outcome, and follow-up",
   ]) assert.match(view, new RegExp(marker, "i"));
+  assert.doesNotMatch(view, /option value="provider_api"/i);
 });
 
 test("desktop workflow preserves approval outcome and Product Core boundaries", async () => {
