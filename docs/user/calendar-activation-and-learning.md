@@ -61,7 +61,7 @@ The source must still have current:
 The desktop sidebar contains:
 
 - **Calendar** for destinations, timing, review, packages, export handoff, and outcome evidence;
-- **Analytics** for baselines, metric imports, comparisons, retrospectives, and the learning ledger.
+- **Analytics** for baselines, append-only analytics snapshots, reconciliation, deterministic derived metrics, retrospectives, and the learning ledger.
 
 The pages use the same local workspace but preserve separate responsibilities.
 
@@ -374,74 +374,56 @@ Choose the evidence state that describes what you actually know.
 
 ### Observed non-zero
 
-Use when a finite non-zero value was observed.
-
-Example:
-
-- three qualified review requests.
-
-A numeric value is required.
+Use when a finite non-zero value was observed. A numeric value is required.
 
 ### Verified zero
 
-Use only when a supported source or explicit human evidence verified zero.
+Use only when the source explicitly supports zero. Viable records the numeric value as zero. Zero is evidence, not a substitute for missing data.
 
-Example:
+### Estimated
 
-- the reviewed inquiry log contained zero qualified inquiries during the complete window.
-
-Viable records the numeric value as zero.
-
-### Delayed
-
-Use when evidence is expected but has not arrived.
-
-Do not enter a numeric value.
-
-State the limitation.
+Use when a finite value is an estimate rather than a direct observation. A numeric value and limitation are both required.
 
 ### Partial
 
-Use when some evidence exists but it is incomplete.
+Use when some evidence exists but it is incomplete. A finite numeric value is optional, and a limitation is required.
 
-A numeric value is optional.
+### Delayed, unavailable, unknown, and not collected
 
-State the limitation.
+Do not enter numeric values for these states. Record the limitation or reason.
 
-### Unavailable
+### Conflict
 
-Use when access or evidence is unavailable.
+Conflict is computed by reconciliation. The manual form does not let a person declare a conflict by selecting a convenient option. Viable creates this state when evidence for the same normalized metric and reporting window disagrees.
 
-Do not enter a numeric value.
+## Step 10: Record an analytics snapshot
 
-State why it is unavailable.
+Use **Record an append-only analytics snapshot**.
 
-### Not collected
-
-Use when the metric was not collected.
-
-Do not enter a numeric value.
-
-State the limitation.
-
-## Step 10: Import performance evidence
-
-Use **Import one explicit metric observation**.
-
-Choose:
+Choose or enter:
 
 - related Calendar entry;
+- optional exact publication experiment;
+- optional provider publication identifier;
 - import status;
 - source classification;
-- importer;
-- metric;
+- named importer;
+- normalized metric family;
 - evidence state;
-- value and unit when allowed;
+- numeric value and unit when allowed;
+- optional provider-native metric name and definition;
 - evidence source and reference;
 - limitation;
 - metric window;
 - capture time;
 - notes.
+
+The manual-first source classifications are:
+
+- **Manual / human recorded**;
+- **Provider export**.
+
+The form does not offer **Provider API**. API evidence is reserved for a future authenticated provider adapter and cannot be self-declared through the manual workflow.
 
 Import statuses are:
 
@@ -451,11 +433,59 @@ Import statuses are:
 - unavailable;
 - failed.
 
-A complete import may contain only observed or verified-zero evidence.
+A complete snapshot may contain only observed or verified-zero evidence. An unavailable snapshot must not include a numeric value.
 
-An unavailable import must not include a numeric value.
+Viable normalizes metric-family names for comparison while retaining provider-native labels and definitions as provenance. It also computes a SHA-256 digest from the normalized evidence. Re-selecting the same evidence is idempotent even if the importer or notes differ.
 
-The current desktop form imports one metric observation at a time. You may add additional imports for other metrics or newer evidence.
+The current form records one observation per submission. Additional genuinely different observations remain append-only.
+
+## Reconcile overlapping evidence
+
+Below the snapshot records, **What Viable can safely compare** shows deterministic reconciliation for each measurement plan.
+
+Reconciliation uses the normalized metric family and exact reporting window.
+
+- equivalent observations count once for comparison;
+- different numeric values become an explicit conflict;
+- incompatible units become an explicit conflict;
+- every conflicting source and evidence reference remains visible;
+- a later capture time does not make one value authoritative;
+- missing evidence remains missing rather than zero.
+
+A conflict has no numeric value. It therefore cannot silently produce a retrospective delta.
+
+## Calculate deterministic derived metrics
+
+Use **Create deterministic derived metric** after source snapshots exist.
+
+Choose:
+
+- Calendar entry;
+- derived metric family;
+- formula: ratio or sum;
+- source normalized metric families, one per line;
+- exact reporting window;
+- output unit;
+- optional multiplier;
+- named calculator.
+
+The resulting record shows:
+
+- formula expression and version;
+- numeric value when justified;
+- state when a value is withheld;
+- source metric families;
+- source import count;
+- source observation count;
+- all contributing evidence classifications;
+- deterministic digest;
+- limitation when applicable.
+
+Derived metrics consume reconciled evidence. They do not choose a favorable raw import.
+
+A disputed source produces `conflict`. Missing or incomplete required evidence produces `unavailable`. Division by zero is `unavailable`, not zero.
+
+Manual and provider-export sources may contribute to one derived metric only with both provenance classes remaining visible. Sum formulas require compatible source units and the selected output unit must match them.
 
 ## Step 11: Complete a retrospective
 
@@ -509,10 +539,12 @@ Do not present attribution as certain when the evidence is incomplete.
 
 ## Metric comparisons
 
-Viable calculates a numeric delta only when the baseline and outcome states are compatible numeric evidence:
+Viable calculates a numeric delta only when the baseline and reconciled outcome are compatible numeric evidence:
 
 - observed;
 - verified zero.
+
+The normalized metric family, reporting window, and unit must also be compatible. Conflicts and incompatible units withhold the delta rather than selecting the newest source.
 
 Example:
 

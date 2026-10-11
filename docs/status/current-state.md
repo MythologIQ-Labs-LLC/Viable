@@ -6,7 +6,7 @@
 |---|---|
 | Status | Authoritative implementation-status record |
 | Last reviewed | 2026-10-11 |
-| Reviewed against | `main` through `caf8c1ea4ae5d8356619e2bb098273d4dd87bb86` (#165 included), plus the #167 / PR #172 composition-experiment candidate on this branch and the open human/release gates listed below |
+| Reviewed against | `main` through `82b445618e57cde337db35b45e2ff5ba972ccae8` (#172 merged), plus the #168 analytics-reconciliation candidate on this branch and the open human/release gates listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -45,7 +45,7 @@ npm run pwa:selfhost   # serves http://localhost:4175
 
 The native Tauri runtime is retained only where a capability earns it: the OS credential vault and connected provider publishing.
 
-**2026-10-11 productization-learning resumption:** issue #156 has been decomposed into #167–#169 after reviewing recent Job Ranger evidence. PR #172 is the active #167 candidate: revisioned Campaign-owned composition briefs, deterministic readiness, active destination validation, exact composition/approved-variant fingerprints, staleness detection, portable backup/restore, and a visible production-PWA Studio journey. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
+**2026-10-11 productization-learning resumption:** issue #156 is decomposed into #167–#169. #167 merged through PR #172 at `82b445618e57cde337db35b45e2ff5ba972ccae8` after exact-head CI, real-browser PWA smoke, Rust tests, desktop bundle, and Debian validation passed. #168 is the active candidate: append-only analytics evidence, normalized/provider-native metric provenance, SHA-256 import idempotence, conflict-safe reconciliation, and versioned deterministic derived metrics. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
 
 Viable is suitable for **persistent local dogfooding in a Chromium desktop browser**. It is **not** a supported end-user release: human acceptance, generalized schema migration/rollback, per-browser storage-eviction evidence, public-origin deployment trust, and operational support remain open.
 
@@ -224,7 +224,13 @@ The implementation does not install or execute ViMax, invoke generation provider
 - delivery, failure, cancellation, and unknown outcomes;
 - explicit evidence classifications;
 - measurement plans, baselines, observation windows, and metric evidence states;
-- performance imports, retrospectives, attribution uncertainty, and learning-ledger entries;
+- append-only manual/provider-export analytics snapshots with optional exact publication-experiment and provider-publication linkage (#168 candidate);
+- normalized metric families while preserving provider-native metric names/definitions;
+- SHA-256 normalized-import identity so identical evidence is idempotent;
+- conflict-safe reconciliation that preserves incompatible values/units instead of trusting the newest capture;
+- explicit estimated, unknown, unavailable, not-collected, verified-zero, and conflict semantics;
+- versioned ratio/sum derived metrics with source import/observation/classification provenance and no zero-division fabrication;
+- performance retrospectives, attribution uncertainty, and learning-ledger entries;
 - advisory ICP and positioning effects without automatic Product Core mutation.
 
 ## Automated viability baseline

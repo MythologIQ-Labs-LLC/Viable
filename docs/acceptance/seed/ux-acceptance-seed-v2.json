@@ -918,7 +918,7 @@
           "baseline": [
             {
               "id": "measurement-1",
-              "metric": "Waitlist sign-ups",
+              "metric": "waitlist_sign_ups",
               "state": "observed",
               "windowStartsAt": "2026-09-01T00:00:00.000Z",
               "windowEndsAt": "2026-09-14T23:59:59.000Z",
@@ -930,7 +930,7 @@
             },
             {
               "id": "measurement-2",
-              "metric": "Demo requests from studios",
+              "metric": "demo_requests_from_studios",
               "state": "verified_zero",
               "windowStartsAt": "2026-09-01T00:00:00.000Z",
               "windowEndsAt": "2026-09-14T23:59:59.000Z",
@@ -942,7 +942,7 @@
             },
             {
               "id": "measurement-3",
-              "metric": "LinkedIn post impressions",
+              "metric": "linkedin_post_impressions",
               "state": "unavailable",
               "windowStartsAt": "2026-09-01T00:00:00.000Z",
               "windowEndsAt": "2026-09-14T23:59:59.000Z",
@@ -957,6 +957,7 @@
         }
       ],
       "performanceImports": [],
+      "derivedMetrics": [],
       "retrospectives": [],
       "learningLedger": [],
       "updatedAt": "2026-09-16T09:00:00.000Z",
@@ -969,5 +970,5 @@
     "videoProduction": null,
     "websiteWatch": null
   },
-  "checksum": "crc32:c9f2ee2d"
+  "checksum": "crc32:0813d161"
 }

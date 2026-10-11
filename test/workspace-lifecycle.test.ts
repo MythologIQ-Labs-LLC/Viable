@@ -43,7 +43,7 @@ function contextValue(name: string, workspaceId: string): Record<string, unknown
     };
     case "campaign": return { workspaceId, campaigns: [{ id: "campaign-1" }], contentBriefs: [], compositionBriefs: [], publicationExperiments: [], assets: [{ id: "asset-1" }], variants: [], exports: [{ id: "export-1" }], updatedAt: now().toISOString() };
     case "signals": return { workspaceId, sources: [], sourceHealth: [], signals: [{ id: "signal-1" }], conversions: [], updatedAt: now().toISOString() };
-    case "activation": return { workspaceId, destinations: [], calendarEntries: [{ id: "entry-1" }], packages: [], exportOperations: [], deliveryOutcomes: [], measurementPlans: [], performanceImports: [], retrospectives: [], learningLedger: [], updatedAt: now().toISOString() };
+    case "activation": return { workspaceId, destinations: [], calendarEntries: [{ id: "entry-1" }], packages: [], exportOperations: [], deliveryOutcomes: [], measurementPlans: [], performanceImports: [], derivedMetrics: [], retrospectives: [], learningLedger: [], updatedAt: now().toISOString() };
     case "repositoryGrowth": return { workspaceId, repositories: [{ id: "repo-1" }], assessments: [], plans: [], launchRooms: [], exports: [], retrospectives: [], updatedAt: now().toISOString() };
     case "videoProduction": return { workspaceId, tools: [], briefs: [{ id: "video-brief-1" }], packages: [], artifacts: [], variants: [], updatedAt: now().toISOString() };
     case "websiteWatch": return { workspaceId, sources: [], sourceHealth: [], sites: [{ id: "site-1" }], targets: [], snapshots: [], observations: [], generatedAnalyses: [], updatedAt: now().toISOString() };
@@ -119,6 +119,33 @@ test("composition briefs and publication experiments survive portable backup and
   assert.deepEqual(restored.workspace.publicationExperiments, campaign.publicationExperiments);
 });
 
+test("legacy activation workspace without derived metrics remains backup-compatible", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const activationKey = `${WORKSPACE_CONTEXTS[3].prefix}workspace-1`;
+  const activation = JSON.parse(storage.getItem(activationKey)!) as Record<string, unknown>;
+  delete activation.derivedMetrics;
+  storage.setItem(activationKey, JSON.stringify(activation));
+  const service = new WorkspaceLifecycleService(storage, now);
+  assert.equal(service.inspect("workspace-1").contexts.find((item) => item.name === "activation")?.status, "present");
+  assert.doesNotThrow(() => service.validateBackup(service.createBackup("workspace-1")));
+});
+
+test("derived analytics survive portable backup and restore", () => {
+  const source = new MemoryStorage();
+  seedWorkspace(source, "workspace-1");
+  const activationKey = `${WORKSPACE_CONTEXTS[3].prefix}workspace-1`;
+  const activation = JSON.parse(source.getItem(activationKey)!) as Record<string, unknown>;
+  activation.derivedMetrics = [{ id: "derived-1", metric: "comment_rate", formulaVersion: "1", normalizedDigest: "a".repeat(64) }];
+  source.setItem(activationKey, JSON.stringify(activation));
+
+  const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
+  const target = new MemoryStorage();
+  new WorkspaceLifecycleService(target, now).restoreBackup(backup, "empty_profile");
+  const restored = JSON.parse(target.getItem(activationKey)!) as { schemaVersion: number; workspace: Record<string, unknown> };
+  assert.deepEqual(restored.workspace.derivedMetrics, activation.derivedMetrics);
+});
+
 test("modified backup is rejected before any restore mutation", () => {
   const source = new MemoryStorage();
   seedWorkspace(source, "workspace-1");
@@ -151,6 +178,23 @@ test("malformed optional additive campaign fields are rejected before any restor
     );
     assert.deepEqual(target.entries(), before);
   }
+});
+
+test("malformed optional derived analytics array is rejected before restore mutation", () => {
+  const source = new MemoryStorage();
+  seedWorkspace(source, "workspace-1");
+  const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
+  const malformed = JSON.parse(backup) as { contexts: { activation: Record<string, unknown> } };
+  malformed.contexts.activation.derivedMetrics = "not-an-array";
+
+  const target = new MemoryStorage();
+  target.setItem("unrelated.preference", "keep-me");
+  const before = target.entries();
+  assert.throws(
+    () => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"),
+    /Calendar and Learning optional field derivedMetrics must be an array when present/,
+  );
+  assert.deepEqual(target.entries(), before);
 });
 
 test("backup refuses credential-like fields instead of exporting them", () => {

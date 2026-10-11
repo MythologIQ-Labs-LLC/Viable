@@ -1130,6 +1130,117 @@ async function run() {
           "composition revision and stale exact experiment binding survive a normal view reload from durable workspace state",
         );
 
+        // #168: analytics evidence must remain manual-first, idempotent, and
+        // conflict-safe through the visible Analytics controls.
+        await go("analytics");
+        const analyticsForm = () => journey.locator('form[data-form="activation-performance-import"]');
+        const experimentOption = analyticsForm().locator('select[name="publicationExperimentId"] option').nth(1);
+        const experimentId = await experimentOption.getAttribute("value");
+        check(Boolean(experimentId), "Analytics can link evidence to the exact publication experiment created through Studio");
+        check(await analyticsForm().locator('option[value="provider_api"]').count() === 0, "manual Analytics UI cannot self-assert provider API evidence");
+
+        const fillAnalyticsSnapshot = async ({
+          metric,
+          value,
+          sourceClassification,
+          source,
+          evidenceReference,
+          providerMetric = "",
+          providerDefinition = "",
+        }) => {
+          const form = analyticsForm();
+          await form.locator('select[name="calendarEntryId"]').selectOption("calendar-1");
+          if (experimentId) await form.locator('select[name="publicationExperimentId"]').selectOption(experimentId);
+          await form.locator('input[name="providerPublicationId"]').fill("smoke-publication-1");
+          await form.locator('select[name="status"]').selectOption("complete");
+          await form.locator('select[name="sourceClassification"]').selectOption(sourceClassification);
+          await form.locator('input[name="importedBy"]').fill("Smoke Analyst");
+          await form.locator('input[name="metric"]').fill(metric);
+          await form.locator('select[name="state"]').selectOption("observed");
+          await form.locator('input[name="value"]').fill(String(value));
+          await form.locator('input[name="unit"]').fill("count");
+          await form.locator('input[name="providerMetric"]').fill(providerMetric);
+          await form.locator('textarea[name="providerDefinition"]').fill(providerDefinition);
+          await form.locator('input[name="source"]').fill(source);
+          await form.locator('input[name="evidenceReference"]').fill(evidenceReference);
+          await form.locator('textarea[name="limitation"]').fill("");
+          await form.locator('input[name="windowStartsAt"]').fill("2026-09-15T15:00");
+          await form.locator('input[name="windowEndsAt"]').fill("2026-09-29T15:00");
+          await form.locator('input[name="capturedAt"]').fill("2026-09-29T15:05");
+          await form.locator('textarea[name="notes"]').fill("Smoke analytics evidence");
+          await form.locator('button[type="submit"]').click();
+          await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Performance evidence imported idempotently"), undefined, { timeout: 10000 });
+          await settled(journey);
+        };
+
+        const firstSnapshot = {
+          metric: "Post Impressions",
+          value: 100,
+          sourceClassification: "human_recorded",
+          source: "Manual dashboard check",
+          evidenceReference: "smoke-manual-impressions",
+        };
+        await fillAnalyticsSnapshot(firstSnapshot);
+        let analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(analyticsText.includes("post_impressions") && analyticsText.includes("1 snapshots") && /[0-9a-f]{12}/.test(analyticsText), "manual analytics snapshot shows normalized metric identity and digest");
+
+        await fillAnalyticsSnapshot(firstSnapshot);
+        analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(analyticsText.includes("1 snapshots"), "re-selecting identical normalized analytics evidence is idempotent");
+
+        await fillAnalyticsSnapshot({
+          metric: "post_impressions",
+          value: 120,
+          sourceClassification: "provider_export",
+          source: "LinkedIn export",
+          evidenceReference: "smoke-linkedin-impressions.csv",
+          providerMetric: "Impressions",
+          providerDefinition: "Provider-native post impression count",
+        });
+        analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          analyticsText.includes("2 snapshots") && analyticsText.includes("Provider-native: Impressions") && analyticsText.includes("conflict") && analyticsText.includes("100 vs 120"),
+          "conflicting provider-native and manual observations remain inspectable and do not let the newest value win",
+        );
+
+        await fillAnalyticsSnapshot({
+          metric: "reactions",
+          value: 10,
+          sourceClassification: "provider_export",
+          source: "LinkedIn export",
+          evidenceReference: "smoke-linkedin-reactions.csv",
+          providerMetric: "Reactions",
+          providerDefinition: "Provider-native reaction count",
+        });
+        await fillAnalyticsSnapshot({
+          metric: "members_reached",
+          value: 50,
+          sourceClassification: "human_recorded",
+          source: "Manual reach note",
+          evidenceReference: "smoke-reach-note",
+        });
+
+        const derivedSummary = journey.locator("summary", { hasText: "Create deterministic derived metric" }).first();
+        await derivedSummary.click();
+        const derivedForm = journey.locator('form[data-form="activation-derived-metric"]');
+        await derivedForm.locator('select[name="calendarEntryId"]').selectOption("calendar-1");
+        await derivedForm.locator('input[name="metric"]').fill("reaction_rate");
+        await derivedForm.locator('select[name="formula"]').selectOption("ratio");
+        await derivedForm.locator('input[name="unit"]').fill("ratio");
+        await derivedForm.locator('input[name="multiplier"]').fill("1");
+        await derivedForm.locator('textarea[name="sourceMetrics"]').fill("reactions\nmembers_reached");
+        await derivedForm.locator('input[name="windowStartsAt"]').fill("2026-09-15T15:00");
+        await derivedForm.locator('input[name="windowEndsAt"]').fill("2026-09-29T15:00");
+        await derivedForm.locator('input[name="createdBy"]').fill("Smoke Analyst");
+        await derivedForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Derived metric calculated"), undefined, { timeout: 10000 });
+        await settled(journey);
+        analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          analyticsText.includes("reaction_rate") && analyticsText.includes("0.2 ratio") && analyticsText.includes("formula v1") && analyticsText.includes("human recorded") && analyticsText.includes("provider export"),
+          "derived analytics expose formula version, value, and mixed-source provenance",
+        );
+
         // Runtime panel results are announced (#161).
         await go("workspace");
         await Promise.all([journey.waitForEvent("download", { timeout: 10000 }), journey.click('[data-runtime-action="download-diagnostics"]')]);

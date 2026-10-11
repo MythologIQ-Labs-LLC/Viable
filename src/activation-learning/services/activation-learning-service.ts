@@ -19,6 +19,8 @@ import type {
   DeliveryStatus,
   DestinationChannel,
   DestinationRecord,
+  DerivedMetricFormula,
+  DerivedMetricRecord,
   ExportOperation,
   LearningLedgerEntry,
   ManualActivationPackage,
@@ -473,9 +475,11 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
 
   async importPerformance(workspaceId: string, input: Readonly<{
     calendarEntryId: string;
+    publicationExperimentId?: string;
+    providerPublicationId?: string;
     status: PerformanceImportStatus;
     source: string;
-    sourceClassification: "human_recorded" | "provider_export" | "provider_api";
+    sourceClassification: Exclude<PerformanceImport["sourceClassification"], "provider_api">;
     observations: readonly Omit<MetricObservation, "id">[];
     importedBy: string;
     notes: string;
@@ -484,16 +488,43 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     requireText(input.importedBy, "Performance importer");
     requireText(input.notes, "Performance import notes");
     if (input.observations.length === 0) throw new Error("Performance import requires explicit metric evidence states");
-    rejectSecrets([input.source, input.importedBy, input.notes]);
+    rejectSecrets([
+      input.source,
+      input.importedBy,
+      input.notes,
+      input.publicationExperimentId ?? "",
+      input.providerPublicationId ?? "",
+      ...input.observations.flatMap((item) => [item.providerMetric ?? "", item.providerDefinition ?? ""]),
+    ]);
     const workspace = await this.load(workspaceId);
-    required(workspace.calendarEntries, input.calendarEntryId, "Calendar entry");
+    const entry = required(workspace.calendarEntries, input.calendarEntryId, "Calendar entry");
+    const publication = await this.resolvePerformancePublicationContext(
+      workspaceId,
+      workspace,
+      entry,
+      input.publicationExperimentId,
+      input.providerPublicationId,
+    );
     const observations = input.observations.map((item) => this.metricObservation(item));
     validateImportStatus(input.status, observations);
+    const normalizedDigest = await performanceImportDigest({
+      calendarEntryId: input.calendarEntryId,
+      ...(publication.publicationExperimentId ? { publicationExperimentId: publication.publicationExperimentId } : {}),
+      ...(publication.providerPublicationId ? { providerPublicationId: publication.providerPublicationId } : {}),
+      source: input.source.trim(),
+      sourceClassification: input.sourceClassification,
+      observations,
+    });
+    if (workspace.performanceImports.some((record) => record.normalizedDigest === normalizedDigest)) return workspace;
+
     const now = this.clock().toISOString();
     const record: PerformanceImport = {
       id: this.createId(),
       workspaceId,
       calendarEntryId: input.calendarEntryId,
+      ...(publication.publicationExperimentId ? { publicationExperimentId: publication.publicationExperimentId } : {}),
+      ...(publication.providerPublicationId ? { providerPublicationId: publication.providerPublicationId } : {}),
+      normalizedDigest,
       status: input.status,
       source: input.source.trim(),
       sourceClassification: input.sourceClassification,
@@ -503,6 +534,159 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
       notes: input.notes.trim(),
     };
     return this.persist({ ...workspace, performanceImports: [...workspace.performanceImports, record], updatedAt: now });
+  }
+
+  async reconcilePerformanceEvidence(workspaceId: string, calendarEntryId: string): Promise<readonly MetricObservation[]> {
+    const workspace = await this.load(workspaceId);
+    required(workspace.calendarEntries, calendarEntryId, "Calendar entry");
+    return reconcileObservations(workspace.performanceImports.filter((record) => record.calendarEntryId === calendarEntryId));
+  }
+
+  async derivePerformanceMetric(workspaceId: string, input: Readonly<{
+    calendarEntryId: string;
+    metric: string;
+    formula: DerivedMetricFormula;
+    sourceMetrics: readonly string[];
+    windowStartsAt: string;
+    windowEndsAt: string;
+    unit: string;
+    multiplier?: number;
+    createdBy: string;
+  }>): Promise<ActivationLearningWorkspace> {
+    requireText(input.metric, "Derived metric name");
+    requireText(input.unit, "Derived metric unit");
+    requireText(input.createdBy, "Derived metric owner");
+    validateWindow(input.windowStartsAt, input.windowEndsAt, "Derived metric window");
+    const multiplier = input.multiplier ?? 1;
+    if (!Number.isFinite(multiplier)) throw new Error("Derived metric multiplier must be finite");
+    const sourceMetrics = unique(input.sourceMetrics.map(normalizedMetricName));
+    if (input.formula === "ratio" && sourceMetrics.length !== 2) throw new Error("Ratio derivation requires exactly two source metrics");
+    if (input.formula === "sum" && sourceMetrics.length === 0) throw new Error("Sum derivation requires at least one source metric");
+    rejectSecrets([input.metric, input.unit, input.createdBy, ...sourceMetrics]);
+
+    const workspace = await this.load(workspaceId);
+    required(workspace.calendarEntries, input.calendarEntryId, "Calendar entry");
+    const windowStartsAt = normalizedDate(input.windowStartsAt, "Derived metric window start");
+    const windowEndsAt = normalizedDate(input.windowEndsAt, "Derived metric window end");
+    const imports = workspace.performanceImports.filter((record) => record.calendarEntryId === input.calendarEntryId);
+    const reconciled = reconcileObservations(imports);
+    const selected = sourceMetrics.map((metric) =>
+      reconciled.find((item) =>
+        item.metric === metric
+        && item.windowStartsAt === windowStartsAt
+        && item.windowEndsAt === windowEndsAt));
+
+    const sourceObservationIds: string[] = [];
+    const sourceImportIds: string[] = [];
+    const sourceClassifications: PerformanceImport["sourceClassification"][] = [];
+    for (const record of imports) {
+      let used = false;
+      for (const observation of record.observations) {
+        if (
+          sourceMetrics.includes(normalizedMetricName(observation.metric))
+          && observation.windowStartsAt === windowStartsAt
+          && observation.windowEndsAt === windowEndsAt
+        ) {
+          sourceObservationIds.push(observation.id);
+          used = true;
+        }
+      }
+      if (used) {
+        sourceImportIds.push(record.id);
+        sourceClassifications.push(record.sourceClassification);
+      }
+    }
+
+    let state: MetricEvidenceState = "observed";
+    let value: number | undefined;
+    let limitation: string | undefined;
+    if (selected.some((item) => !item)) {
+      state = "unavailable";
+      limitation = "A required source metric is missing for the selected reporting window.";
+    } else if (selected.some((item) => item!.state === "conflict")) {
+      state = "conflict";
+      limitation = "A required source metric is disputed; the derived value is withheld.";
+    } else if (selected.some((item) => !["observed", "verified_zero"].includes(item!.state) || item!.value === undefined)) {
+      state = "unavailable";
+      limitation = "A required source metric is not complete numeric evidence.";
+    } else {
+      const values = selected.map((item) => item!.value!);
+      if (input.formula === "ratio") {
+        if (values[1] === 0) {
+          state = "unavailable";
+          limitation = "Division by zero is unavailable, not zero.";
+        } else {
+          value = (values[0]! / values[1]!) * multiplier;
+        }
+      } else {
+        const sourceUnits = new Set(selected.map((item) => normalizedUnit(item!.unit)));
+        const sourceUnit = [...sourceUnits][0] ?? "";
+        if (sourceUnits.size > 1) {
+          state = "conflict";
+          limitation = `Sum source units disagree (${[...sourceUnits].map((unit) => unit || "unspecified").join(" vs ")}).`;
+        } else if (normalizedUnit(input.unit) !== sourceUnit) {
+          state = "unavailable";
+          limitation = `Sum output unit must match the source unit (${sourceUnit || "unspecified"}).`;
+        } else {
+          value = values.reduce((total, current) => total + current, 0) * multiplier;
+        }
+      }
+      if (value !== undefined) state = value === 0 ? "verified_zero" : "observed";
+    }
+
+    const metric = normalizedMetricName(input.metric);
+    const expression = input.formula === "ratio"
+      ? `${sourceMetrics[0]} / ${sourceMetrics[1]} × ${multiplier}`
+      : `sum(${sourceMetrics.join(", ")}) × ${multiplier}`;
+    const normalizedDigest = await sha256Text(JSON.stringify({
+      calendarEntryId: input.calendarEntryId,
+      metric,
+      formula: input.formula,
+      formulaVersion: "1",
+      expression,
+      sourceMetrics,
+      sourceImportIds: [...new Set(sourceImportIds)].sort(),
+      sourceObservationIds: [...new Set(sourceObservationIds)].sort(),
+      sourceClassifications: [...new Set(sourceClassifications)].sort(),
+      windowStartsAt,
+      windowEndsAt,
+      state,
+      value: value ?? null,
+      unit: input.unit.trim(),
+      multiplier,
+      limitation: limitation ?? null,
+    }));
+    if ((workspace.derivedMetrics ?? []).some((record) => record.normalizedDigest === normalizedDigest)) return workspace;
+
+    const now = this.clock().toISOString();
+    const record: DerivedMetricRecord = {
+      id: this.createId(),
+      workspaceId,
+      calendarEntryId: input.calendarEntryId,
+      metric,
+      formula: input.formula,
+      formulaVersion: "1",
+      expression,
+      sourceMetrics,
+      sourceImportIds: [...new Set(sourceImportIds)].sort(),
+      sourceObservationIds: [...new Set(sourceObservationIds)].sort(),
+      sourceClassifications: [...new Set(sourceClassifications)].sort(),
+      windowStartsAt,
+      windowEndsAt,
+      state,
+      ...(value !== undefined ? { value } : {}),
+      unit: input.unit.trim(),
+      multiplier,
+      ...(limitation ? { limitation } : {}),
+      normalizedDigest,
+      createdAt: now,
+      createdBy: input.createdBy.trim(),
+    };
+    return this.persist({
+      ...workspace,
+      derivedMetrics: [...(workspace.derivedMetrics ?? []), record],
+      updatedAt: now,
+    });
   }
 
   async completeRetrospective(workspaceId: string, input: Readonly<{
@@ -547,7 +731,10 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     if (entry.kind === "external_activation" && outcomes.length === 0) throw new Error("External-action retrospective requires delivery or failure evidence");
     const imports = workspace.performanceImports.filter((item) => item.calendarEntryId === entry.id);
     if (imports.length === 0) throw new Error("Retrospective requires a performance import, including explicit unavailable evidence when metrics are missing");
-    const comparisons = compareMetrics(plan.baseline, latestObservations(imports));
+    const plannedOutcomes = reconcileObservations(imports).filter((observation) =>
+      observation.windowStartsAt === plan.observationStartsAt
+      && observation.windowEndsAt === plan.observationEndsAt);
+    const comparisons = compareMetrics(plan.baseline, plannedOutcomes);
     const now = this.clock().toISOString();
     const retrospectiveId = this.createId();
     const retrospective: Retrospective = {
@@ -636,11 +823,21 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     requireText(input.evidenceReference, "Metric evidence reference");
     validateWindow(input.windowStartsAt, input.windowEndsAt, "Metric window");
     normalizedDate(input.capturedAt, "Metric capture time");
-    rejectSecrets([input.metric, input.source, input.evidenceReference, input.unit ?? "", input.limitation ?? ""]);
+    rejectSecrets([
+      input.metric,
+      input.providerMetric ?? "",
+      input.providerDefinition ?? "",
+      input.source,
+      input.evidenceReference,
+      input.unit ?? "",
+      input.limitation ?? "",
+    ]);
     validateMetricState(input.state, input.value, input.limitation);
     return {
       id: this.createId(),
-      metric: input.metric.trim(),
+      metric: normalizedMetricName(input.metric),
+      ...(input.providerMetric?.trim() ? { providerMetric: input.providerMetric.trim() } : {}),
+      ...(input.providerDefinition?.trim() ? { providerDefinition: input.providerDefinition.trim() } : {}),
       state: input.state,
       windowStartsAt: normalizedDate(input.windowStartsAt, "Metric window start"),
       windowEndsAt: normalizedDate(input.windowEndsAt, "Metric window end"),
@@ -650,6 +847,42 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
       ...(input.value !== undefined ? { value: input.value } : {}),
       ...(input.unit ? { unit: input.unit.trim() } : {}),
       ...(input.limitation ? { limitation: input.limitation.trim() } : {}),
+    };
+  }
+
+  private async resolvePerformancePublicationContext(
+    workspaceId: string,
+    workspace: ActivationLearningWorkspace,
+    entry: CalendarEntry,
+    publicationExperimentId?: string,
+    providerPublicationId?: string,
+  ): Promise<Readonly<{ publicationExperimentId?: string; providerPublicationId?: string }>> {
+    let experimentId: string | undefined;
+    if (publicationExperimentId?.trim()) {
+      const campaignWorkspace = await this.campaignStore.load(workspaceId);
+      const experiment = campaignWorkspace?.publicationExperiments?.find((record) => record.id === publicationExperimentId.trim());
+      if (!experiment) throw new Error("Publication experiment not found");
+      if (entry.source?.kind !== "campaign_variant" || entry.source.sourceId !== experiment.channelVariantId) {
+        throw new Error("Publication experiment does not match the Calendar campaign variant");
+      }
+      if (entry.destinationId !== experiment.destinationId) {
+        throw new Error("Publication experiment does not match the Calendar destination");
+      }
+      experimentId = experiment.id;
+    }
+
+    const recordedPublicationIds = workspace.deliveryOutcomes
+      .filter((outcome) => outcome.calendarEntryId === entry.id && outcome.publicationId)
+      .map((outcome) => outcome.publicationId!)
+      .filter((value, index, values) => values.indexOf(value) === index);
+    const requestedPublicationId = providerPublicationId?.trim() || undefined;
+    if (requestedPublicationId && recordedPublicationIds.length > 0 && !recordedPublicationIds.includes(requestedPublicationId)) {
+      throw new Error("Provider publication identifier does not match recorded delivery evidence");
+    }
+    const resolvedPublicationId = requestedPublicationId ?? (recordedPublicationIds.length === 1 ? recordedPublicationIds[0] : undefined);
+    return {
+      ...(experimentId ? { publicationExperimentId: experimentId } : {}),
+      ...(resolvedPublicationId ? { providerPublicationId: resolvedPublicationId } : {}),
     };
   }
 
@@ -802,6 +1035,7 @@ function emptyWorkspace(workspaceId: string, now: string): ActivationLearningWor
     deliveryOutcomes: [],
     measurementPlans: [],
     performanceImports: [],
+    derivedMetrics: [],
     retrospectives: [],
     learningLedger: [],
     updatedAt: now,
@@ -868,6 +1102,58 @@ function validateDeliveryEvidence(input: Readonly<{
   }
 }
 
+function normalizedMetricName(value: string): string {
+  const normalized = value.trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (!normalized) throw new Error("Metric name must contain letters or numbers");
+  return normalized;
+}
+
+function normalizedUnit(value?: string): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+async function performanceImportDigest(input: Readonly<{
+  calendarEntryId: string;
+  publicationExperimentId?: string;
+  providerPublicationId?: string;
+  source: string;
+  sourceClassification: PerformanceImport["sourceClassification"];
+  observations: readonly MetricObservation[];
+}>): Promise<string> {
+  const observations = input.observations
+    .map((item) => ({
+      metric: item.metric,
+      providerMetric: item.providerMetric ?? null,
+      providerDefinition: item.providerDefinition ?? null,
+      state: item.state,
+      value: item.value ?? null,
+      unit: item.unit?.trim().toLowerCase() ?? null,
+      windowStartsAt: item.windowStartsAt,
+      windowEndsAt: item.windowEndsAt,
+      capturedAt: item.capturedAt,
+      source: item.source,
+      evidenceReference: item.evidenceReference,
+      limitation: item.limitation ?? null,
+    }))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const canonical = JSON.stringify({
+    calendarEntryId: input.calendarEntryId,
+    publicationExperimentId: input.publicationExperimentId ?? null,
+    providerPublicationId: input.providerPublicationId ?? null,
+    source: input.source,
+    sourceClassification: input.sourceClassification,
+    observations,
+  });
+  return sha256Text(canonical);
+}
+
+async function sha256Text(value: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function validateMetricState(state: MetricEvidenceState, value: number | undefined, limitation: string | undefined): void {
   if (state === "observed") {
     if (value === undefined || !Number.isFinite(value) || value === 0) throw new Error("Observed metric requires a finite non-zero value; use verified_zero for an evidenced zero");
@@ -875,6 +1161,11 @@ function validateMetricState(state: MetricEvidenceState, value: number | undefin
   }
   if (state === "verified_zero") {
     if (value !== 0) throw new Error("Verified-zero metric requires value 0");
+    return;
+  }
+  if (state === "estimated") {
+    if (value === undefined || !Number.isFinite(value)) throw new Error("Estimated metric requires a finite numeric value");
+    if (!limitation?.trim()) throw new Error("Estimated metric requires a limitation");
     return;
   }
   if (state === "partial") {
@@ -895,31 +1186,129 @@ function validateImportStatus(status: PerformanceImportStatus, observations: rea
   if (status === "unavailable" && [...states].some((state) => !["unavailable", "not_collected"].includes(state))) {
     throw new Error("Unavailable import may contain only unavailable or not-collected metric states");
   }
-  if (status === "partial" && ![...states].some((state) => ["partial", "delayed", "unavailable", "not_collected"].includes(state))) {
+  if (status === "partial" && ![...states].some((state) => ["estimated", "partial", "delayed", "unavailable", "unknown", "conflict", "not_collected"].includes(state))) {
     throw new Error("Partial import requires at least one incomplete metric state");
   }
 }
 
-function latestObservations(imports: readonly PerformanceImport[]): readonly MetricObservation[] {
-  const latest = new Map<string, MetricObservation>();
+function reconcileObservations(imports: readonly PerformanceImport[]): readonly MetricObservation[] {
+  const groups = new Map<string, MetricObservation[]>();
   for (const record of imports) {
     for (const observation of record.observations) {
-      const current = latest.get(observation.metric);
-      if (!current || Date.parse(observation.capturedAt) >= Date.parse(current.capturedAt)) latest.set(observation.metric, observation);
+      const key = [
+        normalizedMetricName(observation.metric),
+        observation.windowStartsAt,
+        observation.windowEndsAt,
+      ].join("|");
+      groups.set(key, [...(groups.get(key) ?? []), observation]);
     }
   }
-  return [...latest.values()];
+
+  return [...groups.values()].map((group) => {
+    const unique = dedupeEquivalentObservations(group);
+    const numericEvidence = unique.filter((item) => item.value !== undefined);
+    const directNumeric = numericEvidence.filter((item) => ["observed", "verified_zero"].includes(item.state));
+    const numericValues = new Set(numericEvidence.map((item) => item.value));
+    const units = new Set(numericEvidence.map((item) => normalizedUnit(item.unit)));
+    const explicitConflict = unique.some((item) => item.state === "conflict");
+    const incompatibleUnits = numericEvidence.length > 0 && units.size > 1;
+
+    if (explicitConflict || incompatibleUnits || numericValues.size > 1) {
+      const first = unique[0]!;
+      const reasons = [
+        ...(explicitConflict ? ["one or more source observations are already disputed"] : []),
+        ...(incompatibleUnits ? [`units disagree (${[...units].map((unit) => unit || "unspecified").join(" vs ")})`] : []),
+        ...(numericValues.size > 1 ? [`numeric values disagree (${[...numericValues].join(" vs ")})`] : []),
+      ];
+      return {
+        id: `conflict:${unique.map((item) => item.id).sort().join(":")}`,
+        metric: normalizedMetricName(first.metric),
+        state: "conflict",
+        windowStartsAt: first.windowStartsAt,
+        windowEndsAt: first.windowEndsAt,
+        capturedAt: latestCapturedAt(unique),
+        source: unique.map((item) => item.source).filter((value, index, values) => values.indexOf(value) === index).join(" | "),
+        evidenceReference: unique.map((item) => item.evidenceReference).filter((value, index, values) => values.indexOf(value) === index).join(" | "),
+        limitation: `Conflicting observations for the same metric and reporting window: ${reasons.join("; ")}. Newer evidence was not treated as truth authority.`,
+      };
+    }
+
+    if (directNumeric.length > 0) {
+      const value = directNumeric[0]!.value;
+      const selected = directNumeric
+        .filter((item) => item.value === value)
+        .slice()
+        .sort((left, right) => left.id.localeCompare(right.id))[0]!;
+      return { ...selected, metric: normalizedMetricName(selected.metric) };
+    }
+
+    const selected = unique.slice().sort((left, right) =>
+      evidenceStateRank(left.state) - evidenceStateRank(right.state)
+      || left.id.localeCompare(right.id))[0]!;
+    return { ...selected, metric: normalizedMetricName(selected.metric) };
+  });
+}
+
+function dedupeEquivalentObservations(observations: readonly MetricObservation[]): readonly MetricObservation[] {
+  const seen = new Set<string>();
+  const result: MetricObservation[] = [];
+  for (const observation of observations) {
+    const key = JSON.stringify({
+      metric: normalizedMetricName(observation.metric),
+      providerMetric: observation.providerMetric?.trim() ?? null,
+      providerDefinition: observation.providerDefinition?.trim() ?? null,
+      state: observation.state,
+      value: observation.value ?? null,
+      unit: observation.unit?.trim().toLowerCase() ?? null,
+      windowStartsAt: observation.windowStartsAt,
+      windowEndsAt: observation.windowEndsAt,
+      source: observation.source.trim(),
+      evidenceReference: observation.evidenceReference.trim(),
+      limitation: observation.limitation?.trim() ?? null,
+    });
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(observation);
+    }
+  }
+  return result;
+}
+
+function latestCapturedAt(observations: readonly MetricObservation[]): string {
+  return observations.reduce(
+    (latest, item) => Date.parse(item.capturedAt) > Date.parse(latest) ? item.capturedAt : latest,
+    observations[0]!.capturedAt,
+  );
+}
+
+function evidenceStateRank(state: MetricEvidenceState): number {
+  const order: readonly MetricEvidenceState[] = [
+    "conflict", "estimated", "partial", "delayed", "unavailable", "unknown", "not_collected", "observed", "verified_zero",
+  ];
+  const rank = order.indexOf(state);
+  return rank === -1 ? order.length : rank;
 }
 
 function compareMetrics(baseline: readonly MetricObservation[], outcomes: readonly MetricObservation[]): readonly MetricComparison[] {
-  const byMetric = new Map(outcomes.map((item) => [item.metric, item]));
+  const byMetric = new Map(outcomes.map((item) => [normalizedMetricName(item.metric), item]));
   return baseline.map((base) => {
-    const outcome = byMetric.get(base.metric);
-    if (!outcome) return { metric: base.metric, baselineState: base.state, outcomeState: "not_collected", limitation: "No outcome observation was imported" };
+    const metric = normalizedMetricName(base.metric);
+    const outcome = byMetric.get(metric);
+    if (!outcome) return { metric, baselineState: base.state, outcomeState: "not_collected", limitation: "No outcome observation was imported" };
     const numeric = ["observed", "verified_zero"];
     if (numeric.includes(base.state) && numeric.includes(outcome.state) && base.value !== undefined && outcome.value !== undefined) {
+      if (normalizedUnit(base.unit) !== normalizedUnit(outcome.unit)) {
+        return {
+          metric,
+          baselineState: base.state,
+          outcomeState: outcome.state,
+          baselineValue: base.value,
+          outcomeValue: outcome.value,
+          limitation: `Metric units are not comparable (${base.unit ?? "unspecified"} vs ${outcome.unit ?? "unspecified"}).`,
+        };
+      }
       return {
-        metric: base.metric,
+        metric,
         baselineState: base.state,
         outcomeState: outcome.state,
         baselineValue: base.value,
@@ -928,7 +1317,7 @@ function compareMetrics(baseline: readonly MetricObservation[], outcomes: readon
       };
     }
     return {
-      metric: base.metric,
+      metric,
       baselineState: base.state,
       outcomeState: outcome.state,
       ...(base.value !== undefined ? { baselineValue: base.value } : {}),
