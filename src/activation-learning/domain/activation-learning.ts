@@ -200,6 +200,61 @@ export type DerivedMetricRecord = Readonly<{
   createdBy: string;
 }>;
 
+export type ObservationAgeBucket = "24h" | "48h" | "7d";
+export type CohortEvidenceTier = "strict";
+export type CohortConfidenceLabel = "insufficient" | "emerging" | "repeatable_candidate" | "established_local_pattern";
+
+export type CohortIncludedObservation = Readonly<{
+  publicationExperimentId: string;
+  performanceImportIds: readonly string[];
+  observationId: string;
+  publicationObservedAt: string;
+  observationWindowEndsAt: string;
+  observationAgeHours: number;
+  publicationDate: string;
+  metric: string;
+  value: number;
+  unit?: string;
+  groupValue: string;
+}>;
+
+export type CohortExclusion = Readonly<{
+  publicationExperimentId?: string;
+  performanceImportId?: string;
+  observationId?: string;
+  reason: string;
+}>;
+
+export type CohortGroupSummary = Readonly<{
+  groupValue: string;
+  sampleSize: number;
+  median: number;
+  minimum: number;
+  maximum: number;
+}>;
+
+export type CohortEvaluation = Readonly<{
+  id: string;
+  workspaceId: string;
+  referenceExperimentId: string;
+  metric: string;
+  ageBucket: ObservationAgeBucket;
+  compareVariable: "topic" | "hook" | "tone" | "format" | "media" | "timing" | "audience" | "cta";
+  evidenceTier: CohortEvidenceTier;
+  policyVersion: "1";
+  included: readonly CohortIncludedObservation[];
+  excluded: readonly CohortExclusion[];
+  groups: readonly CohortGroupSummary[];
+  sampleSize: number;
+  distinctPublicationDates: number;
+  confidence: CohortConfidenceLabel;
+  advisory: string;
+  limitation: string;
+  nextExperimentSuggestion: string;
+  createdAt: string;
+  createdBy: string;
+}>;
+
 export type MetricComparison = Readonly<{
   metric: string;
   baselineState: MetricEvidenceState;
@@ -258,6 +313,7 @@ export type ActivationLearningWorkspace = Readonly<{
   measurementPlans: readonly MeasurementPlan[];
   performanceImports: readonly PerformanceImport[];
   derivedMetrics?: readonly DerivedMetricRecord[];
+  cohortEvaluations?: readonly CohortEvaluation[];
   retrospectives: readonly Retrospective[];
   learningLedger: readonly LearningLedgerEntry[];
   updatedAt: string;

@@ -63,6 +63,11 @@ test("Analytics exposes baseline explicit evidence retrospective and learning jo
     "Provider-native metric name",
     "What Viable can safely compare",
     "Create deterministic derived metric",
+    "Evaluate a comparable publication cohort",
+    "Compare like with like, then keep the conclusion advisory",
+    "Excluded candidates",
+    "Group medians withheld until the evidence threshold is met",
+    "Next experiment",
     "Verified zero",
     "Estimated",
     "Unknown",
@@ -73,6 +78,7 @@ test("Analytics exposes baseline explicit evidence retrospective and learning jo
     "Evidence, decision, change, outcome, and follow-up",
   ]) assert.match(view, new RegExp(marker, "i"));
   assert.doesNotMatch(view, /option value="provider_api"/i);
+  assert.doesNotMatch(view, /winner/i);
 });
 
 test("desktop workflow preserves approval outcome and Product Core boundaries", async () => {

@@ -451,7 +451,8 @@ Analytics are useful only when compared to a meaningful cohort.
 
 A `ComparisonCohort` can filter by:
 
-- destination;
+- exact destination/account under strict policy v1;
+- provider/platform;
 - objective;
 - audience;
 - content family;
@@ -468,13 +469,47 @@ The UI should prefer medians and distributions over a single average when sample
 
 Do not claim "best time" from one breakout post.
 
+### Implemented strict policy v1 candidate (#169)
+
+The #169 implementation evaluates cohorts inside Activation/Learning and consumes the exact experiment and reconciled evidence contracts from #167/#168.
+
+Eligibility is deterministic and precedes aggregation:
+
+1. resolve the exact historical composition revision bound to each publication experiment;
+2. verify the historical composition SHA-256 matches the experiment;
+3. require the exact destination/account, provider/platform, objective, desired outcome, audience, content family, and all non-compared experiment dimensions to match;
+4. require exactly one declared changed variable matching the requested comparison dimension;
+5. resolve one unambiguous delivered publication outcome;
+6. compute observation age from the metric reporting-window **end** relative to the recorded publication/delivery time;
+7. select only strict `observed` or `verified_zero` reconciled evidence within the requested 24h / 48h / 7d policy bucket;
+8. require compatible provider/native metric definitions and units;
+9. freeze the included experiment/import/observation IDs and every exclusion reason;
+10. only then read values and calculate medians/ranges.
+
+One publication experiment contributes at most one reconciled observation to a cohort. Repeated imports cannot increase sample size. Import time is never used as publication age.
+
+Historical context is essential: revising a composition brief after publication must not rewrite what the earlier experiment meant. If the bound historical composition revision cannot be reconstructed and verified, that experiment is excluded.
+
+The first UI/API surface stores `CohortEvaluation` records containing:
+
+- policy version and evidence tier;
+- reference publication experiment;
+- normalized metric and observation-age bucket;
+- compared variable;
+- included publication experiment IDs, source import IDs, observation IDs, publication dates, and age;
+- excluded candidates with human-readable reasons;
+- group sample sizes, medians, minima, and maxima;
+- confidence label;
+- non-causality / limitation text;
+- a reversible next-experiment suggestion.
+
 ### 6.1 Deterministic evidence tiers
 
 An initial conservative policy:
 
-- **Insufficient**: fewer than 3 comparable observations in a cohort.
-- **Emerging**: at least 3 comparable observations across at least 2 different dates.
-- **Repeatable candidate**: at least 5 comparable observations and the direction of the effect is consistent in at least 4.
+- **Insufficient**: fewer than two comparison groups with at least 3 comparable publications in each group. A larger but badly imbalanced sample is still insufficient for directional group guidance.
+- **Emerging**: at least 2 groups with 3 comparable publications each, across at least 2 publication dates, but fewer than 4 observations in the leading group consistently exceed the runner-up median.
+- **Repeatable candidate**: the minimum group threshold is met and the direction of the effect is consistent in at least 4 observations; this may begin below 8 total observations when the group balance is valid.
 - **Established local pattern**: at least 8 comparable observations across at least 4 weeks, with no single post contributing more than half of the total outcome being cited.
 
 These labels are product guidance, not statistical proof. The UI must say so.
@@ -493,13 +528,16 @@ Or:
 
 Every recommendation stores:
 
-- rule/version;
-- cohort filters;
-- source experiment IDs;
-- source snapshot IDs;
-- calculated evidence;
+- policy/rule version;
+- reference experiment and frozen cohort filters;
+- included experiment, import, and observation IDs;
+- excluded candidates and their reasons;
+- calculated group evidence (sample size, median, range);
 - confidence label from the deterministic policy;
-- limitation text.
+- limitation/non-causality text;
+- reversible next-experiment guidance.
+
+The record is advisory Activation/Learning evidence. It never directly mutates Product Core, ICP selection, Campaign approval, or publication authority.
 
 ## 8. Productization-specific interpretation
 

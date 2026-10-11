@@ -487,6 +487,53 @@ A disputed source produces `conflict`. Missing or incomplete required evidence p
 
 Manual and provider-export sources may contribute to one derived metric only with both provenance classes remaining visible. Sum formulas require compatible source units and the selected output unit must match them.
 
+## Evaluate a comparable publication cohort
+
+Use **Evaluate a comparable publication cohort** only after analytics evidence is linked to an exact publication experiment and delivery evidence records when that publication actually occurred.
+
+Choose:
+
+- reference publication experiment;
+- normalized metric family;
+- observation-age policy bucket: up to 24 hours, 24–48 hours, or 48 hours–7 days;
+- the single variable being compared;
+- named evaluator.
+
+Strict policy v1 then determines eligibility before looking at outcome values.
+
+A candidate is excluded when, among other reasons:
+
+- its exact historical composition revision cannot be reconstructed and SHA-256 verified;
+- destination/account or provider/platform differs;
+- objective, desired outcome, audience, content family, or another non-compared experiment dimension differs;
+- more than one variable changed;
+- delivery evidence is missing or ambiguous;
+- the metric is outside the requested observation-age bucket;
+- reconciled evidence is estimated, partial, unknown, unavailable, conflicted, or otherwise not strict numeric evidence;
+- provider/native metric definitions or units differ.
+
+Import time does not determine observation age. The reporting-window end is compared to the recorded delivery/publication time.
+
+One publication experiment contributes at most one observation. Repeated imports do not increase sample size.
+
+### Evidence threshold
+
+Directional medians are not advisory evidence until **two groups each contain at least three comparable publications**.
+
+Before that threshold, the result remains **insufficient**, even if one post has a very large value.
+
+When the threshold is met, Viable shows:
+
+- each group and sample size;
+- median and range;
+- confidence label;
+- exact included experiment/observation evidence;
+- every excluded candidate and reason;
+- limitations and explicit non-causality language;
+- one reversible next experiment.
+
+The UI never declares a winner or causal effect. Cohort evaluations stay in Activation/Learning and do not mutate Product Core, ICP, Campaign approval, or publication authority.
+
 ## Step 11: Complete a retrospective
 
 A retrospective becomes eligible when:
@@ -692,6 +739,8 @@ Packages are credential free by contract.
 - no automatic provider verification;
 - no connected analytics imports;
 - one metric per desktop measurement form;
+- cohort policy v1 is observational guidance, not statistical significance or causal inference;
+- cohort guidance requires balanced comparable evidence and may remain insufficient for long periods;
 - no automatic Product Core or ICP mutation;
 - no hosted collaboration;
 - no signed public installer;

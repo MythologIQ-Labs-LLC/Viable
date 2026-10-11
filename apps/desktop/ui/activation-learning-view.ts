@@ -7,10 +7,11 @@ import type {
   DestinationChannel,
   MetricEvidenceState,
   MetricObservation,
+  ObservationAgeBucket,
   RetrospectiveDecision,
 } from "../../../src/activation-learning/domain/activation-learning.js";
 import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
-import type { CampaignWorkspace } from "../../../src/campaigns/domain/campaign.js";
+import type { CampaignWorkspace, ExperimentVariable } from "../../../src/campaigns/domain/campaign.js";
 import type { RepositoryGrowthWorkspace } from "../../../src/repository-growth/domain/repository-growth.js";
 import type { VideoProductionWorkspace } from "../../../src/video-production/domain/video-production.js";
 import { LocalStorageActivationLearningStore } from "./local-storage-activation-learning-store.js";
@@ -25,8 +26,8 @@ const escapeHtml = (value: unknown): string => String(value ?? "")
 const cleanLines = (value: FormDataEntryValue | null): string[] => String(value ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
 const label = (value: string): string => value.replaceAll("_", " ");
 const tone = (value: string): string =>
-  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero", "current"].includes(value) ? "implemented"
-    : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected"].includes(value) ? "warning"
+  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero", "current", "repeatable_candidate", "established_local_pattern"].includes(value) ? "implemented"
+    : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected", "insufficient", "emerging"].includes(value) ? "warning"
       : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable", "conflict"].includes(value) ? "error" : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
@@ -229,6 +230,16 @@ export class ActivationLearningViewController {
         });
         return "Derived metric calculated from reconciled evidence with formula provenance";
       }
+      if (kind === "activation-cohort-evaluation") {
+        this.activation = await this.service.evaluatePublicationCohort(this.workspaceId, {
+          referenceExperimentId: String(form.get("referenceExperimentId")),
+          metric: String(form.get("metric")),
+          ageBucket: String(form.get("ageBucket")) as ObservationAgeBucket,
+          compareVariable: String(form.get("compareVariable")) as ExperimentVariable,
+          createdBy: String(form.get("createdBy")),
+        });
+        return "Comparable publication cohort evaluated with conservative advisory guidance";
+      }
       if (kind === "activation-retrospective") {
         this.activation = await this.service.completeRetrospective(this.workspaceId, {
           calendarEntryId: String(form.get("calendarEntryId")),
@@ -339,11 +350,13 @@ export class ActivationLearningViewController {
       <section class="metrics" aria-label="Analytics status">
         <article><span>Measurement plans</span><strong>${workspace.measurementPlans.length}</strong><small>Pre-recorded baselines</small></article>
         <article><span>Performance imports</span><strong>${workspace.performanceImports.length}</strong><small>Explicit evidence states</small></article>
+        <article><span>Cohort evaluations</span><strong>${workspace.cohortEvaluations?.length ?? 0}</strong><small>Observational advisory only</small></article>
         <article><span>Retrospectives</span><strong>${workspace.retrospectives.length}</strong><small>Decision and uncertainty</small></article>
         <article><span>Learning entries</span><strong>${workspace.learningLedger.length}</strong><small>Reversible next actions</small></article>
       </section>
       ${this.measurementPlanSection()}
       ${this.performanceImportSection()}
+      ${this.cohortEvaluationSection()}
       ${this.retrospectiveSection()}
       ${this.learningLedgerSection()}
     </section>`;
@@ -494,6 +507,47 @@ export class ActivationLearningViewController {
           ${record.limitation ? `<p class="guidance">${escapeHtml(record.limitation)}</p>` : ""}
         </article>`).join("")}</div>
       </section>
+    </section>`;
+  }
+
+  private cohortEvaluationSection(): string {
+    const workspace = this.activation!;
+    const experiments = this.campaigns?.publicationExperiments ?? [];
+    const linked = new Set(workspace.performanceImports.map((record) => record.publicationExperimentId).filter(Boolean));
+    const references = experiments.filter((record) => linked.has(record.id));
+    const compareVariables: readonly ExperimentVariable[] = ["topic", "hook", "tone", "format", "media", "timing", "audience", "cta"];
+    return `<section class="panel" aria-labelledby="cohort-evaluation-heading">
+      <div class="section-heading"><div><p class="eyebrow">Comparable cohorts</p><h3 id="cohort-evaluation-heading">Compare like with like, then keep the conclusion advisory</h3></div>${pill(`${workspace.cohortEvaluations?.length ?? 0} evaluations`)}</div>
+      <p class="guidance">Policy v1 chooses strict reconciled evidence by provider, platform, historical composition context, metric definition, unit, and observation age before reading metric values. One publication experiment counts at most once. This is observational guidance, not causal proof.</p>
+      ${references.length ? `<details><summary>Evaluate a comparable publication cohort</summary><form data-form="activation-cohort-evaluation">
+        <label>Reference publication experiment<select name="referenceExperimentId" required>${references.map((record) => `<option value="${record.id}">${escapeHtml(this.publicationExperimentLabel(record.id))}</option>`).join("")}</select></label>
+        <div class="three">
+          <label>Normalized metric family<input name="metric" required placeholder="impressions"></label>
+          <label>Observation age<select name="ageBucket"><option value="24h">Up to 24 hours</option><option value="48h">24 to 48 hours</option><option value="7d">48 hours to 7 days</option></select></label>
+          <label>Variable being compared<select name="compareVariable">${compareVariables.map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("")}</select></label>
+        </div>
+        <label>Evaluated by<input name="createdBy" required value="${escapeHtml(this.defaultOwner)}"></label>
+        <button class="primary" type="submit">Evaluate comparable cohort</button>
+      </form></details>` : `<div class="state warning"><strong>No publication experiment has linked analytics evidence yet.</strong><span>Link an analytics snapshot to an exact publication experiment before evaluating a cohort.</span></div>`}
+      <div class="card-list">${(workspace.cohortEvaluations ?? []).slice().reverse().map((record) => `<article>
+        <div class="card-heading"><div><h4>${escapeHtml(record.metric)} · ${escapeHtml(label(record.compareVariable))}</h4><p>${escapeHtml(record.ageBucket)} · strict evidence · policy v${record.policyVersion}</p></div>${pill(record.confidence)}</div>
+        <p>${escapeHtml(record.advisory)}</p>
+        <dl>
+          <div><dt>Comparable publications</dt><dd>${record.sampleSize}</dd></div>
+          <div><dt>Distinct publication dates</dt><dd>${record.distinctPublicationDates}</dd></div>
+          <div><dt>Reference experiment</dt><dd>${escapeHtml(this.publicationExperimentLabel(record.referenceExperimentId))}</dd></div>
+          <div><dt>Excluded candidates</dt><dd>${record.excluded.length}</dd></div>
+        </dl>
+        ${record.confidence !== "insufficient" && record.groups.length
+          ? `<div class="comparison-list">${record.groups.map((group) => `<div><strong>${escapeHtml(group.groupValue)}</strong><span>median ${group.median} · range ${group.minimum}–${group.maximum}</span><small>N=${group.sampleSize}</small></div>`).join("")}</div>`
+          : record.groups.length
+            ? `<div class="state warning"><strong>Group medians withheld until the evidence threshold is met.</strong><span>${escapeHtml(record.groups.map((group) => `${group.groupValue}: N=${group.sampleSize}`).join(" · "))}</span></div>`
+            : ""}
+        <details><summary>Included evidence (${record.included.length})</summary><ul>${record.included.map((item) => `<li><code>${escapeHtml(item.publicationExperimentId)}</code> · ${item.value}${item.unit ? ` ${escapeHtml(item.unit)}` : ""} · ${item.observationAgeHours.toFixed(1)}h · ${escapeHtml(item.observationId)}</li>`).join("")}</ul></details>
+        <details><summary>Excluded candidates (${record.excluded.length})</summary>${record.excluded.length ? `<ul>${record.excluded.map((item) => `<li>${item.publicationExperimentId ? `<code>${escapeHtml(item.publicationExperimentId)}</code> · ` : ""}${escapeHtml(item.reason)}</li>`).join("")}</ul>` : `<p class="guidance">No candidates were excluded.</p>`}</details>
+        <p class="guidance"><strong>Limitations:</strong> ${escapeHtml(record.limitation)}</p>
+        <p><strong>Next experiment:</strong> ${escapeHtml(record.nextExperimentSuggestion)}</p>
+      </article>`).join("")}</div>
     </section>`;
   }
 

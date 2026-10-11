@@ -2,7 +2,13 @@ import { isReviewedEvidence } from "../../product-core/domain/evidence.js";
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
 import type { CampaignWorkspaceStore } from "../../campaigns/ports/campaign-workspace-store.js";
-import type { ClaimReference, ChannelKind } from "../../campaigns/domain/campaign.js";
+import type {
+  ClaimReference,
+  ChannelKind,
+  CompositionBrief,
+  ExperimentVariable,
+  PublicationExperiment,
+} from "../../campaigns/domain/campaign.js";
 import type { RepositoryGrowthStore } from "../../repository-growth/ports/repository-growth-store.js";
 import type { VideoProductionStore } from "../../video-production/ports/video-production-store.js";
 import type { VideoPlatform } from "../../video-production/domain/video-production.js";
@@ -13,6 +19,11 @@ import type {
   AttributionModel,
   CalendarEntry,
   CalendarEntryKind,
+  CohortConfidenceLabel,
+  CohortEvaluation,
+  CohortExclusion,
+  CohortGroupSummary,
+  CohortIncludedObservation,
   ConfidenceEffect,
   DeliveryEvidenceClassification,
   DeliveryOutcome,
@@ -28,6 +39,7 @@ import type {
   MetricComparison,
   MetricEvidenceState,
   MetricObservation,
+  ObservationAgeBucket,
   PerformanceImport,
   PerformanceImportStatus,
   Retrospective,
@@ -784,6 +796,171 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     });
   }
 
+  async evaluatePublicationCohort(workspaceId: string, input: Readonly<{
+    referenceExperimentId: string;
+    metric: string;
+    ageBucket: ObservationAgeBucket;
+    compareVariable: ExperimentVariable;
+    createdBy: string;
+  }>): Promise<ActivationLearningWorkspace> {
+    requireText(input.referenceExperimentId, "Reference publication experiment");
+    requireText(input.metric, "Cohort metric");
+    requireText(input.createdBy, "Cohort evaluator");
+    const metric = normalizedMetricName(input.metric);
+    const workspace = await this.load(workspaceId);
+    const campaigns = await this.campaignStore.load(workspaceId);
+    if (!campaigns) throw new Error("Campaign workspace not found");
+
+    const reference = required(campaigns.publicationExperiments ?? [], input.referenceExperimentId, "Reference publication experiment");
+    requireValidTimeZone(reference.timezone);
+    if (reference.changedVariables.length !== 1 || reference.changedVariables[0] !== input.compareVariable) {
+      throw new Error(`Reference experiment must change only ${input.compareVariable} for this cohort comparison`);
+    }
+    const referenceContext = await resolveExperimentCompositionContext(campaigns, reference);
+    const referenceDestination = required(workspace.destinations, reference.destinationId, "Reference experiment destination");
+    if (referenceDestination.status !== "active") throw new Error("Reference experiment destination is disabled");
+    const referenceImports = workspace.performanceImports.filter((record) => record.publicationExperimentId === reference.id);
+    const referenceCandidate = selectComparableObservation(
+      workspace,
+      reference,
+      referenceImports,
+      metric,
+      input.ageBucket,
+    );
+    if ("reason" in referenceCandidate) throw new Error(`Reference experiment is not comparable: ${referenceCandidate.reason}`);
+    const referenceDefinition = normalizedDefinition(referenceCandidate.observation.providerDefinition);
+    const referenceUnit = normalizedUnit(referenceCandidate.observation.unit);
+
+    const included: CohortIncludedObservation[] = [];
+    const excluded: CohortExclusion[] = [];
+
+    for (const experiment of campaigns.publicationExperiments ?? []) {
+      let context: CompositionExperimentContext;
+      try {
+        context = await resolveExperimentCompositionContext(campaigns, experiment);
+      } catch (error) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: errorMessage(error) });
+        continue;
+      }
+
+      if (experiment.provider !== reference.provider) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: "Provider does not match the reference experiment." });
+        continue;
+      }
+      if (experiment.timezone !== reference.timezone) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: "Experiment timezone does not match the reference experiment." });
+        continue;
+      }
+      if (experiment.destinationId !== reference.destinationId) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: "Destination/account does not match the reference experiment." });
+        continue;
+      }
+      const destination = workspace.destinations.find((record) => record.id === experiment.destinationId);
+      if (!destination || destination.status !== "active") {
+        excluded.push({ publicationExperimentId: experiment.id, reason: "Experiment destination is missing or disabled." });
+        continue;
+      }
+      if (destination.channel !== referenceDestination.channel) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: "Platform/channel does not match the reference experiment." });
+        continue;
+      }
+      const contextMismatch = cohortContextMismatch(referenceContext, context, input.compareVariable);
+      if (contextMismatch) {
+        excluded.push({ publicationExperimentId: experiment.id, reason: contextMismatch });
+        continue;
+      }
+      if (experiment.changedVariables.length !== 1 || experiment.changedVariables[0] !== input.compareVariable) {
+        excluded.push({
+          publicationExperimentId: experiment.id,
+          reason: `Single-variable ${input.compareVariable} comparison requires changedVariables to contain only ${input.compareVariable}.`,
+        });
+        continue;
+      }
+
+      const imports = workspace.performanceImports.filter((record) => record.publicationExperimentId === experiment.id);
+      const candidate = selectComparableObservation(workspace, experiment, imports, metric, input.ageBucket);
+      if ("reason" in candidate) {
+        excluded.push({
+          publicationExperimentId: experiment.id,
+          ...(candidate.performanceImportId ? { performanceImportId: candidate.performanceImportId } : {}),
+          ...(candidate.observationId ? { observationId: candidate.observationId } : {}),
+          reason: candidate.reason,
+        });
+        continue;
+      }
+
+      const definition = normalizedDefinition(candidate.observation.providerDefinition);
+      if (definition !== referenceDefinition) {
+        excluded.push({
+          publicationExperimentId: experiment.id,
+          observationId: candidate.observation.id,
+          reason: "Provider/native metric definition does not match the reference observation.",
+        });
+        continue;
+      }
+      if (normalizedUnit(candidate.observation.unit) !== referenceUnit) {
+        excluded.push({
+          publicationExperimentId: experiment.id,
+          observationId: candidate.observation.id,
+          reason: "Metric unit does not match the reference observation.",
+        });
+        continue;
+      }
+
+      included.push({
+        publicationExperimentId: experiment.id,
+        performanceImportIds: candidate.performanceImportIds,
+        observationId: candidate.observation.id,
+        publicationObservedAt: candidate.publicationObservedAt,
+        observationWindowEndsAt: candidate.observation.windowEndsAt,
+        observationAgeHours: candidate.observationAgeHours,
+        publicationDate: localPublicationDate(candidate.publicationObservedAt, experiment.timezone),
+        metric,
+        value: candidate.observation.value!,
+        ...(candidate.observation.unit ? { unit: candidate.observation.unit } : {}),
+        groupValue: experimentVariableValue(context, input.compareVariable, candidate.publicationObservedAt, experiment.timezone),
+      });
+    }
+
+    included.sort((left, right) =>
+      left.publicationObservedAt.localeCompare(right.publicationObservedAt)
+      || left.publicationExperimentId.localeCompare(right.publicationExperimentId));
+
+    const groups = summarizeCohortGroups(included);
+    const distinctPublicationDates = new Set(included.map((item) => item.publicationDate)).size;
+    const confidence = cohortConfidence(included, groups, distinctPublicationDates);
+    const advisory = cohortAdvisory(metric, input.compareVariable, included, groups, confidence);
+    const limitation = cohortLimitation(included, groups, confidence, excluded);
+    const nextExperimentSuggestion = cohortNextExperiment(input.compareVariable, groups, confidence);
+    const now = this.clock().toISOString();
+    const evaluation: CohortEvaluation = {
+      id: this.createId(),
+      workspaceId,
+      referenceExperimentId: reference.id,
+      metric,
+      ageBucket: input.ageBucket,
+      compareVariable: input.compareVariable,
+      evidenceTier: "strict",
+      policyVersion: "1",
+      included,
+      excluded,
+      groups,
+      sampleSize: included.length,
+      distinctPublicationDates,
+      confidence,
+      advisory,
+      limitation,
+      nextExperimentSuggestion,
+      createdAt: now,
+      createdBy: input.createdBy.trim(),
+    };
+    return this.persist({
+      ...workspace,
+      cohortEvaluations: [...(workspace.cohortEvaluations ?? []), evaluation],
+      updatedAt: now,
+    });
+  }
+
   async detectAuthorityImpact(workspaceId: string): Promise<ActivationLearningWorkspace> {
     const workspace = await this.load(workspaceId);
     const now = this.clock().toISOString();
@@ -1036,6 +1213,7 @@ function emptyWorkspace(workspaceId: string, now: string): ActivationLearningWor
     measurementPlans: [],
     performanceImports: [],
     derivedMetrics: [],
+    cohortEvaluations: [],
     retrospectives: [],
     learningLedger: [],
     updatedAt: now,
@@ -1325,6 +1503,388 @@ function compareMetrics(baseline: readonly MetricObservation[], outcomes: readon
       limitation: outcome.limitation ?? "Metric states are not compatible for a numeric comparison",
     };
   });
+}
+
+type CompositionExperimentContext = Readonly<{
+  campaignId: string;
+  icpHypothesisId: string | null;
+  objective: string;
+  primaryAudience: string;
+  desiredOutcome: string;
+  topic: string;
+  contentFamily: string;
+  hookArchetype: string | null;
+  toneConstraints: readonly string[];
+  destinationId: string;
+  format: string;
+  mediaAssetIds: readonly string[];
+  callToAction: string | null;
+  externalLinkPolicy: string;
+  hypothesis: string;
+}>;
+
+async function resolveExperimentCompositionContext(
+  workspace: Readonly<{ compositionBriefs?: readonly CompositionBrief[] }>,
+  experiment: PublicationExperiment,
+): Promise<CompositionExperimentContext> {
+  const brief = (workspace.compositionBriefs ?? []).find((record) => record.id === experiment.compositionBriefId);
+  if (!brief) throw new Error("Composition brief for publication experiment is missing.");
+
+  let raw: string;
+  if (brief.version === experiment.compositionBriefVersion) {
+    raw = JSON.stringify(compositionIdentityForCohort(brief));
+  } else {
+    const revision = brief.history?.find((record) => record.version === experiment.compositionBriefVersion);
+    if (!revision) throw new Error("Historical composition revision for publication experiment cannot be reconstructed.");
+    raw = revision.snapshot;
+  }
+
+  if (await sha256Text(raw) !== experiment.compositionBriefSha256) {
+    throw new Error("Historical composition context digest does not match the publication experiment.");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Historical composition context is not valid JSON.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Historical composition context is malformed.");
+  }
+  const record = parsed as Record<string, unknown>;
+  return {
+    campaignId: requiredStringField(record, "campaignId"),
+    icpHypothesisId: nullableStringField(record, "icpHypothesisId"),
+    objective: requiredStringField(record, "objective"),
+    primaryAudience: requiredStringField(record, "primaryAudience"),
+    desiredOutcome: requiredStringField(record, "desiredOutcome"),
+    topic: requiredStringField(record, "topic"),
+    contentFamily: requiredStringField(record, "contentFamily"),
+    hookArchetype: nullableStringField(record, "hookArchetype"),
+    toneConstraints: stringArrayField(record, "toneConstraints"),
+    destinationId: requiredStringField(record, "destinationId"),
+    format: requiredStringField(record, "format"),
+    mediaAssetIds: stringArrayField(record, "mediaAssetIds"),
+    callToAction: nullableStringField(record, "callToAction"),
+    externalLinkPolicy: requiredStringField(record, "externalLinkPolicy"),
+    hypothesis: requiredStringField(record, "hypothesis"),
+  };
+}
+
+function compositionIdentityForCohort(brief: CompositionBrief): Readonly<Record<string, unknown>> {
+  return {
+    campaignId: brief.campaignId,
+    icpHypothesisId: brief.icpHypothesisId ?? null,
+    objective: brief.objective,
+    primaryAudience: brief.primaryAudience,
+    desiredOutcome: brief.desiredOutcome,
+    topic: brief.topic,
+    contentFamily: brief.contentFamily,
+    hookArchetype: brief.hookArchetype ?? null,
+    toneConstraints: [...brief.toneConstraints],
+    claimReferences: brief.claimReferences.map((reference) => ({
+      claimId: reference.claimId,
+      claimRevision: reference.claimRevision,
+      statement: reference.statement,
+      evidenceIds: [...reference.evidenceIds],
+    })),
+    evidenceIds: [...brief.evidenceIds],
+    prohibitedClaims: [...brief.prohibitedClaims],
+    destinationId: brief.destinationId,
+    format: brief.format,
+    mediaAssetIds: [...brief.mediaAssetIds],
+    callToAction: brief.callToAction ?? null,
+    externalLinkPolicy: brief.externalLinkPolicy,
+    hypothesis: brief.hypothesis,
+  };
+}
+
+function requiredStringField(record: Record<string, unknown>, field: string): string {
+  const value = record[field];
+  if (typeof value !== "string" || !value.trim()) throw new Error(`Historical composition field ${field} is invalid.`);
+  return value;
+}
+
+function nullableStringField(record: Record<string, unknown>, field: string): string | null {
+  const value = record[field];
+  if (value === null) return null;
+  if (typeof value !== "string") throw new Error(`Historical composition field ${field} is invalid.`);
+  return value;
+}
+
+function stringArrayField(record: Record<string, unknown>, field: string): readonly string[] {
+  const value = record[field];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`Historical composition field ${field} is invalid.`);
+  }
+  return value as string[];
+}
+
+function cohortContextMismatch(
+  reference: CompositionExperimentContext,
+  candidate: CompositionExperimentContext,
+  compareVariable: ExperimentVariable,
+): string | undefined {
+  const checks: readonly [string, unknown, unknown][] = [
+    ["icp", reference.icpHypothesisId, candidate.icpHypothesisId],
+    ["objective", reference.objective, candidate.objective],
+    ["desiredOutcome", reference.desiredOutcome, candidate.desiredOutcome],
+    ["audience", reference.primaryAudience, candidate.primaryAudience],
+    ["contentFamily", reference.contentFamily, candidate.contentFamily],
+    ["topic", reference.topic, candidate.topic],
+    ["hook", reference.hookArchetype, candidate.hookArchetype],
+    ["tone", reference.toneConstraints, candidate.toneConstraints],
+    ["format", reference.format, candidate.format],
+    ["media", reference.mediaAssetIds.length > 0, candidate.mediaAssetIds.length > 0],
+    ["cta", reference.callToAction, candidate.callToAction],
+    ["externalLinkPolicy", reference.externalLinkPolicy, candidate.externalLinkPolicy],
+  ];
+  for (const [dimension, left, right] of checks) {
+    if (dimension === compareVariable) continue;
+    if (JSON.stringify(left) !== JSON.stringify(right)) {
+      return `Composition context mismatch: ${dimension} differs from the reference experiment.`;
+    }
+  }
+  return undefined;
+}
+
+function selectComparableObservation(
+  workspace: ActivationLearningWorkspace,
+  experiment: PublicationExperiment,
+  imports: readonly PerformanceImport[],
+  metric: string,
+  ageBucket: ObservationAgeBucket,
+): Readonly<{
+  observation: MetricObservation;
+  performanceImportIds: readonly string[];
+  publicationObservedAt: string;
+  observationAgeHours: number;
+}> | Readonly<{ reason: string; performanceImportId?: string; observationId?: string }> {
+  if (imports.length === 0) return { reason: "No analytics snapshot is linked to this publication experiment." };
+  const entryIds = unique(imports.map((record) => record.calendarEntryId));
+  if (entryIds.length !== 1) return { reason: "Analytics snapshots for the experiment do not resolve to one Calendar entry." };
+  const entryId = entryIds[0]!;
+  const delivered = workspace.deliveryOutcomes.filter((outcome) =>
+    outcome.calendarEntryId === entryId && outcome.status === "delivered");
+  const publicationIds = unique(imports.map((record) => record.providerPublicationId).filter((value): value is string => Boolean(value)));
+  const matchingDelivery = publicationIds.length === 1
+    ? delivered.filter((outcome) => outcome.publicationId === publicationIds[0])
+    : delivered;
+  if (matchingDelivery.length !== 1) {
+    return { reason: "Comparable cohort requires one unambiguous delivered publication outcome." };
+  }
+  const publicationObservedAt = matchingDelivery[0]!.observedAt;
+  const publicationTime = Date.parse(publicationObservedAt);
+  const reconciled = reconcileObservations(imports).filter((observation) => observation.metric === metric);
+  if (reconciled.length === 0) return { reason: "Requested normalized metric is not present for this experiment." };
+
+  const bounds = ageBucketBounds(ageBucket);
+  const ageEligible = reconciled
+    .map((observation) => ({
+      observation,
+      ageHours: (Date.parse(observation.windowEndsAt) - publicationTime) / 3_600_000,
+      startsAfterPublication: Date.parse(observation.windowStartsAt) >= publicationTime,
+    }))
+    .filter((item) =>
+      item.startsAfterPublication
+      && item.ageHours > bounds.minimumExclusiveHours
+      && item.ageHours <= bounds.maximumInclusiveHours);
+
+  if (ageEligible.length === 0) return { reason: `No ${metric} observation falls inside the ${ageBucket} observation-age policy bucket.` };
+
+  const strictCandidates = ageEligible
+    .filter((item) => ["observed", "verified_zero"].includes(item.observation.state) && item.observation.value !== undefined)
+    .sort((left, right) =>
+      Math.abs(bounds.targetHours - left.ageHours) - Math.abs(bounds.targetHours - right.ageHours)
+      || left.observation.windowEndsAt.localeCompare(right.observation.windowEndsAt)
+      || left.observation.id.localeCompare(right.observation.id));
+
+  if (strictCandidates.length === 0) {
+    const states = [...new Set(ageEligible.map((item) => item.observation.state))].sort().join(", ");
+    return { reason: `Strict cohort evidence excludes ${states} observation(s).` };
+  }
+
+  const selected = strictCandidates[0]!;
+  const selectedDefinitions = new Set(imports.flatMap((record) => record.observations)
+    .filter((observation) =>
+      normalizedMetricName(observation.metric) === metric
+      && observation.windowStartsAt === selected.observation.windowStartsAt
+      && observation.windowEndsAt === selected.observation.windowEndsAt)
+    .map((observation) => normalizedDefinition(observation.providerDefinition)));
+  if (selectedDefinitions.size > 1) {
+    return {
+      reason: "Provider/native metric definition is ambiguous within the selected reporting window.",
+      observationId: selected.observation.id,
+    };
+  }
+  const performanceImportIds = imports
+    .filter((record) => record.observations.some((observation) =>
+      normalizedMetricName(observation.metric) === metric
+      && observation.windowStartsAt === selected.observation.windowStartsAt
+      && observation.windowEndsAt === selected.observation.windowEndsAt))
+    .map((record) => record.id)
+    .sort();
+
+  return {
+    observation: selected.observation,
+    performanceImportIds,
+    publicationObservedAt,
+    observationAgeHours: selected.ageHours,
+  };
+}
+
+function ageBucketBounds(bucket: ObservationAgeBucket): Readonly<{
+  minimumExclusiveHours: number;
+  maximumInclusiveHours: number;
+  targetHours: number;
+}> {
+  if (bucket === "24h") return { minimumExclusiveHours: 0, maximumInclusiveHours: 24, targetHours: 24 };
+  if (bucket === "48h") return { minimumExclusiveHours: 24, maximumInclusiveHours: 48, targetHours: 48 };
+  return { minimumExclusiveHours: 48, maximumInclusiveHours: 168, targetHours: 168 };
+}
+
+function normalizedDefinition(value?: string): string {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function experimentVariableValue(
+  context: CompositionExperimentContext,
+  variable: ExperimentVariable,
+  publicationObservedAt: string,
+  timezone: string,
+): string {
+  if (variable === "topic") return context.topic;
+  if (variable === "hook") return context.hookArchetype ?? "none";
+  if (variable === "tone") return context.toneConstraints.join(" + ") || "none";
+  if (variable === "format") return context.format;
+  if (variable === "media") return context.mediaAssetIds.length > 0 ? "media" : "no_media";
+  if (variable === "audience") return context.primaryAudience;
+  if (variable === "cta") return context.callToAction ?? "none";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: timezone,
+  }).formatToParts(new Date(publicationObservedAt));
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "Unknown";
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  return `${weekday} ${hour}:00 ${timezone}`;
+}
+
+function requireValidTimeZone(timezone: string): void {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
+  } catch {
+    throw new Error(`Experiment timezone is invalid: ${timezone}`);
+  }
+}
+
+function localPublicationDate(publicationObservedAt: string, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: timezone,
+  }).formatToParts(new Date(publicationObservedAt));
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) throw new Error("Publication date could not be normalized in the experiment timezone");
+  return `${year}-${month}-${day}`;
+}
+
+function summarizeCohortGroups(included: readonly CohortIncludedObservation[]): readonly CohortGroupSummary[] {
+  const values = new Map<string, number[]>();
+  for (const item of included) values.set(item.groupValue, [...(values.get(item.groupValue) ?? []), item.value]);
+  return [...values.entries()]
+    .map(([groupValue, groupValues]) => {
+      const sorted = [...groupValues].sort((left, right) => left - right);
+      const middle = Math.floor(sorted.length / 2);
+      const median = sorted.length % 2
+        ? sorted[middle]!
+        : (sorted[middle - 1]! + sorted[middle]!) / 2;
+      return {
+        groupValue,
+        sampleSize: sorted.length,
+        median,
+        minimum: sorted[0]!,
+        maximum: sorted[sorted.length - 1]!,
+      };
+    })
+    .sort((left, right) => right.median - left.median || left.groupValue.localeCompare(right.groupValue));
+}
+
+function cohortConfidence(
+  included: readonly CohortIncludedObservation[],
+  groups: readonly CohortGroupSummary[],
+  distinctPublicationDates: number,
+): CohortConfidenceLabel {
+  const comparisonGroups = groups.filter((group) => group.sampleSize >= 3);
+  if (included.length < 6 || distinctPublicationDates < 2 || comparisonGroups.length < 2) return "insufficient";
+  const leader = comparisonGroups[0]!;
+  const runnerUp = comparisonGroups[1]!;
+  const leaderObservations = included.filter((item) => item.groupValue === leader.groupValue);
+  const consistent = leaderObservations.filter((item) => item.value > runnerUp.median).length;
+  if (consistent < 4) return "emerging";
+  if (included.length < 8) return "repeatable_candidate";
+  const publicationTimes = included.map((item) => Date.parse(item.publicationObservedAt));
+  const spanDays = (Math.max(...publicationTimes) - Math.min(...publicationTimes)) / 86_400_000;
+  const nonNegative = included.every((item) => item.value >= 0);
+  const total = included.reduce((sum, item) => sum + Math.max(item.value, 0), 0);
+  const maxShare = total > 0 ? Math.max(...included.map((item) => Math.max(item.value, 0))) / total : 0;
+  if (spanDays >= 28 && nonNegative && maxShare <= 0.5) return "established_local_pattern";
+  return "repeatable_candidate";
+}
+
+function cohortAdvisory(
+  metric: string,
+  compareVariable: ExperimentVariable,
+  included: readonly CohortIncludedObservation[],
+  groups: readonly CohortGroupSummary[],
+  confidence: CohortConfidenceLabel,
+): string {
+  if (confidence === "insufficient") {
+    return `${included.length} comparable ${metric} observations are available, but policy v1 requires at least two ${compareVariable} groups with three publications each before directional guidance is shown.`;
+  }
+  if (groups.length < 2) {
+    return `The cohort has ${included.length} comparable observations but only one ${compareVariable} group. No comparative recommendation is supported.`;
+  }
+  const leader = groups[0]!;
+  const runnerUp = groups[1]!;
+  return `${leader.groupValue} has a higher median ${metric} (${leader.median}) than ${runnerUp.groupValue} (${runnerUp.median}) in this local observational cohort. Treat this as ${confidence.replaceAll("_", " ")} guidance, not proof of causality.`;
+}
+
+function cohortLimitation(
+  included: readonly CohortIncludedObservation[],
+  groups: readonly CohortGroupSummary[],
+  confidence: CohortConfidenceLabel,
+  excluded: readonly CohortExclusion[],
+): string {
+  const parts = [
+    `Policy v1 uses one strict reconciled observation per publication experiment and selects observations by age/context before reading metric values.`,
+    `${excluded.length} candidate experiment(s) were excluded with recorded reasons.`,
+    `Confidence is ${confidence.replaceAll("_", " ")} and is product guidance, not statistical proof.`,
+  ];
+  if (groups.length < 2) parts.push("At least two comparison groups are required for directional guidance.");
+  if (groups.filter((group) => group.sampleSize >= 3).length < 2) {
+    parts.push("Policy v1 requires at least three comparable publications in each of two groups before directional medians are advisory evidence.");
+  }
+  return parts.join(" ");
+}
+
+function cohortNextExperiment(
+  compareVariable: ExperimentVariable,
+  groups: readonly CohortGroupSummary[],
+  confidence: CohortConfidenceLabel,
+): string {
+  if (confidence === "insufficient" || groups.length < 2) {
+    return `Run another controlled ${compareVariable} experiment while keeping provider, audience, objective, format, content family, metric definition, and observation-age policy constant.`;
+  }
+  return `Repeat a single-variable ${compareVariable} experiment comparing ${groups.slice(0, 2).map((group) => group.groupValue).join(" and ")} while preserving the current cohort controls.`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Cohort eligibility failed.";
 }
 
 function sameSource(left: ActivationSourceSnapshot, right: ActivationSourceSnapshot): boolean {
