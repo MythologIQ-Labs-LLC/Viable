@@ -49,6 +49,52 @@ test("manual import creates untrusted suggested evidence with limitations", asyn
   assert.match(outcome.signals[0]?.limitations.join(" ") ?? "", /untrusted/);
 });
 
+test("manual import preserves bounded market scope publisher and reuse rights", async () => {
+  const source = new ManualJsonSignalSource("manual", JSON.stringify({
+    signals: [{
+      title: "Bounded demand",
+      summary: "Three small US agencies described the same workflow need",
+      observedAt: "2026-07-15T12:00:00.000Z",
+      publisher: "Research notebook",
+      publishedAt: "2026-07-15T13:00:00.000Z",
+      reuseRights: "citation_only",
+      methodology: "Structured interviews",
+      limitations: ["Small convenience sample"],
+      marketScope: {
+        breadth: "bounded",
+        geographies: ["United States"],
+        segments: ["small agencies"],
+        productCategories: ["marketability software"],
+        organizationTypes: ["agency"],
+        audiences: ["founders"],
+      },
+    }],
+  }), now, clock);
+  const outcome = await source.collect();
+  assert.equal(outcome.status, "success");
+  assert.equal(outcome.signals[0]?.provenance.publisher, "Research notebook");
+  assert.equal(outcome.signals[0]?.provenance.reuseRights, "citation_only");
+  assert.equal(outcome.signals[0]?.methodology, "Structured interviews");
+  assert.deepEqual(outcome.signals[0]?.marketScope?.segments, ["small agencies"]);
+  assert.match(outcome.signals[0]?.limitations.join(" ") ?? "", /Small convenience sample/);
+});
+
+test("manual import rejects invalid market scope and reuse-rights metadata", async () => {
+  const badScope = new ManualJsonSignalSource("manual", JSON.stringify({
+    signals: [{ title: "Bad scope", summary: "Invalid breadth", marketScope: { breadth: "planetary" } }],
+  }), now, clock);
+  const scopeOutcome = await badScope.collect();
+  assert.equal(scopeOutcome.status, "validation_failed");
+  assert.match(scopeOutcome.detail ?? "", /marketScope breadth is invalid/);
+
+  const badRights = new ManualJsonSignalSource("manual", JSON.stringify({
+    signals: [{ title: "Bad rights", summary: "Invalid rights", reuseRights: "anything_goes" }],
+  }), now, clock);
+  const rightsOutcome = await badRights.collect();
+  assert.equal(rightsOutcome.status, "validation_failed");
+  assert.match(rightsOutcome.detail ?? "", /reuseRights is invalid/);
+});
+
 test("failed Event Intelligence run preserves its source failure", async () => {
   const source = new EventIntelligenceSignalSource("events", {
     run: { runId: "run", startedAt: now, completedAt: now, status: "failed", sources: [{ sourceId: "calendar", status: "transport_failed", events: [], observedAt: now }] },
