@@ -535,7 +535,7 @@ function appendComparableQuestionExperiment(
       state: "observed" as const,
       value: options.conflictingValue,
       evidenceReference: `obs-${suffix}-conflict.csv`,
-      limitation: undefined,
+      limitation: "Conflicting duplicate source observation",
     }],
   }];
 
