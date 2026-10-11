@@ -3,7 +3,7 @@ import test from "node:test";
 import type { ActivationLearningWorkspace } from "../src/activation-learning/domain/activation-learning.js";
 import type { ActivationLearningStore } from "../src/activation-learning/ports/activation-learning-store.js";
 import { ActivationLearningService } from "../src/activation-learning/services/activation-learning-service.js";
-import type { CampaignWorkspace } from "../src/campaigns/domain/campaign.js";
+import type { AuthorityRevision, CampaignWorkspace, CompositionBrief } from "../src/campaigns/domain/campaign.js";
 import type { CampaignWorkspaceStore } from "../src/campaigns/ports/campaign-workspace-store.js";
 import type { ProductWorkspace } from "../src/product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../src/product-core/ports/product-workspace-store.js";
@@ -219,7 +219,7 @@ async function testSha256(value: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function cohortBrief(id: string, hookArchetype: string, version = 1, history?: CampaignWorkspace["compositionBriefs"] extends readonly (infer T)[] | undefined ? T extends { history?: infer H } ? H : never : never) {
+function cohortBrief(id: string, hookArchetype: string, version = 1, history?: readonly AuthorityRevision[]): CompositionBrief {
   return {
     id,
     workspaceId: "workspace-1",
@@ -247,7 +247,7 @@ function cohortBrief(id: string, hookArchetype: string, version = 1, history?: C
   };
 }
 
-function cohortIdentity(brief: ReturnType<typeof cohortBrief>): Readonly<Record<string, unknown>> {
+function cohortIdentity(brief: CompositionBrief): Readonly<Record<string, unknown>> {
   return {
     campaignId: brief.campaignId,
     icpHypothesisId: null,
@@ -299,7 +299,7 @@ async function seedComparableCohort() {
 
   const experiment = async (
     id: string,
-    brief: ReturnType<typeof cohortBrief>,
+    brief: CompositionBrief,
     compositionBriefVersion: number,
     compositionRaw: string,
     changedVariables: readonly ("hook" | "timing")[],
