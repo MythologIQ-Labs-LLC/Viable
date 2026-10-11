@@ -178,13 +178,21 @@ export class ActivationLearningViewController {
       if (kind === "activation-performance-import") {
         const state = String(form.get("state")) as MetricEvidenceState;
         const value = metricValue(state, form.get("value"));
+        const publicationExperimentId = String(form.get("publicationExperimentId") ?? "").trim();
+        const providerPublicationId = String(form.get("providerPublicationId") ?? "").trim();
+        const providerMetric = String(form.get("providerMetric") ?? "").trim();
+        const providerDefinition = String(form.get("providerDefinition") ?? "").trim();
         this.activation = await this.service.importPerformance(this.workspaceId, {
           calendarEntryId: String(form.get("calendarEntryId")),
+          ...(publicationExperimentId ? { publicationExperimentId } : {}),
+          ...(providerPublicationId ? { providerPublicationId } : {}),
           status: String(form.get("status")) as "complete" | "partial" | "delayed" | "unavailable" | "failed",
           source: String(form.get("source")),
           sourceClassification: String(form.get("sourceClassification")) as "human_recorded" | "provider_export" | "provider_api",
           observations: [{
             metric: String(form.get("metric")),
+            ...(providerMetric ? { providerMetric } : {}),
+            ...(providerDefinition ? { providerDefinition } : {}),
             state,
             ...(value !== undefined ? { value } : {}),
             ...(String(form.get("unit")).trim() ? { unit: String(form.get("unit")).trim() } : {}),
@@ -198,7 +206,7 @@ export class ActivationLearningViewController {
           importedBy: String(form.get("importedBy")),
           notes: String(form.get("notes")),
         });
-        return "Performance evidence imported without converting missing data into zero";
+        return "Performance evidence imported idempotently without converting missing data into zero";
       }
       if (kind === "activation-retrospective") {
         this.activation = await this.service.completeRetrospective(this.workspaceId, {
@@ -428,14 +436,30 @@ export class ActivationLearningViewController {
 
   private performanceImportSection(): string {
     const workspace = this.activation!;
-    return `<section class="panel" aria-labelledby="performance-import-heading"><div class="section-heading"><div><p class="eyebrow">Outcome evidence</p><h3 id="performance-import-heading">Import one explicit metric observation</h3></div>${pill(`${workspace.performanceImports.length} imports`)}</div>
+    const experiments = this.campaigns?.publicationExperiments ?? [];
+    const experimentOptions = experiments.map((record) =>
+      `<option value="${record.id}">${escapeHtml(this.publicationExperimentLabel(record.id))}</option>`).join("");
+    return `<section class="panel" aria-labelledby="performance-import-heading"><div class="section-heading"><div><p class="eyebrow">Outcome evidence</p><h3 id="performance-import-heading">Record an append-only analytics snapshot</h3></div>${pill(`${workspace.performanceImports.length} snapshots`)}</div>
+      <p class="guidance">The normalized metric family supports comparison. Provider-native metric names and definitions remain visible as provenance. Re-selecting identical normalized evidence does not create another snapshot.</p>
       ${workspace.measurementPlans.length ? `<form data-form="activation-performance-import"><label>Calendar entry<select name="calendarEntryId">${workspace.measurementPlans.map((plan) => `<option value="${plan.calendarEntryId}">${escapeHtml(this.entryTitle(plan.calendarEntryId))}</option>`).join("")}</select></label>
-        <div class="three"><label>Import status<select name="status"><option value="complete">Complete</option><option value="partial">Partial</option><option value="delayed">Delayed</option><option value="unavailable">Unavailable</option><option value="failed">Failed</option></select></label><label>Source classification<select name="sourceClassification"><option value="human_recorded">Human recorded</option><option value="provider_export">Provider export</option><option value="provider_api">Provider API</option></select></label><label>Imported by<input name="importedBy" required value="${escapeHtml(this.defaultOwner)}"></label></div>
-        ${metricFields("Outcome")}
+        <div class="two"><label>Publication experiment, when applicable<select name="publicationExperimentId"><option value="">No experiment linkage</option>${experimentOptions}</select></label><label>Provider publication ID, when available<input name="providerPublicationId" placeholder="Provider receipt / publication identifier"></label></div>
+        <div class="three"><label>Import status<select name="status"><option value="complete">Complete</option><option value="partial">Partial</option><option value="delayed">Delayed</option><option value="unavailable">Unavailable</option><option value="failed">Failed</option></select></label><label>Source classification<select name="sourceClassification"><option value="human_recorded">Manual / human recorded</option><option value="provider_export">Provider export</option><option value="provider_api">Provider API</option></select></label><label>Imported by<input name="importedBy" required value="${escapeHtml(this.defaultOwner)}"></label></div>
+        ${metricFields("Outcome", true)}
         <div class="three"><label>Metric window starts<input type="datetime-local" name="windowStartsAt" required></label><label>Metric window ends<input type="datetime-local" name="windowEndsAt" required></label><label>Captured at<input type="datetime-local" name="capturedAt" required></label></div>
-        <label>Import notes<textarea name="notes" rows="3" required>State what was available, missing, delayed, partial, or unavailable.</textarea></label><button class="primary" type="submit">Import performance evidence</button></form>` : `<section class="state warning"><strong>Performance import is blocked.</strong><span>Create a measurement plan and baseline first.</span></section>`}
-      <div class="card-list">${workspace.performanceImports.slice().reverse().map((record) => `<article><div class="card-heading"><div><h4>${escapeHtml(this.entryTitle(record.calendarEntryId))}</h4><p>${escapeHtml(record.source)} · ${humanDate(record.importedAt)}</p></div>${pill(record.status)}</div><p>${escapeHtml(record.notes)}</p>${record.observations.map(metricSummary).join("")}</article>`).join("")}</div>
+        <label>Import notes<textarea name="notes" rows="3" required>State what was available, missing, delayed, partial, estimated, or unknown.</textarea></label><button class="primary" type="submit">Record analytics snapshot</button></form>` : `<section class="state warning"><strong>Analytics snapshot is blocked.</strong><span>Create a measurement plan and baseline first.</span></section>`}
+      <div class="card-list">${workspace.performanceImports.slice().reverse().map((record) => `<article><div class="card-heading"><div><h4>${escapeHtml(this.entryTitle(record.calendarEntryId))}</h4><p>${escapeHtml(record.source)} · ${humanDate(record.importedAt)}</p></div>${pill(record.status)}</div>
+        <p>${escapeHtml(record.notes)}</p>
+        <dl><div><dt>Source class</dt><dd>${escapeHtml(label(record.sourceClassification))}</dd></div><div><dt>Experiment</dt><dd>${record.publicationExperimentId ? escapeHtml(this.publicationExperimentLabel(record.publicationExperimentId)) : "Not linked"}</dd></div><div><dt>Provider publication</dt><dd>${escapeHtml(record.providerPublicationId ?? "Not recorded")}</dd></div><div><dt>Normalized digest</dt><dd>${record.normalizedDigest ? `<code>${escapeHtml(record.normalizedDigest.slice(0, 12))}…</code>` : "Legacy import without digest"}</dd></div></dl>
+        ${record.observations.map(metricSummary).join("")}</article>`).join("")}</div>
     </section>`;
+  }
+
+  private publicationExperimentLabel(id: string): string {
+    const experiment = this.campaigns?.publicationExperiments?.find((record) => record.id === id);
+    if (!experiment) return id;
+    const brief = this.campaigns?.compositionBriefs?.find((record) => record.id === experiment.compositionBriefId);
+    const variant = this.campaigns?.variants.find((record) => record.id === experiment.channelVariantId);
+    return `${brief?.topic ?? "Publication experiment"} · ${variant ? label(variant.channel) : experiment.provider} · composition v${experiment.compositionBriefVersion} / variant v${experiment.channelVariantVersion}`;
   }
 
   private retrospectiveSection(): string {
@@ -511,10 +535,11 @@ function channelOptions(): string {
     .map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("");
 }
 
-function metricFields(prefix: string): string {
-  return `<div class="three"><label>${prefix} metric<input name="metric" required placeholder="qualified_reviews"></label><label>Evidence state<select name="state"><option value="observed">Observed non-zero</option><option value="verified_zero">Verified zero</option><option value="delayed">Delayed</option><option value="partial">Partial</option><option value="unavailable">Unavailable</option><option value="not_collected">Not collected</option></select></label><label>Numeric value, when allowed<input name="value" type="number" step="any"></label></div>
+function metricFields(prefix: string, includeProviderProvenance = false): string {
+  return `<div class="three"><label>${prefix} normalized metric family<input name="metric" required placeholder="qualified_reviews"></label><label>Evidence state<select name="state"><option value="observed">Observed non-zero</option><option value="verified_zero">Verified zero</option><option value="estimated">Estimated</option><option value="delayed">Delayed</option><option value="partial">Partial</option><option value="unavailable">Unavailable</option><option value="unknown">Unknown</option><option value="not_collected">Not collected</option></select></label><label>Numeric value, when allowed<input name="value" type="number" step="any"></label></div>
+    ${includeProviderProvenance ? `<div class="two"><label>Provider-native metric name<input name="providerMetric" placeholder="Optional exact provider label"></label><label>Provider metric definition<textarea name="providerDefinition" rows="2" placeholder="Optional provider-native definition or reporting note"></textarea></label></div>` : ""}
     <div class="three"><label>Unit<input name="unit" placeholder="count, percent, seconds"></label><label>Evidence source<input name="source" required></label><label>Evidence reference<input name="evidenceReference" required></label></div>
-    <label>Limitation, required for incomplete states<textarea name="limitation" rows="2"></textarea></label>`;
+    <label>Limitation, required for incomplete or estimated states<textarea name="limitation" rows="2"></textarea></label>`;
 }
 
 function metricValue(state: MetricEvidenceState, value: FormDataEntryValue | null): number | undefined {
@@ -526,8 +551,8 @@ function metricValue(state: MetricEvidenceState, value: FormDataEntryValue | nul
   return parsed;
 }
 
-function metricSummary(item: Readonly<{ metric: string; state: string; value?: number; unit?: string; source: string; limitation?: string }>): string {
-  return `<div class="metric-evidence"><div><strong>${escapeHtml(item.metric)}</strong>${pill(item.state)}</div><span>${item.value !== undefined ? `${item.value} ${escapeHtml(item.unit ?? "")}` : "No numeric value"}</span><small>${escapeHtml(item.source)}${item.limitation ? ` · ${escapeHtml(item.limitation)}` : ""}</small></div>`;
+function metricSummary(item: Readonly<{ metric: string; providerMetric?: string; providerDefinition?: string; state: string; value?: number; unit?: string; source: string; limitation?: string }>): string {
+  return `<div class="metric-evidence"><div><strong>${escapeHtml(item.metric)}</strong>${pill(item.state)}</div><span>${item.value !== undefined ? `${item.value} ${escapeHtml(item.unit ?? "")}` : "No numeric value"}</span>${item.providerMetric ? `<small>Provider-native: ${escapeHtml(item.providerMetric)}${item.providerDefinition ? ` · ${escapeHtml(item.providerDefinition)}` : ""}</small>` : ""}<small>${escapeHtml(item.source)}${item.limitation ? ` · ${escapeHtml(item.limitation)}` : ""}</small></div>`;
 }
 
 function downloadJson(filename: string, content: string): void {
