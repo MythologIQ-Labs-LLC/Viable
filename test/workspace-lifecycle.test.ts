@@ -180,6 +180,23 @@ test("malformed optional additive campaign fields are rejected before any restor
   }
 });
 
+test("malformed optional derived analytics array is rejected before restore mutation", () => {
+  const source = new MemoryStorage();
+  seedWorkspace(source, "workspace-1");
+  const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
+  const malformed = JSON.parse(backup) as { contexts: { activation: Record<string, unknown> } };
+  malformed.contexts.activation.derivedMetrics = "not-an-array";
+
+  const target = new MemoryStorage();
+  target.setItem("unrelated.preference", "keep-me");
+  const before = target.entries();
+  assert.throws(
+    () => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"),
+    /Calendar and Learning optional field derivedMetrics must be an array when present/,
+  );
+  assert.deepEqual(target.entries(), before);
+});
+
 test("backup refuses credential-like fields instead of exporting them", () => {
   const storage = new MemoryStorage();
   seedWorkspace(storage, "workspace-1");
