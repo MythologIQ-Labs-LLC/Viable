@@ -159,6 +159,30 @@ export class CampaignsViewController {
         });
         return "Composition brief saved as structured guidance; no content was generated";
       }
+      if (kind === "campaign-revise-composition") {
+        this.campaigns = await this.compositionService.reviseCompositionBrief(
+          this.workspaceId,
+          String(form.get("compositionBriefId")),
+          {
+            editor: String(form.get("editor")),
+            rationale: String(form.get("rationale")),
+            objective: String(form.get("objective")) as CompositionObjective,
+            desiredOutcome: String(form.get("desiredOutcome")),
+            topic: String(form.get("topic")),
+            contentFamily: String(form.get("contentFamily")) as ContentFamily,
+            hookArchetype: String(form.get("hookArchetype") ?? ""),
+            toneConstraints: lineValues(form.get("toneConstraints")),
+            prohibitedClaims: lineValues(form.get("prohibitedClaims")),
+            destinationId: String(form.get("destinationId")),
+            format: String(form.get("format")) as CompositionBrief["format"],
+            mediaAssetIds: lineValues(form.get("mediaAssetIds")),
+            callToAction: String(form.get("callToAction") ?? ""),
+            externalLinkPolicy: String(form.get("externalLinkPolicy")) as CompositionBrief["externalLinkPolicy"],
+            hypothesis: String(form.get("hypothesis")),
+          },
+        );
+        return "Composition intent revised; prior experiment bindings may now be stale";
+      }
       if (kind === "campaign-bind-experiment") {
         this.campaigns = await this.compositionService.bindPublicationExperiment(this.workspaceId, {
           compositionBriefId: String(form.get("compositionBriefId")),
@@ -536,11 +560,37 @@ export class CampaignsViewController {
       ? Object.entries(readiness).map(([name, state]) => `${pill(state)} <span>${escapeHtml(label(name))}</span>`).join(" ")
       : pill("blocked");
     const findings = assessment?.findings ?? [];
-    return `<article class="record"><div class="record-top"><h4>${escapeHtml(brief.topic)}</h4><div>${pill(brief.objective)}</div></div>
+    const campaign = this.campaigns?.campaigns.find((record) => record.id === brief.campaignId);
+    const destinations = (this.activation?.destinations ?? []).filter((record) =>
+      record.status === "active" && !!campaign?.channels.includes(record.channel as ChannelKind));
+    const objectiveOptions = COMPOSITION_OBJECTIVES.map((value) =>
+      `<option value="${value}"${value === brief.objective ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+    const familyOptions = CONTENT_FAMILIES.map((value) =>
+      `<option value="${value}"${value === brief.contentFamily ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+    const formatOptions = ["text", "image", "video", "document", "link"].map((value) =>
+      `<option value="${value}"${value === brief.format ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+    const destinationOptions = destinations.map((record) =>
+      `<option value="${record.id}"${record.id === brief.destinationId ? " selected" : ""}>${escapeHtml(record.label)} · ${escapeHtml(label(record.channel))}</option>`).join("");
+    const linkOptions = ["none", "body", "comment"].map((value) =>
+      `<option value="${value}"${value === brief.externalLinkPolicy ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+
+    return `<article class="record"><div class="record-top"><h4>${escapeHtml(brief.topic)}</h4><div>${pill(brief.objective)} ${pill(`v${brief.version}`)}</div></div>
       <p>${escapeHtml(brief.hypothesis)}</p>
       <p class="guidance">${facets}</p>
       <dl><div><dt>Audience</dt><dd>${escapeHtml(brief.primaryAudience)}</dd></div><div><dt>Outcome</dt><dd>${escapeHtml(brief.desiredOutcome)}</dd></div><div><dt>Family</dt><dd>${escapeHtml(label(brief.contentFamily))}</dd></div><div><dt>Format</dt><dd>${escapeHtml(label(brief.format))}</dd></div></dl>
       ${findings.length ? `<details><summary>${findings.length} guidance finding${findings.length === 1 ? "" : "s"}</summary><ul>${findings.map((finding) => `<li><strong>${escapeHtml(label(finding.severity))}</strong>: ${escapeHtml(finding.message)}</li>`).join("")}</ul></details>` : `<p class="guidance">No deterministic guidance findings.</p>`}
+      <details><summary>Revise composition intent</summary><form data-form="campaign-revise-composition">
+        <input type="hidden" name="compositionBriefId" value="${brief.id}">
+        <div class="two"><label>Named editor<input name="editor" required value="${escapeHtml(this.defaultOwner)}"></label><label>Revision rationale<input name="rationale" required></label></div>
+        <div class="two"><label>Destination<select name="destinationId" required>${destinationOptions}</select></label><label>Objective<select name="objective">${objectiveOptions}</select></label></div>
+        <div class="three"><label>Content family<select name="contentFamily">${familyOptions}</select></label><label>Format<select name="format">${formatOptions}</select></label><label>External link policy<select name="externalLinkPolicy">${linkOptions}</select></label></div>
+        <div class="two"><label>Desired outcome<input name="desiredOutcome" required value="${escapeHtml(brief.desiredOutcome)}"></label><label>Topic<input name="topic" required value="${escapeHtml(brief.topic)}"></label></div>
+        <div class="two"><label>Hook archetype<input name="hookArchetype" value="${escapeHtml(brief.hookArchetype ?? "")}"></label><label>Call to action<input name="callToAction" value="${escapeHtml(brief.callToAction ?? "")}"></label></div>
+        <div class="two"><label>Tone constraints<textarea name="toneConstraints" rows="3">${escapeHtml(brief.toneConstraints.join("\n"))}</textarea></label><label>Prohibited claims<textarea name="prohibitedClaims" rows="3">${escapeHtml(brief.prohibitedClaims.join("\n"))}</textarea></label></div>
+        <label>Media references<textarea name="mediaAssetIds" rows="2">${escapeHtml(brief.mediaAssetIds.join("\n"))}</textarea></label>
+        <label>Experiment hypothesis<textarea name="hypothesis" rows="3" required>${escapeHtml(brief.hypothesis)}</textarea></label>
+        <button type="submit">Save composition revision</button>
+      </form></details>
     </article>`;
   }
 
@@ -552,7 +602,7 @@ export class CampaignsViewController {
     const variant = this.campaigns?.variants.find((candidate) => candidate.id === record.channelVariantId);
     return `<article class="record"><div class="record-top"><h4>${escapeHtml(variant ? this.variantLabel(variant) : record.channelVariantId)}</h4>${pill(state)}</div>
       <p>${escapeHtml(record.expectedOutcome)}</p>
-      <dl><div><dt>Provider</dt><dd>${escapeHtml(record.provider)}</dd></div><div><dt>Exact revision</dt><dd>v${record.channelVariantVersion}</dd></div><div><dt>Changed variables</dt><dd>${escapeHtml(record.changedVariables.map(label).join(" · "))}</dd></div><div><dt>Fingerprint</dt><dd><code>${escapeHtml(record.channelVariantBodySha256.slice(0, 12))}…</code></dd></div></dl>
+      <dl><div><dt>Provider</dt><dd>${escapeHtml(record.provider)}</dd></div><div><dt>Composition revision</dt><dd>v${record.compositionBriefVersion} · <code>${escapeHtml(record.compositionBriefSha256.slice(0, 12))}…</code></dd></div><div><dt>Exact variant revision</dt><dd>v${record.channelVariantVersion}</dd></div><div><dt>Changed variables</dt><dd>${escapeHtml(record.changedVariables.map(label).join(" · "))}</dd></div><div><dt>Fingerprint</dt><dd><code>${escapeHtml(record.channelVariantBodySha256.slice(0, 12))}…</code></dd></div></dl>
       ${freshness?.reasons.length ? `<div class="state warning"><strong>Binding is stale.</strong><span>${escapeHtml(freshness.reasons.join(" "))}</span></div>` : `<p class="guidance">The exact approved content binding is current. This does not itself authorize publishing or claim delivery.</p>`}
     </article>`;
   }
