@@ -479,7 +479,7 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     providerPublicationId?: string;
     status: PerformanceImportStatus;
     source: string;
-    sourceClassification: "human_recorded" | "provider_export" | "provider_api";
+    sourceClassification: Exclude<PerformanceImport["sourceClassification"], "provider_api">;
     observations: readonly Omit<MetricObservation, "id">[];
     importedBy: string;
     notes: string;
