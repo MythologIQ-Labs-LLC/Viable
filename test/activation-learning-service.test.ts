@@ -495,6 +495,134 @@ test("estimated and unknown metric states preserve uncertainty instead of becomi
   assert.equal(workspace.performanceImports[0]!.observations[0]!.value, 25);
 });
 
+test("estimated and partial numeric disagreement reconciles as conflict", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId,
+    observationStartsAt: "2026-07-17T13:00:00.000Z",
+    observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation],
+    createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "partial",
+    source: "Estimate A",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Estimated reach",
+    observations: [{
+      ...outcomeObservation,
+      metric: "members_reached",
+      state: "estimated",
+      value: 25,
+      source: "Estimate A",
+      evidenceReference: "estimate-a",
+      limitation: "Estimated from sampled dashboard evidence",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "partial",
+    source: "Partial B",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Partial reach count",
+    observations: [{
+      ...outcomeObservation,
+      metric: "members_reached",
+      state: "partial",
+      value: 30,
+      source: "Partial B",
+      evidenceReference: "partial-b",
+      limitation: "Only part of the reporting window was visible",
+    }],
+  });
+  const reconciled = await service.reconcilePerformanceEvidence("workspace-1", entryId);
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0]!.state, "conflict");
+  assert.equal(reconciled[0]!.value, undefined);
+  assert.match(reconciled[0]!.limitation ?? "", /25 vs 30/);
+});
+
+test("retrospective compares only the exact measurement-plan outcome window", async () => {
+  const { service } = fixture();
+  let workspace = await packageReady(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.markExportDownloaded("workspace-1", workspace.exportOperations[0]!.id);
+  workspace = await service.recordDeliveryOutcome("workspace-1", {
+    calendarEntryId: entryId,
+    packageId: workspace.packages[0]!.id,
+    status: "delivered",
+    evidenceClassification: "human_recorded",
+    source: "Operator",
+    observedAt: "2026-07-17T13:05:00.000Z",
+    recordedBy: "Operator",
+    evidenceReferences: ["delivery-proof-window"],
+    note: "Published manually",
+    deliveryUrl: "https://www.linkedin.com/posts/example",
+  });
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId,
+    observationStartsAt: outcomeObservation.windowStartsAt,
+    observationEndsAt: outcomeObservation.windowEndsAt,
+    baseline: [baselineObservation],
+    createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "complete",
+    source: "Planned outcome window",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Exact plan window",
+    observations: [{
+      ...outcomeObservation,
+      source: "Planned outcome window",
+      evidenceReference: "planned-window",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "complete",
+    source: "Later checkpoint",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Different reporting window",
+    observations: [{
+      ...outcomeObservation,
+      value: 9,
+      windowStartsAt: "2026-08-01T00:00:00.000Z",
+      windowEndsAt: "2026-08-07T23:59:59.000Z",
+      capturedAt: "2026-08-08T10:00:00.000Z",
+      source: "Later checkpoint",
+      evidenceReference: "later-window",
+    }],
+  });
+  workspace = await service.completeRetrospective("workspace-1", {
+    calendarEntryId: entryId,
+    completedBy: "Campaign owner",
+    summary: "Use the planned outcome window only",
+    learnings: ["Later checkpoints should not silently replace the planned outcome window"],
+    decision: "continue",
+    attributionModel: "manual",
+    attributionUncertainty: "Manual attribution remains bounded",
+    evidenceReferences: ["delivery-proof-window", "planned-window", "later-window"],
+    reversibleNextAction: "Continue the same bounded experiment",
+    icpConfidenceEffect: "no_change",
+    icpConfidenceRationale: "The planned window is the comparison authority",
+    positioningEffect: "No positioning change",
+    learningChange: "Keep the planned observation window explicit",
+    learningOutcome: "Planned window produced three qualified reviews",
+    learningFollowUp: "Review later checkpoints separately",
+  });
+  const comparison = workspace.retrospectives[0]!.comparisons[0]!;
+  assert.equal(comparison.outcomeValue, 3);
+  assert.equal(comparison.delta, 3);
+});
+
 test("derived ratio records formula version and mixed-source provenance without hiding it", async () => {
   const { service } = fixture();
   let workspace = await approvedSchedule(service);

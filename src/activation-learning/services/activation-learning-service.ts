@@ -731,7 +731,10 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     if (entry.kind === "external_activation" && outcomes.length === 0) throw new Error("External-action retrospective requires delivery or failure evidence");
     const imports = workspace.performanceImports.filter((item) => item.calendarEntryId === entry.id);
     if (imports.length === 0) throw new Error("Retrospective requires a performance import, including explicit unavailable evidence when metrics are missing");
-    const comparisons = compareMetrics(plan.baseline, reconcileObservations(imports));
+    const plannedOutcomes = reconcileObservations(imports).filter((observation) =>
+      observation.windowStartsAt === plan.observationStartsAt
+      && observation.windowEndsAt === plan.observationEndsAt);
+    const comparisons = compareMetrics(plan.baseline, plannedOutcomes);
     const now = this.clock().toISOString();
     const retrospectiveId = this.createId();
     const retrospective: Retrospective = {
@@ -1203,12 +1206,12 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
 
   return [...groups.values()].map((group) => {
     const unique = dedupeEquivalentObservations(group);
-    const numeric = unique.filter((item) =>
-      ["observed", "verified_zero"].includes(item.state) && item.value !== undefined);
-    const numericValues = new Set(numeric.map((item) => item.value));
-    const units = new Set(unique.map((item) => normalizedUnit(item.unit)));
+    const numericEvidence = unique.filter((item) => item.value !== undefined);
+    const directNumeric = numericEvidence.filter((item) => ["observed", "verified_zero"].includes(item.state));
+    const numericValues = new Set(numericEvidence.map((item) => item.value));
+    const units = new Set(numericEvidence.map((item) => normalizedUnit(item.unit)));
     const explicitConflict = unique.some((item) => item.state === "conflict");
-    const incompatibleUnits = units.size > 1;
+    const incompatibleUnits = numericEvidence.length > 0 && units.size > 1;
 
     if (explicitConflict || incompatibleUnits || numericValues.size > 1) {
       const first = unique[0]!;
@@ -1230,9 +1233,9 @@ function reconcileObservations(imports: readonly PerformanceImport[]): readonly 
       };
     }
 
-    if (numeric.length > 0) {
-      const value = numeric[0]!.value;
-      const selected = numeric
+    if (directNumeric.length > 0) {
+      const value = directNumeric[0]!.value;
+      const selected = directNumeric
         .filter((item) => item.value === value)
         .slice()
         .sort((left, right) => left.id.localeCompare(right.id))[0]!;
