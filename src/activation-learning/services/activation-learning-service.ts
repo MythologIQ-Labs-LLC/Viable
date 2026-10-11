@@ -473,6 +473,8 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
 
   async importPerformance(workspaceId: string, input: Readonly<{
     calendarEntryId: string;
+    publicationExperimentId?: string;
+    providerPublicationId?: string;
     status: PerformanceImportStatus;
     source: string;
     sourceClassification: "human_recorded" | "provider_export" | "provider_api";
@@ -484,16 +486,43 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     requireText(input.importedBy, "Performance importer");
     requireText(input.notes, "Performance import notes");
     if (input.observations.length === 0) throw new Error("Performance import requires explicit metric evidence states");
-    rejectSecrets([input.source, input.importedBy, input.notes]);
+    rejectSecrets([
+      input.source,
+      input.importedBy,
+      input.notes,
+      input.publicationExperimentId ?? "",
+      input.providerPublicationId ?? "",
+      ...input.observations.flatMap((item) => [item.providerMetric ?? "", item.providerDefinition ?? ""]),
+    ]);
     const workspace = await this.load(workspaceId);
-    required(workspace.calendarEntries, input.calendarEntryId, "Calendar entry");
+    const entry = required(workspace.calendarEntries, input.calendarEntryId, "Calendar entry");
+    const publication = await this.resolvePerformancePublicationContext(
+      workspaceId,
+      workspace,
+      entry,
+      input.publicationExperimentId,
+      input.providerPublicationId,
+    );
     const observations = input.observations.map((item) => this.metricObservation(item));
     validateImportStatus(input.status, observations);
+    const normalizedDigest = await performanceImportDigest({
+      calendarEntryId: input.calendarEntryId,
+      publicationExperimentId: publication.publicationExperimentId,
+      providerPublicationId: publication.providerPublicationId,
+      source: input.source.trim(),
+      sourceClassification: input.sourceClassification,
+      observations,
+    });
+    if (workspace.performanceImports.some((record) => record.normalizedDigest === normalizedDigest)) return workspace;
+
     const now = this.clock().toISOString();
     const record: PerformanceImport = {
       id: this.createId(),
       workspaceId,
       calendarEntryId: input.calendarEntryId,
+      ...(publication.publicationExperimentId ? { publicationExperimentId: publication.publicationExperimentId } : {}),
+      ...(publication.providerPublicationId ? { providerPublicationId: publication.providerPublicationId } : {}),
+      normalizedDigest,
       status: input.status,
       source: input.source.trim(),
       sourceClassification: input.sourceClassification,
@@ -636,11 +665,21 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     requireText(input.evidenceReference, "Metric evidence reference");
     validateWindow(input.windowStartsAt, input.windowEndsAt, "Metric window");
     normalizedDate(input.capturedAt, "Metric capture time");
-    rejectSecrets([input.metric, input.source, input.evidenceReference, input.unit ?? "", input.limitation ?? ""]);
+    rejectSecrets([
+      input.metric,
+      input.providerMetric ?? "",
+      input.providerDefinition ?? "",
+      input.source,
+      input.evidenceReference,
+      input.unit ?? "",
+      input.limitation ?? "",
+    ]);
     validateMetricState(input.state, input.value, input.limitation);
     return {
       id: this.createId(),
-      metric: input.metric.trim(),
+      metric: normalizedMetricName(input.metric),
+      ...(input.providerMetric?.trim() ? { providerMetric: input.providerMetric.trim() } : {}),
+      ...(input.providerDefinition?.trim() ? { providerDefinition: input.providerDefinition.trim() } : {}),
       state: input.state,
       windowStartsAt: normalizedDate(input.windowStartsAt, "Metric window start"),
       windowEndsAt: normalizedDate(input.windowEndsAt, "Metric window end"),
@@ -650,6 +689,42 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
       ...(input.value !== undefined ? { value: input.value } : {}),
       ...(input.unit ? { unit: input.unit.trim() } : {}),
       ...(input.limitation ? { limitation: input.limitation.trim() } : {}),
+    };
+  }
+
+  private async resolvePerformancePublicationContext(
+    workspaceId: string,
+    workspace: ActivationLearningWorkspace,
+    entry: CalendarEntry,
+    publicationExperimentId?: string,
+    providerPublicationId?: string,
+  ): Promise<Readonly<{ publicationExperimentId?: string; providerPublicationId?: string }>> {
+    let experimentId: string | undefined;
+    if (publicationExperimentId?.trim()) {
+      const campaignWorkspace = await this.campaignStore.load(workspaceId);
+      const experiment = campaignWorkspace?.publicationExperiments?.find((record) => record.id === publicationExperimentId.trim());
+      if (!experiment) throw new Error("Publication experiment not found");
+      if (entry.source?.kind !== "campaign_variant" || entry.source.sourceId !== experiment.channelVariantId) {
+        throw new Error("Publication experiment does not match the Calendar campaign variant");
+      }
+      if (entry.destinationId !== experiment.destinationId) {
+        throw new Error("Publication experiment does not match the Calendar destination");
+      }
+      experimentId = experiment.id;
+    }
+
+    const recordedPublicationIds = workspace.deliveryOutcomes
+      .filter((outcome) => outcome.calendarEntryId === entry.id && outcome.publicationId)
+      .map((outcome) => outcome.publicationId!)
+      .filter((value, index, values) => values.indexOf(value) === index);
+    const requestedPublicationId = providerPublicationId?.trim() || undefined;
+    if (requestedPublicationId && recordedPublicationIds.length > 0 && !recordedPublicationIds.includes(requestedPublicationId)) {
+      throw new Error("Provider publication identifier does not match recorded delivery evidence");
+    }
+    const resolvedPublicationId = requestedPublicationId ?? (recordedPublicationIds.length === 1 ? recordedPublicationIds[0] : undefined);
+    return {
+      ...(experimentId ? { publicationExperimentId: experimentId } : {}),
+      ...(resolvedPublicationId ? { providerPublicationId: resolvedPublicationId } : {}),
     };
   }
 
@@ -866,6 +941,50 @@ function validateDeliveryEvidence(input: Readonly<{
   if (input.evidenceClassification !== "human_recorded" && input.evidenceReferences.length === 0) {
     throw new Error("Provider evidence requires evidence references");
   }
+}
+
+function normalizedMetricName(value: string): string {
+  const normalized = value.trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (!normalized) throw new Error("Metric name must contain letters or numbers");
+  return normalized;
+}
+
+async function performanceImportDigest(input: Readonly<{
+  calendarEntryId: string;
+  publicationExperimentId?: string;
+  providerPublicationId?: string;
+  source: string;
+  sourceClassification: PerformanceImport["sourceClassification"];
+  observations: readonly MetricObservation[];
+}>): Promise<string> {
+  const observations = input.observations
+    .map((item) => ({
+      metric: item.metric,
+      providerMetric: item.providerMetric ?? null,
+      providerDefinition: item.providerDefinition ?? null,
+      state: item.state,
+      value: item.value ?? null,
+      unit: item.unit?.trim().toLowerCase() ?? null,
+      windowStartsAt: item.windowStartsAt,
+      windowEndsAt: item.windowEndsAt,
+      capturedAt: item.capturedAt,
+      source: item.source,
+      evidenceReference: item.evidenceReference,
+      limitation: item.limitation ?? null,
+    }))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const canonical = JSON.stringify({
+    calendarEntryId: input.calendarEntryId,
+    publicationExperimentId: input.publicationExperimentId ?? null,
+    providerPublicationId: input.providerPublicationId ?? null,
+    source: input.source,
+    sourceClassification: input.sourceClassification,
+    observations,
+  });
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function validateMetricState(state: MetricEvidenceState, value: number | undefined, limitation: string | undefined): void {
