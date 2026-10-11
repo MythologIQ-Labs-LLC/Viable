@@ -246,7 +246,7 @@ export class CompositionExperimentService {
     const bindings = (workspace.publicationExperiments ?? []).filter((record) => record.compositionBriefId === brief.id);
     let approval: ReadinessState = "blocked";
     for (const binding of bindings) {
-      if ((await this.experimentStalenessReasons(workspace, product, binding)).length === 0) {
+      if ((await this.experimentStalenessReasons(workspace, product, activation, binding)).length === 0) {
         approval = "ready";
         break;
       }
