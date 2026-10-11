@@ -42,7 +42,7 @@ function contextValue(name: string, workspaceId: string): Record<string, unknown
       drafts: { icp: { kind: "icp", name: "Draft audience" } },
     };
     case "campaign": return { workspaceId, campaigns: [{ id: "campaign-1" }], contentBriefs: [], compositionBriefs: [], publicationExperiments: [], assets: [{ id: "asset-1" }], variants: [], exports: [{ id: "export-1" }], updatedAt: now().toISOString() };
-    case "signals": return { workspaceId, sources: [], sourceHealth: [], signals: [{ id: "signal-1" }], conversions: [], updatedAt: now().toISOString() };
+    case "signals": return { workspaceId, sources: [], sourceHealth: [], signals: [{ id: "signal-1" }], marketHypotheses: [], conversions: [], updatedAt: now().toISOString() };
     case "activation": return { workspaceId, destinations: [], calendarEntries: [{ id: "entry-1" }], packages: [], exportOperations: [], deliveryOutcomes: [], measurementPlans: [], performanceImports: [], derivedMetrics: [], cohortEvaluations: [], retrospectives: [], learningLedger: [], updatedAt: now().toISOString() };
     case "repositoryGrowth": return { workspaceId, repositories: [{ id: "repo-1" }], assessments: [], plans: [], launchRooms: [], exports: [], retrospectives: [], updatedAt: now().toISOString() };
     case "videoProduction": return { workspaceId, tools: [], briefs: [{ id: "video-brief-1" }], packages: [], artifacts: [], variants: [], updatedAt: now().toISOString() };
@@ -84,6 +84,40 @@ test("backup round-trip validates integrity and restores all contexts into an em
   const restored = targetService.restoreBackup(backup, "empty_profile");
   assert.equal(restored.contexts.filter((context) => context.status === "present").length, 7);
   assert.equal(target.getItem(PRODUCT_ACTIVE_KEY), "workspace-1");
+});
+
+test("legacy Signals workspace without market hypotheses remains backup-compatible", () => {
+  const storage = new MemoryStorage();
+  seedWorkspace(storage, "workspace-1");
+  const signalsKey = `${WORKSPACE_CONTEXTS[2].prefix}workspace-1`;
+  const signals = JSON.parse(storage.getItem(signalsKey)!) as Record<string, unknown>;
+  delete signals.marketHypotheses;
+  storage.setItem(signalsKey, JSON.stringify(signals));
+  const service = new WorkspaceLifecycleService(storage, now);
+  assert.equal(service.inspect("workspace-1").contexts.find((item) => item.name === "signals")?.status, "present");
+  assert.doesNotThrow(() => service.validateBackup(service.createBackup("workspace-1")));
+});
+
+test("market hypotheses survive portable backup and restore", () => {
+  const source = new MemoryStorage();
+  seedWorkspace(source, "workspace-1");
+  const signalsKey = `${WORKSPACE_CONTEXTS[2].prefix}workspace-1`;
+  const signals = JSON.parse(source.getItem(signalsKey)!) as Record<string, unknown>;
+  signals.marketHypotheses = [{
+    id: "hypothesis-1",
+    workspaceId: "workspace-1",
+    statement: "Bounded demand may exist",
+    status: "disputed",
+    evidenceLinks: [{ signalId: "signal-1", relation: "contradictory", applicability: "matching" }],
+    version: 2,
+  }];
+  source.setItem(signalsKey, JSON.stringify(signals));
+
+  const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
+  const target = new MemoryStorage();
+  new WorkspaceLifecycleService(target, now).restoreBackup(backup, "empty_profile");
+  const restored = JSON.parse(target.getItem(signalsKey)!) as { schemaVersion: number; workspace: Record<string, unknown> };
+  assert.deepEqual(restored.workspace.marketHypotheses, signals.marketHypotheses);
 });
 
 test("legacy campaign workspace without additive campaign collections remains backup-compatible", () => {
@@ -184,6 +218,22 @@ test("modified backup is rejected before any restore mutation", () => {
   target.setItem("unrelated.preference", "keep-me");
   const before = target.entries();
   assert.throws(() => new WorkspaceLifecycleService(target, now).restoreBackup(text, "empty_profile"), /integrity check failed/);
+  assert.deepEqual(target.entries(), before);
+});
+
+test("malformed optional market hypotheses array is rejected before restore mutation", () => {
+  const source = new MemoryStorage();
+  seedWorkspace(source, "workspace-1");
+  const backup = new WorkspaceLifecycleService(source, now).createBackup("workspace-1");
+  const malformed = JSON.parse(backup) as { contexts: { signals: Record<string, unknown> } };
+  malformed.contexts.signals.marketHypotheses = "not-an-array";
+  const target = new MemoryStorage();
+  target.setItem("unrelated.preference", "keep-me");
+  const before = target.entries();
+  assert.throws(
+    () => new WorkspaceLifecycleService(target, now).restoreBackup(JSON.stringify(malformed), "empty_profile"),
+    /Signals optional field marketHypotheses must be an array when present/,
+  );
   assert.deepEqual(target.entries(), before);
 });
 
