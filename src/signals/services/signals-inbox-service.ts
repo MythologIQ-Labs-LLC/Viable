@@ -425,10 +425,6 @@ export function assessMarketHypothesis(
     if (signal.reviewedAt !== link.signalReviewedAt) {
       staleReasons.push(`Linked signal ${link.signalId} review changed.`);
     }
-    const freshness = Date.parse(signal.freshnessReviewAt);
-    if (!Number.isFinite(freshness) || freshness < now.getTime()) {
-      staleReasons.push(`Linked signal ${link.signalId} is past its freshness review date.`);
-    }
     try {
       validateSignalEvidenceDates(signal, clock);
     } catch (error) {
