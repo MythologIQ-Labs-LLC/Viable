@@ -534,6 +534,12 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
     return this.persist({ ...workspace, performanceImports: [...workspace.performanceImports, record], updatedAt: now });
   }
 
+  async reconcilePerformanceEvidence(workspaceId: string, calendarEntryId: string): Promise<readonly MetricObservation[]> {
+    const workspace = await this.load(workspaceId);
+    required(workspace.calendarEntries, calendarEntryId, "Calendar entry");
+    return reconcileObservations(workspace.performanceImports.filter((record) => record.calendarEntryId === calendarEntryId));
+  }
+
   async completeRetrospective(workspaceId: string, input: Readonly<{
     calendarEntryId: string;
     completedBy: string;
