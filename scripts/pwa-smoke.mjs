@@ -1294,6 +1294,7 @@ async function run() {
           && cohortText.includes("Comparable publications 1")
           && cohortText.includes("policy v1")
           && cohortText.includes("three publications each")
+          && cohortText.includes("Group medians withheld until the evidence threshold is met")
           && cohortText.includes("Next experiment"),
           "small-sample cohort stays visibly insufficient and recommends another controlled experiment without declaring a winner",
         );
