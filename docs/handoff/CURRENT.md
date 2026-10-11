@@ -6,12 +6,12 @@ This is the restart entrypoint for Viable work. It preserves the context require
 
 Implementation truth lives in [`docs/status/current-state.md`](../status/current-state.md). This handoff says where work stands and what to do next. If they disagree, the status record and the repository win.
 
-## Repository state (2026-10-07)
+## Repository state (2026-10-11)
 
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `379050badeada9f84ff2a9afa8c39b5d3b7e4cb6` (#124, #129, #93, #134–#137, #109, and #139–#143 merged). The 2026-10-07 local-dogfood QA remediation is recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
+- `main` at review: `caf8c1ea4ae5d8356619e2bb098273d4dd87bb86` (through #165). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
@@ -23,6 +23,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 
 | PR | What it is | What remains |
 |---|---|---|
+| #172 | #167 composition brief + exact publication-experiment identity | Active candidate. Finish exact-head validation and independent review; do not close #167 until the visible Studio journey and portability contract pass. |
 | #144 | Cross-origin migration proof through the portable backup (#36) | Release-foundation evidence. Keep it isolated from product changes. |
 | Dependabot #121 | Development-tooling bumps | Triage independently. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
@@ -125,13 +126,13 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 
 ## Next priorities
 
-1. Run the #79/#81 human acceptance on `ux-candidate-2026-10-07c.md` (`7285d0d`, build `d8047c019a59`). It includes the #145 QA remediation, the #146/#147 follow-ups, and the P3 fixes #157–#161. Then fix only reproducible P0/P1 findings in narrow PRs.
-2. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
-3. Progress the remaining #36 durable-storage/recovery and operational-readiness work through the active bounded slices (currently #144). Leave public-hosting work until external distribution is justified.
-4. After the LinkedIn proof is stable, complete the #112 hands-on discoverability review and real-content dogfood.
-5. Keep dependency work separate from product convergence; do not raise the Rust baseline accidentally.
+1. Complete the owner-directed #156 productization-learning tranche in bounded order: #167 / PR #172 first, then #168 manual-first analytics evidence/reconciliation, then #169 comparable-age cohorts and conservative advisory learning.
+2. Preserve #79/#81 human acceptance as a release gate. The existing `ux-candidate-2026-10-07c.md` remains the frozen pre-#172 candidate; a new candidate must be recorded after product-facing #156 work stabilizes rather than pretending the old human-acceptance target covers new UI.
+3. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
+4. Progress the remaining #36 release-foundation evidence through isolated work such as #144. Leave public hosting until external distribution is justified.
+5. Keep #166 shared-provider mechanics, #170 Signals counterevidence, #171 hardening, and dependency work bounded and separate from canonical cross-product state.
 
-No new broad feature tranche precedes these.
+The productization work does not change release posture: no automated or cross-product evidence substitutes for the human gates or real provider proof.
 
 ## Engineering rules that keep recurring
 

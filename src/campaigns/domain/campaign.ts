@@ -27,6 +27,87 @@ export type ClaimReference = Readonly<{
   evidenceIds: readonly string[];
 }>;
 
+export type CompositionObjective =
+  | "awareness"
+  | "problem_education"
+  | "product_proof"
+  | "release"
+  | "repository_growth"
+  | "lead_generation"
+  | "customer_evidence"
+  | "market_learning"
+  | "other";
+
+export type ContentFamily =
+  | "observation"
+  | "contradiction"
+  | "problem_solution"
+  | "build_proof"
+  | "release_note"
+  | "case_evidence"
+  | "how_it_works"
+  | "opinion"
+  | "other";
+
+export type CompositionFormat = "text" | "image" | "video" | "document" | "link";
+export type ExternalLinkPolicy = "body" | "comment" | "none";
+export type ExperimentVariable = "topic" | "hook" | "tone" | "format" | "media" | "timing" | "audience" | "cta";
+
+export type CompositionBrief = Readonly<{
+  id: string;
+  workspaceId: string;
+  campaignId: string;
+  icpHypothesisId?: string;
+  objective: CompositionObjective;
+  primaryAudience: string;
+  desiredOutcome: string;
+  topic: string;
+  contentFamily: ContentFamily;
+  hookArchetype?: string;
+  toneConstraints: readonly string[];
+  claimReferences: readonly ClaimReference[];
+  evidenceIds: readonly string[];
+  prohibitedClaims: readonly string[];
+  destinationId: string;
+  format: CompositionFormat;
+  mediaAssetIds: readonly string[];
+  callToAction?: string;
+  externalLinkPolicy: ExternalLinkPolicy;
+  hypothesis: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  history?: readonly AuthorityRevision[];
+}>;
+
+export type PublicationExperimentStatus =
+  | "draft"
+  | "approved"
+  | "scheduled"
+  | "publishing"
+  | "published"
+  | "outcome_unknown"
+  | "failed";
+
+export type PublicationExperiment = Readonly<{
+  id: string;
+  workspaceId: string;
+  compositionBriefId: string;
+  compositionBriefVersion: number;
+  compositionBriefSha256: string;
+  channelVariantId: string;
+  channelVariantVersion: number;
+  channelVariantBodySha256: string;
+  destinationId: string;
+  provider: string;
+  timezone: string;
+  expectedOutcome: string;
+  changedVariables: readonly ExperimentVariable[];
+  status: PublicationExperimentStatus;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
 export type CampaignBrief = Readonly<{
   id: string;
   workspaceId: string;
@@ -159,6 +240,8 @@ export type CampaignWorkspace = Readonly<{
   workspaceId: string;
   campaigns: readonly CampaignBrief[];
   contentBriefs?: readonly ContentBrief[];
+  compositionBriefs?: readonly CompositionBrief[];
+  publicationExperiments?: readonly PublicationExperiment[];
   assets: readonly CanonicalAsset[];
   variants: readonly ChannelVariant[];
   exports: readonly ManualExportPackage[];

@@ -5,8 +5,8 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-10-07 |
-| Reviewed against | `main` through `379050badeada9f84ff2a9afa8c39b5d3b7e4cb6` (#109, #134–#137, and #139–#143 included), plus the 2026-10-07 local-dogfood QA remediation (`docs/reviews/local-dogfood-qa-2026-10-07.md`) and the open human-gated work listed below |
+| Last reviewed | 2026-10-11 |
+| Reviewed against | `main` through `caf8c1ea4ae5d8356619e2bb098273d4dd87bb86` (#165 included), plus the #167 / PR #172 composition-experiment candidate on this branch and the open human/release gates listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -44,6 +44,8 @@ npm run pwa:selfhost   # serves http://localhost:4175
 ```
 
 The native Tauri runtime is retained only where a capability earns it: the OS credential vault and connected provider publishing.
+
+**2026-10-11 productization-learning resumption:** issue #156 has been decomposed into #167–#169 after reviewing recent Job Ranger evidence. PR #172 is the active #167 candidate: revisioned Campaign-owned composition briefs, deterministic readiness, active destination validation, exact composition/approved-variant fingerprints, staleness detection, portable backup/restore, and a visible production-PWA Studio journey. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
 
 Viable is suitable for **persistent local dogfooding in a Chromium desktop browser**. It is **not** a supported end-user release: human acceptance, generalized schema migration/rollback, per-browser storage-eviction evidence, public-origin deployment trust, and operational support remain open.
 
@@ -167,6 +169,11 @@ Website Watch Stage 1 does not perform live collection, Context.dev requests, We
 ### Campaigns and Studio
 
 - Product Core-traceable campaign briefs;
+- revisioned composition briefs that structure productization intent without generating prose (#167 / PR #172 candidate);
+- separate truth, audience, message, channel, experiment, and approval readiness facets;
+- active Calendar/Activation destination validation for composition work;
+- publication-experiment identity bound to exact composition revision and exact approved channel-variant SHA-256 fingerprints;
+- visible stale-binding detection after Product Core, Campaign, destination, composition, or variant authority changes;
 - selected ICP or deliberate test audience;
 - one primary audience and outcome;
 - canonical assets and channel variants;

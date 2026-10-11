@@ -7,12 +7,23 @@ import type {
   CanonicalAsset,
   ChannelKind,
   ChannelVariant,
+  CompositionBrief,
+  CompositionObjective,
+  ContentFamily,
+  ExperimentVariable,
   ManualExportPackage,
 } from "../../../src/campaigns/domain/campaign.js";
 import { CampaignService } from "../../../src/campaigns/services/campaign-service.js";
+import {
+  CompositionExperimentService,
+  type CompositionAssessment,
+  type ExperimentFreshness,
+} from "../../../src/campaigns/services/composition-experiment-service.js";
+import type { ActivationLearningWorkspace } from "../../../src/activation-learning/domain/activation-learning.js";
 import { discoverabilityFieldset, discoverabilityFromForm, discoverabilityPanel } from "./discoverability-view.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
+import { LocalStorageActivationLearningStore } from "./local-storage-activation-learning-store.js";
 
 const CHANNELS: readonly ChannelKind[] = ["linkedin", "facebook_page", "instagram_feed", "website", "github_release"];
 const CHANNEL_LABELS: Record<ChannelKind, string> = {
@@ -23,6 +34,18 @@ const CHANNEL_LABELS: Record<ChannelKind, string> = {
   github_release: "GitHub release",
 };
 
+const COMPOSITION_OBJECTIVES: readonly CompositionObjective[] = [
+  "awareness", "problem_education", "product_proof", "release", "repository_growth",
+  "lead_generation", "customer_evidence", "market_learning", "other",
+];
+const CONTENT_FAMILIES: readonly ContentFamily[] = [
+  "observation", "contradiction", "problem_solution", "build_proof", "release_note",
+  "case_evidence", "how_it_works", "opinion", "other",
+];
+const EXPERIMENT_VARIABLES: readonly ExperimentVariable[] = [
+  "topic", "hook", "tone", "format", "media", "timing", "audience", "cta",
+];
+
 const escapeHtml = (value: unknown): string => String(value ?? "")
   .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -32,19 +55,24 @@ const checkedValues = (form: FormData, name: string): string[] => form.getAll(na
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not reviewed";
 const label = (value: string): string => value.replaceAll("_", " ");
 const tone = (status: string): string =>
-  ["approved", "manual_export_ready"].includes(status) ? "implemented"
-  : ["draft", "in_review", "changes_requested", "approval_invalidated", "proposed"].includes(status) ? "warning"
-  : ["rejected", "error"].includes(status) ? "error"
+  ["approved", "manual_export_ready", "ready", "current"].includes(status) ? "implemented"
+  : ["draft", "in_review", "changes_requested", "approval_invalidated", "proposed", "blocked"].includes(status) ? "warning"
+  : ["rejected", "error", "stale"].includes(status) ? "error"
   : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
 
 export class CampaignsViewController {
   private readonly productStore = new LocalStorageProductWorkspaceStore();
   private readonly campaignStore = new LocalStorageCampaignWorkspaceStore();
+  private readonly activationStore = new LocalStorageActivationLearningStore();
   private readonly productService = new ProductCoreService(this.productStore);
   private readonly campaignService = new CampaignService(this.campaignStore, this.productStore);
+  private readonly compositionService = new CompositionExperimentService(this.campaignStore, this.productStore, this.activationStore);
   private product: ProductWorkspace | undefined;
   private campaigns: CampaignWorkspace | undefined;
+  private activation: ActivationLearningWorkspace | undefined;
+  private readonly compositionAssessments = new Map<string, CompositionAssessment>();
+  private readonly experimentFreshness = new Map<string, ExperimentFreshness>();
   private failure: string | undefined;
 
   constructor(
@@ -53,8 +81,15 @@ export class CampaignsViewController {
   ) {}
 
   async load(): Promise<void> {
-    this.product = await this.productStore.load(this.workspaceId);
-    this.campaigns = await this.campaignStore.load(this.workspaceId) ?? emptyCampaignWorkspace(this.workspaceId);
+    const [product, campaigns, activation] = await Promise.all([
+      this.productStore.load(this.workspaceId),
+      this.campaignStore.load(this.workspaceId),
+      this.activationStore.load(this.workspaceId),
+    ]);
+    this.product = product;
+    this.campaigns = campaigns ?? emptyCampaignWorkspace(this.workspaceId);
+    this.activation = activation;
+    await this.refreshCompositionState();
   }
 
   render(page: "campaigns" | "studio"): string {
@@ -104,6 +139,60 @@ export class CampaignsViewController {
           dependencies: lineValues(form.get("dependencies")),
         });
         return "Campaign brief created as a draft";
+      }
+      if (kind === "campaign-create-composition") {
+        this.campaigns = await this.compositionService.createCompositionBrief(this.workspaceId, {
+          campaignId: String(form.get("campaignId")),
+          objective: String(form.get("objective")) as CompositionObjective,
+          desiredOutcome: String(form.get("desiredOutcome")),
+          topic: String(form.get("topic")),
+          contentFamily: String(form.get("contentFamily")) as ContentFamily,
+          hookArchetype: String(form.get("hookArchetype") ?? ""),
+          toneConstraints: lineValues(form.get("toneConstraints")),
+          prohibitedClaims: lineValues(form.get("prohibitedClaims")),
+          destinationId: String(form.get("destinationId")),
+          format: String(form.get("format")) as CompositionBrief["format"],
+          mediaAssetIds: lineValues(form.get("mediaAssetIds")),
+          callToAction: String(form.get("callToAction") ?? ""),
+          externalLinkPolicy: String(form.get("externalLinkPolicy")) as CompositionBrief["externalLinkPolicy"],
+          hypothesis: String(form.get("hypothesis")),
+        });
+        return "Composition brief saved as structured guidance; no content was generated";
+      }
+      if (kind === "campaign-revise-composition") {
+        this.campaigns = await this.compositionService.reviseCompositionBrief(
+          this.workspaceId,
+          String(form.get("compositionBriefId")),
+          {
+            editor: String(form.get("editor")),
+            rationale: String(form.get("rationale")),
+            objective: String(form.get("objective")) as CompositionObjective,
+            desiredOutcome: String(form.get("desiredOutcome")),
+            topic: String(form.get("topic")),
+            contentFamily: String(form.get("contentFamily")) as ContentFamily,
+            hookArchetype: String(form.get("hookArchetype") ?? ""),
+            toneConstraints: lineValues(form.get("toneConstraints")),
+            prohibitedClaims: lineValues(form.get("prohibitedClaims")),
+            destinationId: String(form.get("destinationId")),
+            format: String(form.get("format")) as CompositionBrief["format"],
+            mediaAssetIds: lineValues(form.get("mediaAssetIds")),
+            callToAction: String(form.get("callToAction") ?? ""),
+            externalLinkPolicy: String(form.get("externalLinkPolicy")) as CompositionBrief["externalLinkPolicy"],
+            hypothesis: String(form.get("hypothesis")),
+          },
+        );
+        return "Composition intent revised; prior experiment bindings may now be stale";
+      }
+      if (kind === "campaign-bind-experiment") {
+        this.campaigns = await this.compositionService.bindPublicationExperiment(this.workspaceId, {
+          compositionBriefId: String(form.get("compositionBriefId")),
+          channelVariantId: String(form.get("channelVariantId")),
+          provider: String(form.get("provider")),
+          timezone: String(form.get("timezone")),
+          expectedOutcome: String(form.get("expectedOutcome")),
+          changedVariables: checkedValues(form, "changedVariables") as ExperimentVariable[],
+        });
+        return "Exact approved channel variant bound to the publication experiment";
       }
       if (kind === "campaign-create-asset") {
         this.campaigns = await this.campaignService.createCanonicalAsset(this.workspaceId, {
@@ -346,6 +435,7 @@ export class CampaignsViewController {
         <article><span>Channel variants</span><strong>${workspace.variants.length}</strong><small>${workspace.variants.filter((item) => item.status === "approved").length} approved</small></article>
         <article><span>Manual exports</span><strong>${workspace.exports.length}</strong><small>Never publishing approval</small></article>
       </section>
+      ${this.compositionSection(approvedCampaigns)}
       <section class="panel" aria-labelledby="asset-create-heading">
         <div class="section-heading"><div><p class="eyebrow">Canonical asset</p><h3 id="asset-create-heading">Create the source of meaning</h3></div>${pill(approvedCampaigns.length ? "ready" : "blocked")}</div>
         ${approvedCampaigns.length ? this.assetForm(approvedCampaigns) : `<div class="state empty"><strong>No approved campaign is available.</strong><span>Approve a campaign brief before creating a canonical asset.</span></div>`}
@@ -425,14 +515,141 @@ export class CampaignsViewController {
     return `<article class="record"><div class="record-top"><h4>Manual export · ${humanDate(record.createdAt)}</h4>${pill(record.status)}</div><p><strong>Included channels:</strong> ${escapeHtml(channels.map((channel) => CHANNEL_LABELS[channel]).join(" · "))}${legacy}</p><p><strong>Not approved for publishing.</strong> Not delivered. No destination or credential is included.</p><details><summary>Inspect manifest</summary><pre>${escapeHtml(record.manifest)}</pre></details><div class="actions"><button type="button" data-campaign-action="download-export" data-id="${record.id}">Download manifest</button></div></article>`;
   }
 
+  private compositionSection(approvedCampaigns: readonly CampaignBrief[]): string {
+    const workspace = this.campaigns!;
+    const briefs = workspace.compositionBriefs ?? [];
+    const experiments = workspace.publicationExperiments ?? [];
+    const destinations = (this.activation?.destinations ?? []).filter((record) => record.status === "active");
+    const approvedVariants = workspace.variants.filter((record) => record.status === "approved");
+    const canCreate = approvedCampaigns.length > 0 && destinations.length > 0;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const objectiveOptions = COMPOSITION_OBJECTIVES.map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("");
+    const familyOptions = CONTENT_FAMILIES.map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("");
+    const destinationOptions = destinations.map((record) => `<option value="${record.id}">${escapeHtml(record.label)} · ${escapeHtml(label(record.channel))}</option>`).join("");
+
+    return `<section class="panel" aria-labelledby="composition-heading">
+      <div class="section-heading"><div><p class="eyebrow">Composition experiments</p><h3 id="composition-heading">Structure the decision before writing the post</h3></div>${pill(`${briefs.length} briefs`)}</div>
+      <p class="guidance">Viable records objective, audience, evidence, hook, format and hypothesis without generating prose. Publication experiments bind only to an exact approved channel variant.</p>
+      ${canCreate ? `<details><summary>Create composition brief</summary><form data-form="campaign-create-composition">
+        <div class="two"><label>Approved campaign<select name="campaignId" required>${approvedCampaigns.map((record) => `<option value="${record.id}">${escapeHtml(record.title)}</option>`).join("")}</select></label>
+        <label>Destination<select name="destinationId" required>${destinationOptions}</select></label></div>
+        <div class="three"><label>Objective<select name="objective">${objectiveOptions}</select></label><label>Content family<select name="contentFamily">${familyOptions}</select></label><label>Format<select name="format"><option value="text">Text</option><option value="image">Image</option><option value="video">Video</option><option value="document">Document</option><option value="link">Link</option></select></label></div>
+        <div class="two"><label>Desired outcome<input name="desiredOutcome" required></label><label>Topic<input name="topic" required></label></div>
+        <div class="two"><label>Hook archetype<input name="hookArchetype" placeholder="Optional structured hook label"></label><label>Call to action<input name="callToAction" placeholder="Optional unless the objective requires it"></label></div>
+        <div class="two"><label>Tone constraints, one per line<textarea name="toneConstraints" rows="3"></textarea></label><label>Prohibited claims, one per line<textarea name="prohibitedClaims" rows="3"></textarea></label></div>
+        <div class="two"><label>Media references, one per line<textarea name="mediaAssetIds" rows="3"></textarea></label><label>External link policy<select name="externalLinkPolicy"><option value="none">No external link</option><option value="body">Link in body</option><option value="comment">Link in comment</option></select></label></div>
+        <label>Experiment hypothesis<textarea name="hypothesis" rows="3" required placeholder="What do you expect to learn, and why?"></textarea></label>
+        <button class="primary" type="submit">Save composition brief</button>
+      </form></details>` : `<div class="state warning"><strong>Composition planning is blocked.</strong><span>${approvedCampaigns.length === 0 ? "Approve a Campaign first." : "Create an active destination in Calendar / Activation first."}</span></div>`}
+      <div class="cards">${briefs.length ? briefs.slice().reverse().map((brief) => this.compositionCard(brief)).join("") : `<div class="state empty"><strong>No composition briefs yet.</strong><span>Create structured intent before comparing publishing experiments.</span></div>`}</div>
+      ${briefs.length && approvedVariants.length ? `<details><summary>Bind an exact approved variant to an experiment</summary><form data-form="campaign-bind-experiment">
+        <div class="two"><label>Composition brief<select name="compositionBriefId" required>${briefs.map((brief) => `<option value="${brief.id}">${escapeHtml(brief.topic)} · ${escapeHtml(label(brief.objective))}</option>`).join("")}</select></label>
+        <label>Approved variant<select name="channelVariantId" required>${approvedVariants.map((variant) => `<option value="${variant.id}">${escapeHtml(this.variantLabel(variant))}</option>`).join("")}</select></label></div>
+        <div class="three"><label>Provider / evidence source<input name="provider" required value="manual"></label><label>Timezone<input name="timezone" required value="${escapeHtml(timezone)}"></label><label>Expected outcome<input name="expectedOutcome" required></label></div>
+        <fieldset class="dimension"><legend>Variables intentionally changed</legend>${EXPERIMENT_VARIABLES.map((value) => `<label><input type="checkbox" name="changedVariables" value="${value}"> ${escapeHtml(label(value))}</label>`).join("")}</fieldset>
+        <button class="primary" type="submit">Bind exact approved variant</button>
+      </form></details>` : `<div class="state empty"><strong>No experiment can be bound yet.</strong><span>Create a composition brief and approve at least one channel variant.</span></div>`}
+      <div class="cards">${experiments.length ? experiments.slice().reverse().map((record) => this.experimentCard(record.id)).join("") : ""}</div>
+    </section>`;
+  }
+
+  private compositionCard(brief: CompositionBrief): string {
+    const assessment = this.compositionAssessments.get(brief.id);
+    const readiness = assessment?.readiness;
+    const facets = readiness
+      ? Object.entries(readiness).map(([name, state]) => `${pill(state)} <span>${escapeHtml(label(name))}</span>`).join(" ")
+      : pill("blocked");
+    const findings = assessment?.findings ?? [];
+    const campaign = this.campaigns?.campaigns.find((record) => record.id === brief.campaignId);
+    const destinations = (this.activation?.destinations ?? []).filter((record) =>
+      record.status === "active" && !!campaign?.channels.includes(record.channel as ChannelKind));
+    const objectiveOptions = COMPOSITION_OBJECTIVES.map((value) =>
+      `<option value="${value}"${value === brief.objective ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+    const familyOptions = CONTENT_FAMILIES.map((value) =>
+      `<option value="${value}"${value === brief.contentFamily ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+    const formatOptions = ["text", "image", "video", "document", "link"].map((value) =>
+      `<option value="${value}"${value === brief.format ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+    const destinationOptions = destinations.map((record) =>
+      `<option value="${record.id}"${record.id === brief.destinationId ? " selected" : ""}>${escapeHtml(record.label)} · ${escapeHtml(label(record.channel))}</option>`).join("");
+    const linkOptions = ["none", "body", "comment"].map((value) =>
+      `<option value="${value}"${value === brief.externalLinkPolicy ? " selected" : ""}>${escapeHtml(label(value))}</option>`).join("");
+
+    return `<article class="record"><div class="record-top"><h4>${escapeHtml(brief.topic)}</h4><div>${pill(brief.objective)} ${pill(`v${brief.version}`)}</div></div>
+      <p>${escapeHtml(brief.hypothesis)}</p>
+      <p class="guidance">${facets}</p>
+      <dl><div><dt>Audience</dt><dd>${escapeHtml(brief.primaryAudience)}</dd></div><div><dt>Outcome</dt><dd>${escapeHtml(brief.desiredOutcome)}</dd></div><div><dt>Family</dt><dd>${escapeHtml(label(brief.contentFamily))}</dd></div><div><dt>Format</dt><dd>${escapeHtml(label(brief.format))}</dd></div></dl>
+      ${findings.length ? `<details><summary>${findings.length} guidance finding${findings.length === 1 ? "" : "s"}</summary><ul>${findings.map((finding) => `<li><strong>${escapeHtml(label(finding.severity))}</strong>: ${escapeHtml(finding.message)}</li>`).join("")}</ul></details>` : `<p class="guidance">No deterministic guidance findings.</p>`}
+      <details><summary>Revise composition intent</summary><form data-form="campaign-revise-composition">
+        <input type="hidden" name="compositionBriefId" value="${brief.id}">
+        <div class="two"><label>Named editor<input name="editor" required value="${escapeHtml(this.defaultOwner)}"></label><label>Revision rationale<input name="rationale" required></label></div>
+        <div class="two"><label>Destination<select name="destinationId" required>${destinationOptions}</select></label><label>Objective<select name="objective">${objectiveOptions}</select></label></div>
+        <div class="three"><label>Content family<select name="contentFamily">${familyOptions}</select></label><label>Format<select name="format">${formatOptions}</select></label><label>External link policy<select name="externalLinkPolicy">${linkOptions}</select></label></div>
+        <div class="two"><label>Desired outcome<input name="desiredOutcome" required value="${escapeHtml(brief.desiredOutcome)}"></label><label>Topic<input name="topic" required value="${escapeHtml(brief.topic)}"></label></div>
+        <div class="two"><label>Hook archetype<input name="hookArchetype" value="${escapeHtml(brief.hookArchetype ?? "")}"></label><label>Call to action<input name="callToAction" value="${escapeHtml(brief.callToAction ?? "")}"></label></div>
+        <div class="two"><label>Tone constraints<textarea name="toneConstraints" rows="3">${escapeHtml(brief.toneConstraints.join("\n"))}</textarea></label><label>Prohibited claims<textarea name="prohibitedClaims" rows="3">${escapeHtml(brief.prohibitedClaims.join("\n"))}</textarea></label></div>
+        <label>Media references<textarea name="mediaAssetIds" rows="2">${escapeHtml(brief.mediaAssetIds.join("\n"))}</textarea></label>
+        <label>Experiment hypothesis<textarea name="hypothesis" rows="3" required>${escapeHtml(brief.hypothesis)}</textarea></label>
+        <button type="submit">Save composition revision</button>
+      </form></details>
+    </article>`;
+  }
+
+  private experimentCard(experimentId: string): string {
+    const record = (this.campaigns?.publicationExperiments ?? []).find((candidate) => candidate.id === experimentId);
+    if (!record) return "";
+    const freshness = this.experimentFreshness.get(record.id);
+    const state = freshness?.stale ? "stale" : "current";
+    const variant = this.campaigns?.variants.find((candidate) => candidate.id === record.channelVariantId);
+    return `<article class="record"><div class="record-top"><h4>${escapeHtml(variant ? this.variantLabel(variant) : record.channelVariantId)}</h4>${pill(state)}</div>
+      <p>${escapeHtml(record.expectedOutcome)}</p>
+      <dl><div><dt>Provider</dt><dd>${escapeHtml(record.provider)}</dd></div><div><dt>Composition revision</dt><dd>v${record.compositionBriefVersion} · <code>${escapeHtml(record.compositionBriefSha256.slice(0, 12))}…</code></dd></div><div><dt>Exact variant revision</dt><dd>v${record.channelVariantVersion}</dd></div><div><dt>Changed variables</dt><dd>${escapeHtml(record.changedVariables.map(label).join(" · "))}</dd></div><div><dt>Fingerprint</dt><dd><code>${escapeHtml(record.channelVariantBodySha256.slice(0, 12))}…</code></dd></div></dl>
+      ${freshness?.reasons.length ? `<div class="state warning"><strong>Binding is stale.</strong><span>${escapeHtml(freshness.reasons.join(" "))}</span></div>` : `<p class="guidance">The exact approved content binding is current. This does not itself authorize publishing or claim delivery.</p>`}
+    </article>`;
+  }
+
+  private variantLabel(variant: ChannelVariant): string {
+    const asset = this.campaigns?.assets.find((record) => record.id === variant.canonicalAssetId);
+    return `${CHANNEL_LABELS[variant.channel]} · ${asset?.title ?? "Canonical asset"} · v${variant.version}`;
+  }
+
   private failureState(page: "campaigns" | "studio"): string {
     return this.failure ? `<section class="state error" role="alert"><div><strong>Campaign operation failed.</strong><p>${escapeHtml(this.failure)}</p></div><button type="button" data-campaign-action="recover" data-page="${page}">Return to saved campaign workspace</button></section>` : "";
   }
 
+  private async refreshCompositionState(): Promise<void> {
+    this.compositionAssessments.clear();
+    this.experimentFreshness.clear();
+    for (const brief of this.campaigns?.compositionBriefs ?? []) {
+      try {
+        this.compositionAssessments.set(brief.id, await this.compositionService.assessCompositionBrief(this.workspaceId, brief.id));
+      } catch {
+        // The visible operation failure path handles mutations. A stale/malformed saved record
+        // stays visibly blocked instead of preventing the rest of Studio from rendering.
+      }
+    }
+    for (const experiment of this.campaigns?.publicationExperiments ?? []) {
+      try {
+        this.experimentFreshness.set(experiment.id, await this.compositionService.assessExperimentFreshness(this.workspaceId, experiment.id));
+      } catch (error) {
+        this.experimentFreshness.set(experiment.id, {
+          experimentId: experiment.id,
+          stale: true,
+          reasons: [error instanceof Error ? error.message : "Experiment authority could not be revalidated."],
+        });
+      }
+    }
+  }
+
   private async reloadProduct(): Promise<void> {
-    this.product = await this.productStore.load(this.workspaceId);
-    const savedCampaigns = await this.campaignStore.load(this.workspaceId);
+    const [product, savedCampaigns, activation] = await Promise.all([
+      this.productStore.load(this.workspaceId),
+      this.campaignStore.load(this.workspaceId),
+      this.activationStore.load(this.workspaceId),
+    ]);
+    this.product = product;
     if (savedCampaigns) this.campaigns = savedCampaigns;
+    this.activation = activation;
+    await this.refreshCompositionState();
   }
 }
 
@@ -446,7 +663,17 @@ function asDecision(value?: string): "approved" | "rejected" | "changes_requeste
 }
 
 function emptyCampaignWorkspace(workspaceId: string): CampaignWorkspace {
-  return { workspaceId, campaigns: [], assets: [], variants: [], exports: [], updatedAt: new Date().toISOString() };
+  return {
+    workspaceId,
+    campaigns: [],
+    contentBriefs: [],
+    compositionBriefs: [],
+    publicationExperiments: [],
+    assets: [],
+    variants: [],
+    exports: [],
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function downloadManifest(record: ManualExportPackage): void {

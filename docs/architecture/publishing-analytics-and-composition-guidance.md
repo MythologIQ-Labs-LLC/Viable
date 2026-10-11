@@ -13,6 +13,20 @@ The guiding rule is:
 
 > **Viable may structure, validate, compare, and recommend from explicit evidence. It does not need to generate prose to help a user make a better product-marketing decision.**
 
+### Implementation status
+
+The first composition/experiment slice is implemented by #167 / PR #172:
+
+- Campaign-owned, revisioned composition briefs;
+- Product Core claim/evidence revalidation;
+- active Calendar/Activation destination authority;
+- separate readiness facets and deterministic guidance;
+- exact composition-revision and approved-channel-variant SHA-256 bindings;
+- visible staleness when the composition context, Product Core authority, destination, campaign, or approved variant changes;
+- portable backup/restore coverage and a production-PWA UI-only journey.
+
+Analytics snapshots, provider-backed collection, comparison cohorts, and advisory learning remain subsequent #156 slices (#168/#169). The implementation was informed by cross-product evidence from Job Ranger, but no AGPL-3.0 Job Ranger source is copied into Apache-2.0 Viable.
+
 ## Product boundary
 
 This domain exists to improve the market presence of a product, repository, launch, campaign, or offer.
@@ -79,8 +93,8 @@ type CompositionObjective =
 
 interface CompositionBrief {
   id: string;
-  productId: string;
-  campaignId?: string;
+  workspaceId: string;
+  campaignId: string;
   icpHypothesisId?: string;
   objective: CompositionObjective;
   primaryAudience: string;
@@ -98,16 +112,19 @@ interface CompositionBrief {
     | "other";
   hookArchetype?: string;
   toneConstraints: string[];
-  requiredClaims: string[];
+  claimReferences: ClaimReference[];
+  evidenceIds: string[];
   prohibitedClaims: string[];
-  evidenceReferences: string[];
   destinationId: string;
   format: "text" | "image" | "video" | "document" | "link";
   mediaAssetIds: string[];
   callToAction?: string;
   externalLinkPolicy: "body" | "comment" | "none";
   hypothesis: string;
+  version: number;
   createdAt: string;
+  updatedAt: string;
+  history?: AuthorityRevision[];
 }
 ```
 
@@ -201,14 +218,17 @@ Successful publication must bind the exact experiment context to the provider re
 ```ts
 interface PublicationExperiment {
   id: string;
+  workspaceId: string;
   compositionBriefId: string;
-  approvedAssetVersionId: string;
+  compositionBriefVersion: number;
+  compositionBriefSha256: string;
+  channelVariantId: string;
+  channelVariantVersion: number;
+  channelVariantBodySha256: string;
   destinationId: string;
   provider: string;
-  scheduledFor?: string;
-  publishedAt?: string;
   timezone: string;
-  providerPublicationId?: string;
+  expectedOutcome: string;
   status:
     | "draft"
     | "approved"
@@ -223,7 +243,7 @@ interface PublicationExperiment {
 }
 ```
 
-The provider publication ID is required before automatic provider analytics can be associated with the experiment.
+The experiment record is the immutable local identity for the planning context and exact approved content. Delivery/publication evidence remains owned by Activation and Learning. A provider publication ID or equivalent delivery receipt must be linked before automatic provider analytics can be associated with the experiment.
 
 ## 3. Provider capability contract
 
