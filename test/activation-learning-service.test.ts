@@ -584,7 +584,7 @@ test("24h cohort uses historical experiment context, one observation per experim
   assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-seven-day" && /24h/.test(item.reason)));
   assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-mismatch" && /definition/.test(item.reason)));
   assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-multi" && /Single-variable hook/.test(item.reason)));
-  assert.match(evaluation.advisory, /not enough evidence/i);
+  assert.match(evaluation.advisory, /three publications each/i);
   assert.match(evaluation.limitation, /product guidance, not statistical proof/i);
 });
 
