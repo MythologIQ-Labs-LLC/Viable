@@ -29,6 +29,7 @@
     "desktop:web:check": "tsc -p apps/desktop/tsconfig.json --noEmit",
     "pwa:build": "npm run desktop:web && node scripts/build-pwa.mjs",
     "pwa:smoke": "node scripts/pwa-smoke.mjs",
+    "pwa:origin-migration": "node scripts/pwa-origin-migration-smoke.mjs",
     "acceptance:seed": "npm run build && node scripts/build-acceptance-seed.mjs",
     "security:patterns": "node scripts/check-secret-patterns.mjs",
     "security:scan": "node scripts/scan-secrets.mjs",

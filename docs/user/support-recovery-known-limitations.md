@@ -89,7 +89,7 @@ Downloading a support report does not upload it and is not consent to share it.
 
 - Viable is not a supported public end-user release.
 - A public HTTPS production origin has not been selected because ordinary external distribution has not yet been justified.
-- Browser storage is origin-bound. The canonical dogfood origin is exactly `http://localhost:4175`; localhost → future public-origin migration by portable backup still needs explicit validation.
+- Browser storage is origin-bound. The canonical dogfood origin is exactly `http://localhost:4175`. CI now proves migration between two distinct local origins using only `viable.workspace-backup`: the second origin begins empty, restore makes its own IndexedDB copy, and the first origin remains independent. A real public HTTPS host is still deferred and must repeat this contract when one is selected.
 - Firefox remains experimental pending the #139 harness correction and fresh main evidence.
 - Linux Playwright WebKit has an undiagnosed restore/reload crash; real Safari has not been accepted.
 - Real browser/operating-system storage-pressure eviction and hard quota exhaustion cannot be induced deterministically in every test engine. #137 proves the application behavior with simulated eviction/refused writes and reports actual persistence/quota observations.

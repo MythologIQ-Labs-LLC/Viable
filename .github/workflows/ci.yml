@@ -198,6 +198,30 @@ jobs:
       - name: Enforce PWA smoke result
         if: steps.pwa_smoke.outputs.status != '0'
         run: exit 1
+      - name: Validate portable backup migration between browser origins
+        id: pwa_origin_migration
+        shell: bash
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          set +e
+          npm run pwa:origin-migration 2>&1 | tee pwa-origin-migration.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload PWA origin migration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pwa-origin-migration
+          path: |
+            pwa-origin-migration-report.json
+            pwa-origin-migration.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Enforce PWA origin migration result
+        if: steps.pwa_origin_migration.outputs.status != '0'
+        run: exit 1
       - name: Upload chromium capability report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

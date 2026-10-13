@@ -22,7 +22,9 @@ requireCondition(packageJson.scripts?.build?.includes("clean:core"), "Core build
 requireCondition(packageJson.scripts?.["desktop:web"]?.includes("clean:desktop"), "Desktop web builds must remove stale output before compilation");
 requireCondition(packageJson.scripts?.["pwa:serve"] === "node scripts/serve-pwa.mjs", "PWA serve command must use the checked-in stable localhost server");
 requireCondition(packageJson.scripts?.["pwa:selfhost"] === "npm run pwa:build && npm run pwa:serve", "PWA self-host command must build before serving the production shell");
+requireCondition(packageJson.scripts?.["pwa:origin-migration"] === "node scripts/pwa-origin-migration-smoke.mjs", "PWA origin migration proof must remain a named validation command");
 execFileSync(process.execPath, ["--check", "scripts/serve-pwa.mjs"], { cwd: root, stdio: "pipe" });
+execFileSync(process.execPath, ["--check", "scripts/pwa-origin-migration-smoke.mjs"], { cwd: root, stdio: "pipe" });
 const localPwaServer = await read("scripts/serve-pwa.mjs");
 requireCondition(localPwaServer.includes('const HOST = "localhost";'), "PWA self-host server must use the canonical localhost hostname");
 requireCondition(localPwaServer.includes("const PORT = 4175;"), "PWA self-host server must stay on canonical port 4175");
@@ -33,6 +35,12 @@ requireCondition(gitignore.split(/\r?\n/).includes("dist/"), "dist must remain i
 requireCondition(gitignore.split(/\r?\n/).includes("apps/desktop/web/generated/"), "desktop generated output must remain ignored");
 const trackedGenerated = gitFiles("dist/**", "apps/desktop/web/generated/**");
 requireCondition(trackedGenerated.length === 0, `Generated build output must not be tracked: ${trackedGenerated.join(", ")}`);
+
+const ciWorkflow = await read(".github/workflows/ci.yml");
+requireCondition(
+  ciWorkflow.includes("npm run pwa:origin-migration") && ciWorkflow.includes("Enforce PWA origin migration result"),
+  "CI must keep the portable backup migration proof between distinct browser origins",
+);
 
 const desktopWorkflow = await read(".github/workflows/desktop.yml");
 for (const requiredPath of ['- "src/**"', '- "tsconfig.json"', '- "scripts/clean-build.mjs"']) {
