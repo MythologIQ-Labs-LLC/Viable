@@ -8,7 +8,16 @@ export type ScheduleStatus = "draft" | "in_review" | "changes_requested" | "sche
 export type ActivationStatus = "not_applicable" | "not_ready" | "ready_for_manual_activation" | "delivered" | "failed" | "cancelled" | "outcome_unknown";
 export type DeliveryStatus = "delivered" | "failed" | "cancelled" | "unknown";
 export type DeliveryEvidenceClassification = "human_recorded" | "provider_evidence" | "provider_verified";
-export type MetricEvidenceState = "observed" | "verified_zero" | "delayed" | "partial" | "unavailable" | "not_collected";
+export type MetricEvidenceState =
+  | "observed"
+  | "verified_zero"
+  | "estimated"
+  | "delayed"
+  | "partial"
+  | "unavailable"
+  | "unknown"
+  | "conflict"
+  | "not_collected";
 export type PerformanceImportStatus = "complete" | "partial" | "delayed" | "unavailable" | "failed";
 export type AttributionModel = "manual" | "first_touch" | "last_touch" | "influence" | "unattributed";
 export type RetrospectiveDecision = "continue" | "iterate" | "stop" | "inconclusive";
@@ -125,6 +134,8 @@ export type DeliveryOutcome = Readonly<{
 export type MetricObservation = Readonly<{
   id: string;
   metric: string;
+  providerMetric?: string;
+  providerDefinition?: string;
   state: MetricEvidenceState;
   windowStartsAt: string;
   windowEndsAt: string;
@@ -151,6 +162,9 @@ export type PerformanceImport = Readonly<{
   id: string;
   workspaceId: string;
   calendarEntryId: string;
+  publicationExperimentId?: string;
+  providerPublicationId?: string;
+  normalizedDigest?: string;
   status: PerformanceImportStatus;
   source: string;
   sourceClassification: "human_recorded" | "provider_export" | "provider_api";
@@ -158,6 +172,87 @@ export type PerformanceImport = Readonly<{
   importedAt: string;
   importedBy: string;
   notes: string;
+}>;
+
+export type DerivedMetricFormula = "ratio" | "sum";
+
+export type DerivedMetricRecord = Readonly<{
+  id: string;
+  workspaceId: string;
+  calendarEntryId: string;
+  metric: string;
+  formula: DerivedMetricFormula;
+  formulaVersion: "1";
+  expression: string;
+  sourceMetrics: readonly string[];
+  sourceImportIds: readonly string[];
+  sourceObservationIds: readonly string[];
+  sourceClassifications: readonly PerformanceImport["sourceClassification"][];
+  windowStartsAt: string;
+  windowEndsAt: string;
+  state: MetricEvidenceState;
+  value?: number;
+  unit: string;
+  multiplier: number;
+  limitation?: string;
+  normalizedDigest: string;
+  createdAt: string;
+  createdBy: string;
+}>;
+
+export type ObservationAgeBucket = "24h" | "48h" | "7d";
+export type CohortEvidenceTier = "strict";
+export type CohortConfidenceLabel = "insufficient" | "emerging" | "repeatable_candidate" | "established_local_pattern";
+
+export type CohortIncludedObservation = Readonly<{
+  publicationExperimentId: string;
+  performanceImportIds: readonly string[];
+  observationId: string;
+  publicationObservedAt: string;
+  observationWindowEndsAt: string;
+  observationAgeHours: number;
+  publicationDate: string;
+  metric: string;
+  value: number;
+  unit?: string;
+  groupValue: string;
+}>;
+
+export type CohortExclusion = Readonly<{
+  publicationExperimentId?: string;
+  performanceImportId?: string;
+  observationId?: string;
+  reason: string;
+}>;
+
+export type CohortGroupSummary = Readonly<{
+  groupValue: string;
+  sampleSize: number;
+  median: number;
+  minimum: number;
+  maximum: number;
+}>;
+
+export type CohortEvaluation = Readonly<{
+  id: string;
+  workspaceId: string;
+  referenceExperimentId: string;
+  metric: string;
+  ageBucket: ObservationAgeBucket;
+  compareVariable: "topic" | "hook" | "tone" | "format" | "media" | "timing" | "audience" | "cta";
+  evidenceTier: CohortEvidenceTier;
+  policyVersion: "1";
+  included: readonly CohortIncludedObservation[];
+  excluded: readonly CohortExclusion[];
+  groups: readonly CohortGroupSummary[];
+  sampleSize: number;
+  distinctPublicationDates: number;
+  confidence: CohortConfidenceLabel;
+  advisory: string;
+  limitation: string;
+  nextExperimentSuggestion: string;
+  createdAt: string;
+  createdBy: string;
 }>;
 
 export type MetricComparison = Readonly<{
@@ -217,6 +312,8 @@ export type ActivationLearningWorkspace = Readonly<{
   deliveryOutcomes: readonly DeliveryOutcome[];
   measurementPlans: readonly MeasurementPlan[];
   performanceImports: readonly PerformanceImport[];
+  derivedMetrics?: readonly DerivedMetricRecord[];
+  cohortEvaluations?: readonly CohortEvaluation[];
   retrospectives: readonly Retrospective[];
   learningLedger: readonly LearningLedgerEntry[];
   updatedAt: string;

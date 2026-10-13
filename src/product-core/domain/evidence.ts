@@ -21,6 +21,16 @@ export type EvidenceRecord = Readonly<{
   reviewedBy?: string;
   reviewedAt?: string;
   confidence: "low" | "medium" | "high";
+  /** Named rechecks after the original review, oldest first. */
+  rechecks?: readonly EvidenceRecheck[];
+}>;
+
+export type EvidenceRecheck = Readonly<{
+  by: string;
+  at: string;
+  outcome: "kept" | "withdrawn";
+  previousFreshnessReviewAt: string;
+  nextFreshnessReviewAt?: string;
 }>;
 
 export const isReviewedEvidence = (evidence: EvidenceRecord): boolean =>

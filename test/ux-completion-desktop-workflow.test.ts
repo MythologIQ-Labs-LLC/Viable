@@ -91,7 +91,8 @@ test("materialized Signal conversions retain exact owning-record navigation cont
   assert.match(shell, /data-ux-product-action/);
   assert.match(shell, /data-ux-content-brief/);
   assert.match(shell, /data-authoritative-record-id/);
-  assert.match(shell, /data-activation-action/);
+  // Calendar planning entries can have no action controls; the card itself is the target.
+  assert.match(shell, /calendar-card\[data-calendar-entry-id=/);
   assert.match(shell, /repository-action-status/);
   for (const context of ["product_core", "campaigns", "calendar", "repository_growth"]) {
     assert.match(shell, new RegExp(context));

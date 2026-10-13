@@ -289,6 +289,27 @@ async function run() {
     }
   }
   
+  // Playwright's Linux WebKit hangs on the second reload of a history entry
+  // that pushState created, even on an app-free page with no service worker
+  // (restore/reload probe, CI runs 37787010731 and 37789427572; a
+  // location.hash entry or no history write reloads twice normally). Viable
+  // navigates with pushState, so a section that reloads twice uses fresh
+  // pages instead while this control reproduces the defect.
+  async function webkitPushStateDoubleReloadDefectPresent() {
+    const isolated = await ENGINES.webkit.launch();
+    try {
+      const control = await (await isolated.newContext({ serviceWorkers: "block" })).newPage();
+      await control.goto(`${origin}${ENGINE_CONTROL_PATH}`);
+      await control.evaluate(() => history.pushState({ entry: 1 }, "", "#entry-1"));
+      await control.waitForTimeout(300);
+      const first = await withTimeout(control.reload(), 20_000, "control first reload").then(() => true, () => false);
+      if (!first) return false;
+      return await withTimeout(control.reload(), 20_000, "control second reload").then(() => false, () => true);
+    } finally {
+      await isolated.close().catch(() => undefined);
+    }
+  }
+
   // Playwright's Linux WebKit can fail a reload while its context is
   // emulating offline mode even for an app-free page cached by a minimal
   // service worker. Run this control in a separate browser so a harness
@@ -690,14 +711,31 @@ async function run() {
 
     // Restore into an existing profile (#36): replace-current restore,
     // driven through the Workspace screen against real IndexedDB.
+    const freshPagesInsteadOfReload = BROWSER === "webkit" && await webkitPushStateDoubleReloadDefectPresent();
+    if (freshPagesInsteadOfReload) {
+      limitation("WebKit engine/harness defect: a second reload of a history entry created by pushState hangs, reproduced on an app-free page in a separate browser. The replace-current section loads a fresh page of the same profile wherever it would reload, so every check still runs against durable storage; Chromium and Firefox cover the reloads themselves");
+    }
     await section("replace-current restore", async () => {
       const replaceContext = await browser.newContext({ acceptDownloads: true });
-      const replace = await replaceContext.newPage();
-      replace.on("pageerror", (error) => errors.push(`replace pageerror: ${error.message}`));
-      replace.on("dialog", (dialog) => void dialog.accept());
+      const openReplacePage = async () => {
+        const created = await replaceContext.newPage();
+        created.on("pageerror", (error) => errors.push(`replace pageerror: ${error.message}`));
+        created.on("dialog", (dialog) => void dialog.accept());
+        return created;
+      };
+      let replace = await openReplacePage();
+      // A new document that reads the persisted workspace, by reloading or,
+      // under the WebKit defect above, by loading a fresh page.
+      const reloadReplace = async () => {
+        if (!freshPagesInsteadOfReload) return reload(replace);
+        const previous = replace;
+        replace = await openReplacePage();
+        await previous.close();
+        return replace.goto(`${origin}/`);
+      };
       const productKey = "viable.product-workspace.replace-ws";
       const named = (name) => ({ ...backup.contexts.product, id: "replace-ws", product: { ...backup.contexts.product.product, identity: { ...backup.contexts.product.product.identity, name } } });
-      await replace.addInitScript((value) => {
+      await replaceContext.addInitScript((value) => {
         if (!localStorage.getItem("viable.product-workspace.active")) {
           localStorage.setItem("viable.product-workspace.replace-ws", JSON.stringify({ schemaVersion: 1, workspace: value }));
           localStorage.setItem("viable.product-workspace.active", "replace-ws");
@@ -740,7 +778,7 @@ async function run() {
         const current = JSON.parse(await idb("get", productKey));
         current.workspace.product.identity.name = "Replace newer";
         await idb("put", productKey, JSON.stringify(current));
-        await reload(replace);
+        await reloadReplace();
         await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace newer"), undefined, { timeout: 10000 });
         await openWorkspace();
 
@@ -761,7 +799,7 @@ async function run() {
         await replace.click('[data-workspace-action="restore-replace"]');
         await replace.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 10000 });
         check((await storedName()) === "Replace original", "replace-current restore overwrites the existing workspace durably in IndexedDB");
-        await reload(replace);
+        await reloadReplace();
         const survived = await replace.waitForFunction(() => document.querySelector("#main")?.textContent?.includes("Replace original"), undefined, { timeout: 10000 }).then(() => true, () => false);
         check(survived, "the replaced workspace survives reload");
 
@@ -776,7 +814,7 @@ async function run() {
         // Corrupt stored data fails closed at startup without being changed,
         // and recovery mode makes the Workspace screen reachable (#36).
         await idb("put", "viable.signals-inbox.replace-ws", "{corrupt");
-        await reload(replace);
+        await reloadReplace();
         const failedClosed = await replace.waitForFunction(() => /could not open the local workspace/i.test(document.body?.textContent ?? ""), undefined, { timeout: 10000 }).then(() => true, () => false);
         check(
           failedClosed && (await idb("get", "viable.signals-inbox.replace-ws")) === "{corrupt" && (await storedName()) === "Replace newer",
@@ -809,6 +847,489 @@ async function run() {
       } finally {
         for (const path of paths) await rm(path, { force: true });
         await replaceContext.close();
+      }
+    });
+
+    // Seeded acceptance journeys (2026-10-07 local-dogfood QA). Each check
+    // drives a defect that was reproduced in this production build: restore
+    // and delete must show up without a reload, stale evidence must be
+    // recheckable, a cancelled review must leave the record reviewable, and a
+    // rejected import must say so and keep what the person pasted.
+    await section("seeded acceptance journeys", async () => {
+      const journeyContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+      const journey = await journeyContext.newPage();
+      journey.on("pageerror", (error) => errors.push(`journey pageerror: ${error.message}`));
+      const journeyDialogs = [];
+      journey.on("dialog", (dialog) => { journeyDialogs.push(dialog.message()); void dialog.accept(); });
+      const seedPath = resolve(process.cwd(), "docs/acceptance/seed/ux-acceptance-seed-v2.json");
+      const malformed = await readFile(resolve(process.cwd(), "docs/acceptance/seed/malformed-signals-import.json"), "utf8");
+      const go = async (view) => {
+        await journey.click(`nav button[data-nav="${view}"]`, { noWaitAfter: true });
+        await settled(journey);
+      };
+      const liveText = async () => (await journey.locator("#live-region").textContent()) ?? "";
+      const focusedText = () => journey.evaluate(() => (document.activeElement?.textContent ?? "").replace(/\s+/g, " ").trim());
+      // Diagnostic (#149): the journey page's own disclosure state, which the
+      // section failure line (it describes the main smoke page) cannot show.
+      const disclosureState = () => withTimeout(journey.evaluate(() => JSON.stringify({
+        hash: location.hash,
+        nav: document.querySelector('nav button[aria-current="page"]')?.dataset.nav,
+        disclosures: [...document.querySelectorAll("#main details")].map((details) => ({
+          summary: (details.querySelector("summary")?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40),
+          open: details.open,
+          height: Math.round(details.querySelector("summary")?.getBoundingClientRect().height ?? -1),
+        })).filter((entry) => /Manage evidence sources|Advanced: raw JSON/.test(entry.summary)),
+      })), 5_000, "journey disclosure state").catch((error) => `unavailable (${error.message.split("\n")[0]})`);
+      try {
+        await journey.goto(`${origin}/`);
+        await settled(journey);
+        await go("calendar");
+        await journey.getByRole("button", { name: "Open Product to create or restore a workspace" }).click();
+        await settled(journey);
+        check(await journey.locator('form[data-form="create-workspace"]').isVisible(), "an empty-profile workflow screen links to where a workspace can be created");
+
+        await go("workspace");
+        await journey.setInputFiles("[data-workspace-import]", seedPath);
+        await journey.waitForSelector("[data-workspace-import-preview]", { timeout: 10000 });
+        await journey.click('[data-workspace-action="restore-empty"]');
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("restored successfully"), undefined, { timeout: 15000 });
+        await go("home");
+        const restoredHome = await journey.waitForFunction(() => document.querySelectorAll("[data-home-attention-item]").length >= 8, undefined, { timeout: 5000 }).then(() => true, () => false);
+        check(restoredHome && !(await journey.locator('form[data-form="create-workspace"]').count()), "Home shows the restored workspace without a reload");
+        const openNames = await journey.locator("[data-home-attention-item] button[data-home-attention-open]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+        check(openNames.length > 1 && new Set(openNames).size === openNames.length, "every Home open control has a distinct accessible name");
+
+        // Views reload their workspace before rendering; Back and Forward must
+        // still land on exactly the previous and next pages.
+        for (const view of ["product", "signals", "home"]) await go(view);
+        const current = async () => (await journey.locator('nav button[data-nav][aria-current="page"]').getAttribute("data-nav")) ?? "";
+        const step = async (direction) => {
+          await (direction === "back" ? journey.goBack() : journey.goForward());
+          await settled(journey);
+          return current();
+        };
+        const walked = [await step("back"), await step("back"), await step("forward"), await step("forward")];
+        check(walked.join(",") === "signals,product,signals,home", `Back and Forward return to the exact previous pages (${walked.join(" → ")})`);
+
+        // Repository Growth has its own address inside Product (#146). A fresh
+        // tab keeps the reload clear of earlier Back/Forward entries.
+        const routed = await journeyContext.newPage();
+        routed.on("pageerror", (error) => errors.push(`journey pageerror: ${error.message}`));
+        try {
+          const view = async () => {
+            await settled(routed);
+            return `${await routed.evaluate(() => location.hash)}|${(await routed.locator("#main .hero .eyebrow").first().textContent())?.trim()}`;
+          };
+          await routed.goto(`${origin}/`);
+          await settled(routed);
+          await routed.click('nav button[data-nav="product"]', { noWaitAfter: true });
+          await settled(routed);
+          await routed.click('[data-repository-action="open"]');
+          const opened = await view();
+          // Reload from inside the page, as the browser's reload does. Playwright's
+          // Firefox page.reload() on a #hash URL adds a history entry (length
+          // 3 -> 4, state reset), so Back would land on the earlier entry.
+          await Promise.all([routed.waitForEvent("load", { timeout: 15000 }), routed.evaluate(() => location.reload())]);
+          await routed.waitForSelector('[data-repository-action="return-product"]', { timeout: 10000 }).catch(() => undefined);
+          const reloaded = await view();
+          await routed.goBack();
+          await routed.waitForSelector('[data-repository-action="open"]', { timeout: 10000 }).catch(() => undefined);
+          const back = await view();
+          check(opened === "#repository-growth|Product · Public repositories" && reloaded === opened && back === "#product|Product workflow",
+            `Repository Growth keeps its address across reload and Back returns to Product (${opened} → ${reloaded} → ${back})`);
+        } finally {
+          await routed.close();
+        }
+
+        await journey.click('[data-home-attention-open="product:evidence:evidence-4"]');
+        await settled(journey);
+        const stale = journey.locator("#main article", { hasText: "Agency pricing objection notes" }).first();
+        await stale.locator('input[name="reviewer"]').fill("Smoke Reviewer");
+        await stale.getByRole("button", { name: "Still valid: set next review" }).click();
+        const keptReviewer = await stale.locator('input[name="reviewer"]').inputValue();
+        check(keptReviewer === "Smoke Reviewer" && await stale.locator('input[name="nextFreshnessReviewAt"]').evaluate((input) => !input.checkValidity()), "a recheck without a future date is refused in place and keeps the reviewer");
+        const nextYear = `${new Date().getFullYear() + 1}-06-30`;
+        await stale.locator('input[name="nextFreshnessReviewAt"]').fill(nextYear);
+        await stale.getByRole("button", { name: "Still valid: set next review" }).click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Evidence rechecked"), undefined, { timeout: 10000 });
+        await go("home");
+        check(!(await journey.locator('[data-home-attention-open="product:evidence:evidence-4"]').count()), "rechecked evidence leaves Home's stale-evidence blockers");
+
+        await go("product");
+        const forum = journey.locator("#main article", { hasText: "Freelancer forum thread about invoice chasing" }).first();
+        const accept = forum.getByRole("button", { name: "Accept with named review" });
+        await accept.click();
+        await forum.getByRole("button", { name: "Cancel review" }).click();
+        check(await accept.isVisible() && (await focusedText()) === "Accept with named review", "cancelling a review restores the record's review controls and returns focus to them");
+        await accept.click();
+        await journey.keyboard.press("Escape");
+        check(!(await forum.locator("[data-contextual-review]").count()) && await accept.isVisible(), "Escape closes a review panel without changing the record");
+
+        await go("signals");
+        const advanced = journey.locator("summary", { hasText: "Advanced: raw JSON adapter imports" }).first();
+        const sources = journey.locator("summary", { hasText: "Manage evidence sources" }).first();
+        // Open disclosures by their own state, not by visibility: WebKit gives
+        // a summary nested in a closed <details> a layout box, so Playwright
+        // reports it visible though it cannot be clicked (#149; app-free
+        // control below).
+        const openDisclosure = async (summary) => {
+          if (!(await summary.evaluate((element) => element.parentElement?.open === true))) await summary.click();
+        };
+        await openDisclosure(sources);
+        await openDisclosure(advanced);
+        if (BROWSER === "webkit") {
+          const control = await journeyContext.newPage();
+          await control.setContent("<details><summary>outer</summary><details><summary id=nested>nested</summary><p>body</p></details></details>");
+          const nestedVisible = await control.locator("#nested").isVisible();
+          await control.close();
+          console.log(`  engine control: a summary nested in a closed <details> reports visible=${nestedVisible} (app-free page)`);
+        }
+        const raw = journey.locator('form[data-form="signals-manual-import"]');
+        await raw.locator('textarea[name="payload"]').fill(malformed);
+        await raw.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => /failed/i.test(document.querySelector("#live-region")?.textContent ?? ""), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        const rawPayload = journey.locator('form[data-form="signals-manual-import"] textarea[name="payload"]');
+        check(/failed/i.test(await liveText()) && await rawPayload.isVisible() && (await rawPayload.inputValue()) === malformed, "a rejected import is reported as failed and keeps the pasted payload visible");
+
+        // Actions that ask for a value use inline, labelled forms (#147).
+        const dialogsBefore = journeyDialogs.length;
+        const competitor = journey.locator("#main article", { hasText: "Competitor announces automatic receipt capture" }).first();
+        await competitor.getByRole("button", { name: "Tag", exact: true }).click();
+        const tagPanel = journey.locator("[data-inline-input]");
+        const tagField = tagPanel.locator('input[name="tags"]');
+        const fieldFocused = await tagField.evaluate((input) => input === document.activeElement).catch(() => false);
+        await tagField.fill("smoke-tag");
+        await tagPanel.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Signal tags updated"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        const tagged = ((await journey.locator("#main article", { hasText: "Competitor announces automatic receipt capture" }).first().textContent()) ?? "").includes("smoke-tag");
+        check(fieldFocused && tagged && journeyDialogs.length === dialogsBefore, "tagging a signal uses an inline form, not a browser dialog, and records the tag");
+
+        // A two-field inline form must answer the controller's prompts in
+        // order: reviewer, then note (#147).
+        await go("calendar");
+        const fillRequired = async (form) => {
+          for (const field of await form.locator("input[required], textarea[required]").all()) {
+            if (await field.inputValue()) continue;
+            const type = await field.getAttribute("type");
+            if (type === "checkbox") await field.check();
+            else await field.fill(type === "datetime-local" ? "2026-11-02T10:00" : type === "number" ? "1" : type === "time" ? "09:00" : "Smoke Owner");
+          }
+        };
+        const policy = journey.locator('form[data-form="publication-policy"]');
+        await fillRequired(policy);
+        await policy.locator('button[type="submit"]').click();
+        await settled(journey);
+        const stock = journey.locator('form[data-form="publication-inventory-item"]');
+        await fillRequired(stock);
+        await stock.locator('button[type="submit"]').click();
+        await settled(journey);
+        await journey.locator('[data-publication-action="submit-publication-item"]').first().click();
+        await settled(journey);
+        await journey.locator('[data-publication-action="review-publication-item"][data-decision="approved"]').first().click();
+        const reviewPanel = journey.locator("[data-inline-input]");
+        const reviewer = reviewPanel.locator('input[name="actor"]');
+        await journey.waitForFunction(() => document.querySelector('[data-inline-input] input[name="actor"]')?.value === "Morgan Reyes", undefined, { timeout: 5000 }).catch(() => undefined);
+        const prefilled = await reviewer.inputValue();
+        await reviewer.fill("Smoke Reviewer");
+        await reviewPanel.locator('textarea[name="note"]').fill("Smoke review note: content, destination, timing, rights.");
+        await reviewPanel.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("approved and stocked"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        const stocked = (await journey.locator("#main").textContent()) ?? "";
+        check(prefilled === "Morgan Reyes" && stocked.includes("Smoke Reviewer ·") && stocked.includes("Review note: Smoke review note"), `a two-field inline review records reviewer and note in order (prefilled ${prefilled || "nothing"})`);
+        check(journeyDialogs.length === dialogsBefore, "no browser dialog opened for inline-form actions");
+
+        // Readable source names (#157) and a visible earlier proposal (#158).
+        await go("signals");
+        const signalsText = (await journey.locator("#main").textContent()) ?? "";
+        check(!signalsText.includes("manual:ledgerly-community-notes-2026-09") && signalsText.includes("Manual JSON import ("), "Signals names sources instead of showing internal source IDs");
+        const studios = () => journey.locator("#main article", { hasText: "Studio owners asking for receipt matching" }).first();
+        await studios().locator("summary", { hasText: "Convert to proposed work" }).click();
+        await studios().locator('form[data-form="signals-convert"] button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("converted into proposed owned work"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await settled(journey);
+        await studios().locator("summary", { hasText: "Convert to proposed work" }).click();
+        const notice = ((await studios().locator("[data-existing-proposals]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
+        check(notice.includes("Already proposed from this signal") && notice.includes("Review: Studio owners"), "converting a signal again first shows the proposal it already produced");
+
+        // #167: composition planning and exact experiment identity must be
+        // operable through visible Studio controls. The test writes no
+        // Campaign state through internal APIs.
+        await go("studio");
+        const compositionDisclosure = journey.locator("summary", { hasText: "Create composition brief" }).first();
+        await compositionDisclosure.click();
+        const compositionForm = journey.locator('form[data-form="campaign-create-composition"]');
+        await compositionForm.locator('select[name="campaignId"]').selectOption("campaign-1");
+        await compositionForm.locator('select[name="destinationId"]').selectOption("destination-1");
+        await compositionForm.locator('select[name="objective"]').selectOption("product_proof");
+        await compositionForm.locator('select[name="contentFamily"]').selectOption("build_proof");
+        await compositionForm.locator('select[name="format"]').selectOption("text");
+        await compositionForm.locator('input[name="desiredOutcome"]').fill("One qualified beta review");
+        await compositionForm.locator('input[name="topic"]').fill("Human-reviewed receipt matching");
+        await compositionForm.locator('input[name="hookArchetype"]').fill("product_proof");
+        await compositionForm.locator('input[name="callToAction"]').fill("Join the private beta");
+        await compositionForm.locator('textarea[name="toneConstraints"]').fill("Direct\nNo hype");
+        await compositionForm.locator('textarea[name="prohibitedClaims"]').fill("Fully automatic reconciliation");
+        await compositionForm.locator('select[name="externalLinkPolicy"]').selectOption("comment");
+        await compositionForm.locator('textarea[name="hypothesis"]').fill("Concrete human-in-the-loop proof earns more qualified beta review than an automation claim.");
+        await compositionForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Composition brief saved"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const compositionCard = journey.locator("#main article", { hasText: "Human-reviewed receipt matching" }).first();
+        const compositionText = ((await compositionCard.textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          compositionText.includes("truth") && compositionText.includes("audience") && compositionText.includes("experiment") && compositionText.includes("approval"),
+          "Studio shows separate composition readiness facets instead of one opaque score",
+        );
+
+        const bindDisclosure = journey.locator("summary", { hasText: "Bind an exact approved variant to an experiment" }).first();
+        await bindDisclosure.click();
+        const experimentForm = journey.locator('form[data-form="campaign-bind-experiment"]');
+        await experimentForm.locator('select[name="channelVariantId"]').selectOption("variant-1");
+        await experimentForm.locator('input[name="provider"]').fill("manual_linkedin");
+        await experimentForm.locator('input[name="timezone"]').fill("America/Chicago");
+        await experimentForm.locator('input[name="expectedOutcome"]').fill("One qualified beta review");
+        await experimentForm.locator('input[name="changedVariables"][value="hook"]').check();
+        await experimentForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Exact approved channel variant bound"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const experimentText = ((await journey.locator("#main article", { hasText: "manual_linkedin" }).first().textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          experimentText.includes("current") && experimentText.includes("v1") && experimentText.includes("hook") && /[0-9a-f]{12}/.test(experimentText),
+          "Studio binds a current publication experiment to exact composition and approved-variant fingerprints",
+        );
+
+        // Change the planning context through the visible revision form. The
+        // already-bound experiment must become stale rather than silently
+        // inheriting the new objective/hypothesis.
+        const reviseDisclosure = compositionCard.locator("summary", { hasText: "Revise composition intent" });
+        await reviseDisclosure.click();
+        const reviseForm = compositionCard.locator('form[data-form="campaign-revise-composition"]');
+        await reviseForm.locator('input[name="rationale"]').fill("Narrow the experiment to qualified pilot review");
+        await reviseForm.locator('select[name="objective"]').selectOption("lead_generation");
+        await reviseForm.locator('input[name="desiredOutcome"]').fill("One qualified pilot inquiry");
+        await reviseForm.locator('textarea[name="hypothesis"]').fill("Concrete proof plus a direct CTA earns a qualified pilot inquiry.");
+        await reviseForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Composition intent revised"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const revisedCard = journey.locator("#main article", { hasText: "Human-reviewed receipt matching" }).first();
+        const revisedText = ((await revisedCard.textContent()) ?? "").replace(/\s+/g, " ");
+        const staleExperimentText = ((await journey.locator("#main article", { hasText: "manual_linkedin" }).first().textContent()) ?? "").replace(/\s+/g, " ");
+        check(revisedText.includes("v2") && revisedText.includes("approval") && revisedText.includes("blocked"), "revising composition intent creates a new revision and blocks stale approval readiness");
+        check(staleExperimentText.includes("stale") && staleExperimentText.includes("Composition brief revision changed"), "existing publication experiment becomes visibly stale after composition revision");
+
+        // Re-enter Studio through normal navigation so the assertion comes
+        // from the durable Campaign store rather than retained form state.
+        await go("home");
+        await go("studio");
+        const durableStudio = ((await journey.locator("#main").textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          durableStudio.includes("Human-reviewed receipt matching") && durableStudio.includes("manual_linkedin") && durableStudio.includes("v2") && durableStudio.includes("stale"),
+          "composition revision and stale exact experiment binding survive a normal view reload from durable workspace state",
+        );
+
+        // The publication experiment needs real delivery evidence before it
+        // can participate in a comparable cohort. Record it through the
+        // visible Calendar controls, not by mutating storage.
+        await go("calendar");
+        const deliveryForm = journey.locator('form[data-form="activation-delivery-outcome"]');
+        await deliveryForm.locator('select[name="packageId"]').selectOption("activation-package-1");
+        await deliveryForm.locator('select[name="status"]').selectOption("delivered");
+        await deliveryForm.locator('select[name="evidenceClassification"]').selectOption("provider_evidence");
+        await deliveryForm.locator('input[name="observedAt"]').fill("2026-09-15T15:00");
+        await deliveryForm.locator('input[name="source"]').fill("LinkedIn publication receipt");
+        await deliveryForm.locator('input[name="recordedBy"]').fill("Smoke Analyst");
+        await deliveryForm.locator('textarea[name="evidenceReferences"]').fill("smoke-linkedin-publication-receipt");
+        await deliveryForm.locator('input[name="deliveryUrl"]').fill("https://www.linkedin.com/posts/smoke-example");
+        await deliveryForm.locator('input[name="publicationId"]').fill("smoke-publication-1");
+        await deliveryForm.locator('textarea[name="note"]').fill("Provider receipt captured for cohort timing authority");
+        await deliveryForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Delivery or failure evidence recorded"), undefined, { timeout: 10000 });
+        await settled(journey);
+
+        // #168: analytics evidence must remain manual-first, idempotent, and
+        // conflict-safe through the visible Analytics controls.
+        await go("analytics");
+        const analyticsForm = () => journey.locator('form[data-form="activation-performance-import"]');
+        const experimentOption = analyticsForm().locator('select[name="publicationExperimentId"] option').nth(1);
+        const experimentId = await experimentOption.getAttribute("value");
+        check(Boolean(experimentId), "Analytics can link evidence to the exact publication experiment created through Studio");
+        check(await analyticsForm().locator('option[value="provider_api"]').count() === 0, "manual Analytics UI cannot self-assert provider API evidence");
+
+        const fillAnalyticsSnapshot = async ({
+          metric,
+          value,
+          sourceClassification,
+          source,
+          evidenceReference,
+          providerMetric = "",
+          providerDefinition = "",
+          windowStartsAt = "2026-09-15T15:00",
+          windowEndsAt = "2026-09-29T15:00",
+          capturedAt = "2026-09-29T15:05",
+        }) => {
+          const form = analyticsForm();
+          await form.locator('select[name="calendarEntryId"]').selectOption("calendar-1");
+          if (experimentId) await form.locator('select[name="publicationExperimentId"]').selectOption(experimentId);
+          await form.locator('input[name="providerPublicationId"]').fill("smoke-publication-1");
+          await form.locator('select[name="status"]').selectOption("complete");
+          await form.locator('select[name="sourceClassification"]').selectOption(sourceClassification);
+          await form.locator('input[name="importedBy"]').fill("Smoke Analyst");
+          await form.locator('input[name="metric"]').fill(metric);
+          await form.locator('select[name="state"]').selectOption("observed");
+          await form.locator('input[name="value"]').fill(String(value));
+          await form.locator('input[name="unit"]').fill("count");
+          await form.locator('input[name="providerMetric"]').fill(providerMetric);
+          await form.locator('textarea[name="providerDefinition"]').fill(providerDefinition);
+          await form.locator('input[name="source"]').fill(source);
+          await form.locator('input[name="evidenceReference"]').fill(evidenceReference);
+          await form.locator('textarea[name="limitation"]').fill("");
+          await form.locator('input[name="windowStartsAt"]').fill(windowStartsAt);
+          await form.locator('input[name="windowEndsAt"]').fill(windowEndsAt);
+          await form.locator('input[name="capturedAt"]').fill(capturedAt);
+          await form.locator('textarea[name="notes"]').fill("Smoke analytics evidence");
+          await form.locator('button[type="submit"]').click();
+          await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Performance evidence imported idempotently"), undefined, { timeout: 10000 });
+          await settled(journey);
+        };
+
+        const firstSnapshot = {
+          metric: "Post Impressions",
+          value: 100,
+          sourceClassification: "human_recorded",
+          source: "Manual dashboard check",
+          evidenceReference: "smoke-manual-impressions",
+        };
+        await fillAnalyticsSnapshot(firstSnapshot);
+        let analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(analyticsText.includes("post_impressions") && analyticsText.includes("1 snapshots") && /[0-9a-f]{12}/.test(analyticsText), "manual analytics snapshot shows normalized metric identity and digest");
+
+        await fillAnalyticsSnapshot(firstSnapshot);
+        analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(analyticsText.includes("1 snapshots"), "re-selecting identical normalized analytics evidence is idempotent");
+
+        await fillAnalyticsSnapshot({
+          metric: "post_impressions",
+          value: 120,
+          sourceClassification: "provider_export",
+          source: "LinkedIn export",
+          evidenceReference: "smoke-linkedin-impressions.csv",
+          providerMetric: "Impressions",
+          providerDefinition: "Provider-native post impression count",
+        });
+        analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          analyticsText.includes("2 snapshots") && analyticsText.includes("Provider-native: Impressions") && analyticsText.includes("conflict") && analyticsText.includes("100 vs 120"),
+          "conflicting provider-native and manual observations remain inspectable and do not let the newest value win",
+        );
+
+        await fillAnalyticsSnapshot({
+          metric: "reactions",
+          value: 10,
+          sourceClassification: "provider_export",
+          source: "LinkedIn export",
+          evidenceReference: "smoke-linkedin-reactions.csv",
+          providerMetric: "Reactions",
+          providerDefinition: "Provider-native reaction count",
+        });
+        await fillAnalyticsSnapshot({
+          metric: "members_reached",
+          value: 50,
+          sourceClassification: "human_recorded",
+          source: "Manual reach note",
+          evidenceReference: "smoke-reach-note",
+        });
+
+        const derivedSummary = journey.locator("summary", { hasText: "Create deterministic derived metric" }).first();
+        await derivedSummary.click();
+        const derivedForm = journey.locator('form[data-form="activation-derived-metric"]');
+        await derivedForm.locator('select[name="calendarEntryId"]').selectOption("calendar-1");
+        await derivedForm.locator('input[name="metric"]').fill("reaction_rate");
+        await derivedForm.locator('select[name="formula"]').selectOption("ratio");
+        await derivedForm.locator('input[name="unit"]').fill("ratio");
+        await derivedForm.locator('input[name="multiplier"]').fill("1");
+        await derivedForm.locator('textarea[name="sourceMetrics"]').fill("reactions\nmembers_reached");
+        await derivedForm.locator('input[name="windowStartsAt"]').fill("2026-09-15T15:00");
+        await derivedForm.locator('input[name="windowEndsAt"]').fill("2026-09-29T15:00");
+        await derivedForm.locator('input[name="createdBy"]').fill("Smoke Analyst");
+        await derivedForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Derived metric calculated"), undefined, { timeout: 10000 });
+        await settled(journey);
+        analyticsText = ((await journey.locator('section[aria-labelledby="performance-import-heading"]').textContent()) ?? "").replace(/\s+/g, " ");
+        check(
+          analyticsText.includes("reaction_rate") && analyticsText.includes("0.2 ratio") && analyticsText.includes("formula v1") && analyticsText.includes("human recorded") && analyticsText.includes("provider export"),
+          "derived analytics expose formula version, value, and mixed-source provenance",
+        );
+
+        // #169: one exact 24-hour observation is enough to prove the
+        // cohort workflow, but deliberately not enough for directional advice.
+        await fillAnalyticsSnapshot({
+          metric: "cohort_impressions",
+          value: 77,
+          sourceClassification: "provider_export",
+          source: "LinkedIn 24-hour export",
+          evidenceReference: "smoke-linkedin-24h.csv",
+          providerMetric: "Impressions",
+          providerDefinition: "Provider-native post impression count",
+          windowStartsAt: "2026-09-15T15:00",
+          windowEndsAt: "2026-09-16T15:00",
+          capturedAt: "2026-09-16T15:05",
+        });
+        const cohortDisclosure = journey.locator("summary", { hasText: "Evaluate a comparable publication cohort" }).first();
+        await cohortDisclosure.click();
+        const cohortForm = journey.locator('form[data-form="activation-cohort-evaluation"]');
+        if (experimentId) await cohortForm.locator('select[name="referenceExperimentId"]').selectOption(experimentId);
+        await cohortForm.locator('input[name="metric"]').fill("cohort_impressions");
+        await cohortForm.locator('select[name="ageBucket"]').selectOption("24h");
+        await cohortForm.locator('select[name="compareVariable"]').selectOption("hook");
+        await cohortForm.locator('input[name="createdBy"]').fill("Smoke Analyst");
+        await cohortForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Comparable publication cohort evaluated"), undefined, { timeout: 10000 });
+        await settled(journey);
+        const cohortSection = journey.locator('section[aria-labelledby="cohort-evaluation-heading"]');
+        const cohortCard = cohortSection.locator("article").first();
+        const cohortText = ((await cohortSection.textContent()) ?? "").replace(/\s+/g, " ");
+        const comparableCount = ((await cohortCard.locator("dl div", { hasText: "Comparable publications" }).locator("dd").textContent()) ?? "").trim();
+        const confidenceText = ((await cohortCard.locator(".pill").first().textContent()) ?? "").trim();
+        check(
+          confidenceText === "insufficient"
+          && comparableCount === "1"
+          && cohortText.includes("policy v1")
+          && cohortText.includes("three publications each")
+          && cohortText.includes("Group medians withheld until the evidence threshold is met")
+          && cohortText.includes("Next experiment"),
+          "small-sample cohort stays visibly insufficient and recommends another controlled experiment without declaring a winner",
+        );
+
+        // Runtime panel results are announced (#161).
+        await go("workspace");
+        await Promise.all([journey.waitForEvent("download", { timeout: 10000 }), journey.click('[data-runtime-action="download-diagnostics"]')]);
+        check((await liveText()).includes("Support diagnostics downloaded"), "downloading support diagnostics is announced");
+
+        await journey.setViewportSize({ width: 640, height: 360 });
+        for (const view of ["product", "studio", "workspace"]) {
+          await go(view);
+          const sideways = await journey.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+          check(!sideways, `at 640×360 CSS px (about 200% zoom) ${view} does not scroll sideways`);
+        }
+        await journey.setViewportSize({ width: 1366, height: 768 });
+
+        await go("workspace");
+        const deletion = journey.locator("[data-workspace-delete]");
+        await deletion.locator('[name="scopeConfirmed"]').check();
+        await deletion.locator('[name="declineRecoveryPoint"]').check();
+        await deletion.locator('[name="confirmation"]').fill("DELETE");
+        await deletion.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
+        await go("home");
+        check(await journey.locator('form[data-form="create-workspace"]').isVisible() && !((await journey.locator("#main").textContent()) ?? "").includes("Ledgerly"), "Home stops showing a deleted workspace without a reload");
+      } catch (error) {
+        console.log(`  journey page state at failure: ${await disclosureState()} live="${(await liveText().catch(() => "")).slice(0, 120)}"`);
+        throw error;
+      } finally {
+        await journeyContext.close();
       }
     });
 

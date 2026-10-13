@@ -94,7 +94,11 @@ Integration access, versions, pricing, scopes, licenses, provider terms, runtime
 ## Human acceptance
 
 - [Acceptance program](acceptance/README.md)
-- [Frozen UX acceptance candidate, 2026-09-25](acceptance/ux-candidate-2026-09-25.md)
+- [Frozen UX acceptance candidate, 2026-10-07c (current)](acceptance/ux-candidate-2026-10-07c.md)
+- [Frozen UX acceptance candidate, 2026-10-07b (superseded)](acceptance/ux-candidate-2026-10-07b.md)
+- [Frozen UX acceptance candidate, 2026-10-07 (superseded)](acceptance/ux-candidate-2026-10-07.md)
+- [Frozen UX acceptance candidate, 2026-10-06 (superseded)](acceptance/ux-candidate-2026-10-06.md)
+- [Frozen UX acceptance candidate, 2026-09-25 (superseded)](acceptance/ux-candidate-2026-09-25.md)
 - [Accessibility and recovery acceptance runbook](acceptance/accessibility-runbook.md)
 - [Unfamiliar-user demo acceptance runbook](acceptance/unfamiliar-user-demo-runbook.md)
 - [Acceptance workspace seed specification](acceptance/acceptance-seed-spec.md)
@@ -130,6 +134,7 @@ Human acceptance evidence is deliberately separate from automated CI and impleme
 ## Status and reviews
 
 - [Current state](status/current-state.md)
+- [Local dogfood QA and remediation, 2026-10-07](reviews/local-dogfood-qa-2026-10-07.md)
 - [Automated viability sweep, 2026-07-16](reviews/viability-sweep-2026-07-16.md)
 - [Documentation verification, 2026-07-15](reviews/documentation-verification-2026-07-15.md)
 - [Documentation verification closure, 2026-07-15](reviews/documentation-verification-closure-2026-07-15.md)

@@ -16,6 +16,7 @@ type BuildInfo = SupportDiagnosticBuildInfo;
 
 const vault = new NativeCredentialVaultClient();
 const main = document.querySelector<HTMLElement>("#main");
+const live = document.querySelector<HTMLElement>("#live-region");
 let observation: RuntimeObservation | undefined;
 let buildInfo: BuildInfo | undefined;
 let storageUsage: string | undefined;
@@ -141,6 +142,11 @@ function downloadSupportDiagnostics(): void {
   URL.revokeObjectURL(url);
 }
 
+// Results that only change the panel visually are also announced (#161).
+function announce(message: string): void {
+  if (live) live.textContent = message;
+}
+
 function render(): void {
   const host = main?.querySelector<HTMLElement>("[data-runtime-capabilities]");
   if (!host) return;
@@ -157,6 +163,7 @@ document.addEventListener("click", (event) => {
   if (!button) return;
   if (button.dataset.runtimeAction === "download-diagnostics") {
     downloadSupportDiagnostics();
+    if (observation) announce("Support diagnostics downloaded. The file contains runtime facts only, no workspace content.");
     return;
   }
   if (button.dataset.runtimeAction !== "persist-storage") return;
@@ -168,6 +175,9 @@ document.addEventListener("click", (event) => {
       ? undefined
       : "The browser did not grant persistent storage. Installing Viable or using it regularly can help; keep regular backups either way.";
     await refresh();
+    announce(granted
+      ? "The browser agreed to keep Viable data unless you clear it."
+      : "The browser did not grant persistent storage. Keep regular backups.");
   })();
 });
 

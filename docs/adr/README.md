@@ -28,6 +28,7 @@ ADRs answer **why a boundary exists**. The PRD defines required outcomes, the ar
 | [ADR-0008](0008-public-source-licensing-and-release-boundary.md) | Public source licensing and repository visibility remain distinct from supported product release | Proposed |
 | [ADR-0009](0009-deterministic-publishing-and-capability-routed-setup.md) | Automated publishing is deterministic and provider-specific setup is evidence-gated | Proposed |
 | [ADR-0010](0010-pwa-first-distribution-and-runtime-capabilities.md) | The PWA is the primary mainstream runtime; native runtime is a capability extension; no code-signing prerequisite | Accepted |
+| [ADR-0011](0011-productization-publishing-analytics-learning.md) | Publishing analytics belong to the productization learning loop; overlapping social capabilities do not merge Viable with personal-brand systems | Accepted |
 
 ## Required ADR sections
 

@@ -37,7 +37,7 @@ test("async form failures restore submitted values and expose a focusable visibl
   assert.match(shell, /Your entered values have been restored/);
   assert.match(shell, /setAttribute\("role", "alert"\)/);
   assert.match(shell, /alert\.tabIndex = -1/);
-  assert.match(shell, /repair\.focus\(\)/);
+  assert.match(shell, /\(repair \?\? alert\)\.focus\(\)/);
   assert.doesNotMatch(shell, /ProductCoreService/);
   assert.doesNotMatch(shell, /\.save\(/);
 });
@@ -57,7 +57,9 @@ test("desktop navigation is synchronized with browser history and can recover fr
   assert.match(shell, /window\.addEventListener\("popstate"/);
   assert.match(shell, /window\.addEventListener\("hashchange"/);
   assert.match(shell, /button\.click\(\)/);
-  assert.match(shell, /if \(currentNav\(\) === nav\) return true;/);
+  // A sub-view route (Repository Growth) selects its parent page.
+  assert.match(shell, /if \(currentNav\(\) === page\) return true;/);
+  assert.match(shell, /"repository-growth": "product"/);
   // aria-current changes are recorded into history, never "corrected" from a
   // stale hash (that trapped people on the Workspace page).
   assert.match(shell, /function recordCurrent\(\)/);

@@ -22,6 +22,9 @@ type ReviewConfig = Readonly<{
 }>;
 
 const panelReviews = new WeakMap<HTMLElement, ReviewConfig>();
+// What each open panel replaced: the record's own action row (hidden while the
+// panel is open) and the control that opened it (where focus returns).
+const panelOrigins = new WeakMap<HTMLElement, Readonly<{ actions?: HTMLElement; opener: HTMLButtonElement }>>();
 
 function announce(message: string): void {
   if (live) live.textContent = message;
@@ -146,10 +149,7 @@ function openReviewPanel(button: HTMLButtonElement, config: ReviewConfig): void 
   const card = owningCard(button);
   if (!card) return;
   const previous = card.querySelector<HTMLElement>("[data-contextual-review]");
-  if (previous) {
-    panelReviews.delete(previous);
-    previous.remove();
-  }
+  if (previous) closePanel(previous, false);
   const actions = button.closest<HTMLElement>(".actions");
   if (actions) actions.hidden = true;
 
@@ -172,6 +172,7 @@ function openReviewPanel(button: HTMLButtonElement, config: ReviewConfig): void 
       <button type="button" data-contextual-review-cancel>Cancel review</button>
     </form>`;
   panelReviews.set(panel, config);
+  panelOrigins.set(panel, { ...(actions ? { actions } : {}), opener: button });
   const anchor = actions ?? card.lastElementChild;
   if (anchor) anchor.insertAdjacentElement("beforebegin", panel);
   else card.append(panel);
@@ -200,11 +201,15 @@ function compact(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function closePanel(panel: HTMLElement): void {
-  const card = panel.closest<HTMLElement>("article, .record, .calendar-card");
-  card?.querySelector<HTMLElement>(".actions")?.removeAttribute("hidden");
+function closePanel(panel: HTMLElement, restoreFocus = true): void {
+  // Restore exactly the action row this panel hid. The panel holds its own
+  // ".actions" row, so a selector search could find that one instead.
+  const origin = panelOrigins.get(panel);
+  origin?.actions?.removeAttribute("hidden");
   panelReviews.delete(panel);
+  panelOrigins.delete(panel);
   panel.remove();
+  if (restoreFocus && origin?.opener.isConnected) origin.opener.focus();
 }
 
 function replayReview(config: ReviewConfig, decision: string, reviewer: string, note: string): void {
@@ -243,6 +248,15 @@ document.addEventListener("click", (event) => {
   event.stopImmediatePropagation();
   openReviewPanel(button, config);
 }, true);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const panel = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-contextual-review]");
+  if (!panel) return;
+  event.preventDefault();
+  closePanel(panel);
+  announce("Review panel closed without changing the record.");
+});
 
 document.addEventListener("submit", (event) => {
   const form = (event.target as HTMLElement).closest<HTMLFormElement>("form[data-contextual-review-form]");

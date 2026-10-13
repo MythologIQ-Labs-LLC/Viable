@@ -17,8 +17,11 @@ test("Studio exposes the complete manual video production journey", async () => 
     "Import run as unapproved artifact",
     "Imported artifacts",
     "Prepare an approved render for a platform",
-    "Calendar handoff is not implemented",
+    "schedule an approved platform variant in Calendar",
   ]) assert.match(view, new RegExp(marker, "i"));
+  // Calendar accepts approved video platform variants as sources, so Studio
+  // must not claim the handoff is missing.
+  assert.doesNotMatch(view, /Calendar handoff is not implemented/);
   assert.match(shell, /VideoProductionViewController/);
   assert.match(shell, /dataset\.videoAction/);
   assert.match(shell, /startsWith\("video-"\)/);

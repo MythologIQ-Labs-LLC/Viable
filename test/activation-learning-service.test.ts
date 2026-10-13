@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { ActivationLearningWorkspace } from "../src/activation-learning/domain/activation-learning.js";
+import type { ActivationLearningWorkspace, MetricEvidenceState } from "../src/activation-learning/domain/activation-learning.js";
 import type { ActivationLearningStore } from "../src/activation-learning/ports/activation-learning-store.js";
 import { ActivationLearningService } from "../src/activation-learning/services/activation-learning-service.js";
-import type { CampaignWorkspace } from "../src/campaigns/domain/campaign.js";
+import type { AuthorityRevision, CampaignWorkspace, CompositionBrief } from "../src/campaigns/domain/campaign.js";
 import type { CampaignWorkspaceStore } from "../src/campaigns/ports/campaign-workspace-store.js";
 import type { ProductWorkspace } from "../src/product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../src/product-core/ports/product-workspace-store.js";
@@ -79,6 +79,23 @@ const campaigns = (): CampaignWorkspace => ({
     successMeasures: ["One qualified review"], dependencies: [], version: 1, status: "approved",
     createdAt: "2026-07-16T00:00:00.000Z", updatedAt: "2026-07-16T00:00:00.000Z",
     reviewedBy: "Campaign reviewer", reviewedAt: "2026-07-16T00:00:00.000Z", reviewNote: "Approved",
+  }],
+  compositionBriefs: [{
+    id: "composition-1", workspaceId: "workspace-1", campaignId: "campaign-1",
+    objective: "product_proof", primaryAudience: "Founder operators", desiredOutcome: "Qualified review",
+    topic: "Governed launch", contentFamily: "build_proof", hookArchetype: "product_proof",
+    toneConstraints: ["Direct"], claimReferences: [claimReference], evidenceIds: ["evidence-1"], prohibitedClaims: [],
+    destinationId: "id-1", format: "text", mediaAssetIds: [], callToAction: "Review",
+    externalLinkPolicy: "none", hypothesis: "Concrete proof earns qualified review", version: 1,
+    createdAt: "2026-07-16T00:00:00.000Z", updatedAt: "2026-07-16T00:00:00.000Z",
+  }],
+  publicationExperiments: [{
+    id: "experiment-linkedin", workspaceId: "workspace-1", compositionBriefId: "composition-1",
+    compositionBriefVersion: 1, compositionBriefSha256: "b".repeat(64),
+    channelVariantId: "variant-linkedin", channelVariantVersion: 1, channelVariantBodySha256: "c".repeat(64),
+    destinationId: "id-1", provider: "linkedin", timezone: "America/New_York",
+    expectedOutcome: "Qualified review", changedVariables: ["hook"], status: "draft",
+    createdAt: "2026-07-16T00:00:00.000Z", updatedAt: "2026-07-16T00:00:00.000Z",
   }],
   assets: [{
     id: "asset-1", workspaceId: "workspace-1", campaignId: "campaign-1", title: "Canonical launch asset",
@@ -197,6 +214,546 @@ const outcomeObservation = {
   source: "Manual review log", evidenceReference: "outcome-note-1",
 };
 
+async function testSha256(value: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function cohortBrief(id: string, hookArchetype: string, version = 1, history?: readonly AuthorityRevision[]): CompositionBrief {
+  return {
+    id,
+    workspaceId: "workspace-1",
+    campaignId: "campaign-1",
+    objective: "product_proof" as const,
+    primaryAudience: "Founder operators",
+    desiredOutcome: "Qualified review",
+    topic: "Governed launch",
+    contentFamily: "build_proof" as const,
+    hookArchetype,
+    toneConstraints: ["Direct"],
+    claimReferences: [claimReference],
+    evidenceIds: ["evidence-1"],
+    prohibitedClaims: [],
+    destinationId: "cohort-destination",
+    format: "text" as const,
+    mediaAssetIds: [],
+    callToAction: "Review",
+    externalLinkPolicy: "none" as const,
+    hypothesis: "Concrete proof earns qualified review",
+    version,
+    createdAt: "2026-07-01T00:00:00.000Z",
+    updatedAt: "2026-07-01T00:00:00.000Z",
+    ...(history ? { history } : {}),
+  };
+}
+
+function cohortIdentity(brief: CompositionBrief): Readonly<Record<string, unknown>> {
+  return {
+    campaignId: brief.campaignId,
+    icpHypothesisId: null,
+    objective: brief.objective,
+    primaryAudience: brief.primaryAudience,
+    desiredOutcome: brief.desiredOutcome,
+    topic: brief.topic,
+    contentFamily: brief.contentFamily,
+    hookArchetype: brief.hookArchetype ?? null,
+    toneConstraints: [...brief.toneConstraints],
+    claimReferences: brief.claimReferences.map((reference) => ({
+      claimId: reference.claimId,
+      claimRevision: reference.claimRevision,
+      statement: reference.statement,
+      evidenceIds: [...reference.evidenceIds],
+    })),
+    evidenceIds: [...brief.evidenceIds],
+    prohibitedClaims: [...brief.prohibitedClaims],
+    destinationId: brief.destinationId,
+    format: brief.format,
+    mediaAssetIds: [...brief.mediaAssetIds],
+    callToAction: brief.callToAction ?? null,
+    externalLinkPolicy: brief.externalLinkPolicy,
+    hypothesis: brief.hypothesis,
+  };
+}
+
+async function seedComparableCohort() {
+  const fixtureValue = fixture();
+  const { activation, campaignStore } = fixtureValue;
+
+  const historicalReference = cohortBrief("composition-reference", "product_proof", 1);
+  const historicalRaw = JSON.stringify(cohortIdentity(historicalReference));
+  const currentReference = {
+    ...cohortBrief("composition-reference", "contradiction", 2),
+    history: [{
+      version: 1,
+      changedAt: "2026-07-05T00:00:00.000Z",
+      changedBy: "Campaign owner",
+      rationale: "Later hook revision",
+      changedFields: ["hookArchetype"],
+      snapshot: historicalRaw,
+    }],
+  };
+  const questionBrief = cohortBrief("composition-question", "question");
+  const sevenDayBrief = cohortBrief("composition-seven-day", "question");
+  const mismatchBrief = cohortBrief("composition-mismatch", "question");
+  const multiBrief = cohortBrief("composition-multi", "question");
+
+  const experiment = async (
+    id: string,
+    brief: CompositionBrief,
+    compositionBriefVersion: number,
+    compositionRaw: string,
+    changedVariables: readonly ("hook" | "timing")[],
+  ) => ({
+    id,
+    workspaceId: "workspace-1",
+    compositionBriefId: brief.id,
+    compositionBriefVersion,
+    compositionBriefSha256: await testSha256(compositionRaw),
+    channelVariantId: "variant-linkedin",
+    channelVariantVersion: 1,
+    channelVariantBodySha256: "c".repeat(64),
+    destinationId: "cohort-destination",
+    provider: "linkedin",
+    timezone: "America/New_York",
+    expectedOutcome: "Qualified review",
+    changedVariables,
+    status: "published" as const,
+    createdAt: "2026-07-01T00:00:00.000Z",
+    updatedAt: "2026-07-01T00:00:00.000Z",
+  });
+
+  const experiments = [
+    await experiment("experiment-reference", currentReference, 1, historicalRaw, ["hook"]),
+    await experiment("experiment-question", questionBrief, 1, JSON.stringify(cohortIdentity(questionBrief)), ["hook"]),
+    await experiment("experiment-seven-day", sevenDayBrief, 1, JSON.stringify(cohortIdentity(sevenDayBrief)), ["hook"]),
+    await experiment("experiment-mismatch", mismatchBrief, 1, JSON.stringify(cohortIdentity(mismatchBrief)), ["hook"]),
+    await experiment("experiment-multi", multiBrief, 1, JSON.stringify(cohortIdentity(multiBrief)), ["hook", "timing"]),
+  ];
+
+  campaignStore.value = {
+    ...campaignStore.value,
+    compositionBriefs: [currentReference, questionBrief, sevenDayBrief, mismatchBrief, multiBrief],
+    publicationExperiments: experiments,
+  };
+
+  const publication = (calendarEntryId: string, day: string, publicationId: string) => ({
+    id: `delivery-${calendarEntryId}`,
+    workspaceId: "workspace-1",
+    calendarEntryId,
+    packageId: `package-${calendarEntryId}`,
+    status: "delivered" as const,
+    evidenceClassification: "provider_evidence" as const,
+    source: "Provider receipt",
+    observedAt: `${day}T12:00:00.000Z`,
+    recordedAt: `${day}T12:05:00.000Z`,
+    recordedBy: "Analyst",
+    evidenceReferences: [`receipt-${publicationId}`],
+    note: "Delivered",
+    publicationId,
+  });
+
+  const observation = (
+    id: string,
+    value: number,
+    day: string,
+    end: string,
+    definition = "Provider-native impression count",
+  ) => ({
+    id,
+    metric: "impressions",
+    providerMetric: "Impressions",
+    providerDefinition: definition,
+    state: "observed" as const,
+    value,
+    unit: "count",
+    windowStartsAt: `${day}T12:00:00.000Z`,
+    windowEndsAt: end,
+    capturedAt: end,
+    source: "Provider export",
+    evidenceReference: `${id}.csv`,
+  });
+
+  const performanceImport = (
+    id: string,
+    experimentId: string,
+    calendarEntryId: string,
+    publicationId: string,
+    observations: readonly ReturnType<typeof observation>[],
+  ) => ({
+    id,
+    workspaceId: "workspace-1",
+    calendarEntryId,
+    publicationExperimentId: experimentId,
+    providerPublicationId: publicationId,
+    normalizedDigest: id.padEnd(64, "a").slice(0, 64),
+    status: "complete" as const,
+    source: "Provider export",
+    sourceClassification: "provider_export" as const,
+    observations,
+    importedAt: observations[0]!.capturedAt,
+    importedBy: "Analyst",
+    notes: "Cohort fixture",
+  });
+
+  activation.value = {
+    workspaceId: "workspace-1",
+    destinations: [{
+      id: "cohort-destination",
+      workspaceId: "workspace-1",
+      label: "Company LinkedIn",
+      channel: "linkedin",
+      accountReference: "company-page:mythologiq-labs",
+      accountOwner: "MythologIQ Labs, LLC",
+      ownershipConfirmed: true,
+      deliveryMode: "manual_only",
+      capabilityNotes: ["Manual post"],
+      rateLimitNotes: "Follow provider limits",
+      retryPolicy: "Review before retry",
+      dataHandlingNotes: "No credentials",
+      status: "active",
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    }],
+    calendarEntries: [],
+    packages: [],
+    exportOperations: [],
+    deliveryOutcomes: [
+      publication("entry-reference", "2026-07-01", "pub-reference"),
+      publication("entry-question", "2026-07-03", "pub-question"),
+      publication("entry-seven-day", "2026-07-05", "pub-seven-day"),
+      publication("entry-mismatch", "2026-07-07", "pub-mismatch"),
+      publication("entry-multi", "2026-07-09", "pub-multi"),
+    ],
+    measurementPlans: [],
+    performanceImports: [
+      performanceImport("import-reference", "experiment-reference", "entry-reference", "pub-reference", [
+        observation("obs-reference", 10, "2026-07-01", "2026-07-02T12:00:00.000Z"),
+      ]),
+      performanceImport("import-question-20h", "experiment-question", "entry-question", "pub-question", [
+        observation("obs-question-20h", 11, "2026-07-03", "2026-07-04T08:00:00.000Z"),
+      ]),
+      performanceImport("import-question-24h", "experiment-question", "entry-question", "pub-question", [
+        observation("obs-question-24h", 12, "2026-07-03", "2026-07-04T12:00:00.000Z"),
+      ]),
+      performanceImport("import-seven-day", "experiment-seven-day", "entry-seven-day", "pub-seven-day", [
+        observation("obs-seven-day", 999, "2026-07-05", "2026-07-12T12:00:00.000Z"),
+      ]),
+      performanceImport("import-mismatch", "experiment-mismatch", "entry-mismatch", "pub-mismatch", [
+        observation("obs-mismatch", 50, "2026-07-07", "2026-07-08T12:00:00.000Z", "Unique member reach"),
+      ]),
+      performanceImport("import-multi", "experiment-multi", "entry-multi", "pub-multi", [
+        observation("obs-multi", 100, "2026-07-09", "2026-07-10T12:00:00.000Z"),
+      ]),
+    ],
+    derivedMetrics: [],
+    cohortEvaluations: [],
+    retrospectives: [],
+    learningLedger: [],
+    updatedAt: "2026-07-13T00:00:00.000Z",
+  };
+
+  return fixtureValue;
+}
+
+function appendComparableQuestionExperiment(
+  fixtureValue: Awaited<ReturnType<typeof seedComparableCohort>>,
+  suffix: string,
+  publicationObservedAt: string,
+  value: number,
+  options: Readonly<{
+    ageHours?: number;
+    state?: MetricEvidenceState;
+    providerDefinition?: string;
+    conflictingValue?: number;
+    group?: "question" | "product_proof";
+  }> = {},
+): void {
+  const { activation, campaignStore } = fixtureValue;
+  const campaign = campaignStore.value!;
+  const workspace = activation.value!;
+  const baseExperiment = campaign.publicationExperiments!.find((record) =>
+    record.id === (options.group === "product_proof" ? "experiment-reference" : "experiment-question"))!;
+  const baseImport = workspace.performanceImports.find((record) => record.publicationExperimentId === "experiment-question")!;
+  const baseObservation = baseImport.observations.find((record) => record.metric === "impressions")!;
+  const experimentId = `experiment-${suffix}`;
+  const entryId = `entry-${suffix}`;
+  const publicationId = `pub-${suffix}`;
+  const state = options.state ?? "observed";
+  const ageHours = options.ageHours ?? 24;
+  const publicationTime = Date.parse(publicationObservedAt);
+  const windowEndsAt = new Date(publicationTime + ageHours * 3_600_000).toISOString();
+  const observation = {
+    id: `obs-${suffix}`,
+    metric: "impressions",
+    providerMetric: "Impressions",
+    providerDefinition: options.providerDefinition ?? "Provider-native impression count",
+    state,
+    ...(state === "unknown" || state === "unavailable" || state === "conflict" || state === "not_collected" || state === "delayed"
+      ? {}
+      : { value }),
+    unit: "count",
+    windowStartsAt: publicationObservedAt,
+    windowEndsAt,
+    capturedAt: windowEndsAt,
+    source: "Provider export",
+    evidenceReference: `obs-${suffix}.csv`,
+    ...(["estimated", "partial", "unknown", "unavailable", "conflict", "not_collected", "delayed"].includes(state)
+      ? { limitation: `Fixture ${state} evidence` }
+      : {}),
+  } satisfies Omit<typeof baseObservation, "id"> & { id: string };
+
+  campaignStore.value = {
+    ...campaign,
+    publicationExperiments: [
+      ...(campaign.publicationExperiments ?? []),
+      {
+        ...baseExperiment,
+        id: experimentId,
+        createdAt: publicationObservedAt,
+        updatedAt: publicationObservedAt,
+      },
+    ],
+  };
+
+  const importRecord = {
+    ...baseImport,
+    id: `import-${suffix}`,
+    calendarEntryId: entryId,
+    publicationExperimentId: experimentId,
+    providerPublicationId: publicationId,
+    normalizedDigest: suffix.padEnd(64, "a").slice(0, 64),
+    status: state === "observed" || state === "verified_zero" ? "complete" as const : "partial" as const,
+    observations: [observation],
+    importedAt: windowEndsAt,
+  };
+
+  const extraImports = options.conflictingValue === undefined ? [] : [{
+    ...importRecord,
+    id: `import-${suffix}-conflict`,
+    normalizedDigest: `${suffix}-conflict`.padEnd(64, "b").slice(0, 64),
+    observations: [{
+      ...observation,
+      id: `obs-${suffix}-conflict`,
+      state: "observed" as const,
+      value: options.conflictingValue,
+      evidenceReference: `obs-${suffix}-conflict.csv`,
+      limitation: "Conflicting duplicate source observation",
+    }],
+  }];
+
+  activation.value = {
+    ...workspace,
+    deliveryOutcomes: [
+      ...workspace.deliveryOutcomes,
+      {
+        id: `delivery-${suffix}`,
+        workspaceId: "workspace-1",
+        calendarEntryId: entryId,
+        packageId: `package-${suffix}`,
+        status: "delivered",
+        evidenceClassification: "provider_evidence",
+        source: "Provider receipt",
+        observedAt: publicationObservedAt,
+        recordedAt: new Date(publicationTime + 300_000).toISOString(),
+        recordedBy: "Analyst",
+        evidenceReferences: [`receipt-${publicationId}`],
+        note: "Delivered",
+        publicationId,
+      },
+    ],
+    performanceImports: [...workspace.performanceImports, importRecord, ...extraImports],
+  };
+}
+
+test("24h cohort uses historical experiment context, one observation per experiment, and value-independent exclusions", async () => {
+  const { service } = await seedComparableCohort();
+  const workspace = await service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const evaluation = workspace.cohortEvaluations![0]!;
+  assert.equal(evaluation.sampleSize, 2);
+  assert.equal(evaluation.confidence, "insufficient");
+  assert.deepEqual(evaluation.included.map((item) => item.publicationExperimentId), ["experiment-reference", "experiment-question"]);
+  assert.equal(evaluation.included.find((item) => item.publicationExperimentId === "experiment-reference")?.groupValue, "product_proof");
+  assert.equal(evaluation.included.find((item) => item.publicationExperimentId === "experiment-question")?.observationId, "obs-question-24h");
+  assert.ok(!evaluation.included.some((item) => item.value === 999));
+  assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-seven-day" && /24h/.test(item.reason)));
+  assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-mismatch" && /definition/.test(item.reason)));
+  assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-multi" && /Single-variable hook/.test(item.reason)));
+  assert.match(evaluation.advisory, /three publications each/i);
+  assert.match(evaluation.limitation, /product guidance, not statistical proof/i);
+});
+
+test("reference cohort must itself be a single-variable experiment", async () => {
+  const fixtureValue = await seedComparableCohort();
+  fixtureValue.campaignStore.value = {
+    ...fixtureValue.campaignStore.value,
+    publicationExperiments: fixtureValue.campaignStore.value.publicationExperiments!.map((record) =>
+      record.id === "experiment-reference" ? { ...record, changedVariables: ["hook", "timing"] } : record),
+  };
+  await assert.rejects(
+    fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+      referenceExperimentId: "experiment-reference",
+      metric: "impressions",
+      ageBucket: "24h",
+      compareVariable: "hook",
+      createdBy: "Analyst",
+    }),
+    /Reference experiment must change only hook/,
+  );
+});
+
+test("cohort excludes timezone mismatch and records publication date in the declared timezone", async () => {
+  const fixtureValue = await seedComparableCohort();
+  appendComparableQuestionExperiment(fixtureValue, "cross-midnight", "2026-07-01T02:00:00.000Z", 15);
+  appendComparableQuestionExperiment(fixtureValue, "wrong-timezone", "2026-07-25T12:00:00.000Z", 16);
+  fixtureValue.campaignStore.value = {
+    ...fixtureValue.campaignStore.value,
+    publicationExperiments: fixtureValue.campaignStore.value.publicationExperiments!.map((record) =>
+      record.id === "experiment-wrong-timezone" ? { ...record, timezone: "UTC" } : record),
+  };
+
+  const workspace = await fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const evaluation = workspace.cohortEvaluations![0]!;
+  assert.equal(
+    evaluation.included.find((item) => item.publicationExperimentId === "experiment-cross-midnight")?.publicationDate,
+    "2026-06-30",
+  );
+  assert.ok(evaluation.excluded.some((item) =>
+    item.publicationExperimentId === "experiment-wrong-timezone" && /timezone does not match/.test(item.reason)));
+});
+
+test("invalid reference timezone fails with a bounded cohort error", async () => {
+  const fixtureValue = await seedComparableCohort();
+  fixtureValue.campaignStore.value = {
+    ...fixtureValue.campaignStore.value,
+    publicationExperiments: fixtureValue.campaignStore.value.publicationExperiments!.map((record) =>
+      record.id === "experiment-reference" ? { ...record, timezone: "Not/AZone" } : record),
+  };
+  await assert.rejects(
+    fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+      referenceExperimentId: "experiment-reference",
+      metric: "impressions",
+      ageBucket: "24h",
+      compareVariable: "hook",
+      createdBy: "Analyst",
+    }),
+    /Experiment timezone is invalid/,
+  );
+});
+
+test("strict cohort evidence excludes estimated unknown and conflicting observations before value selection", async () => {
+  const fixtureValue = await seedComparableCohort();
+  appendComparableQuestionExperiment(fixtureValue, "estimated", "2026-07-11T12:00:00.000Z", 500, { state: "estimated" });
+  appendComparableQuestionExperiment(fixtureValue, "unknown", "2026-07-13T12:00:00.000Z", 0, { state: "unknown" });
+  appendComparableQuestionExperiment(fixtureValue, "conflict", "2026-07-15T12:00:00.000Z", 20, { conflictingValue: 2000 });
+
+  const workspace = await fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const evaluation = workspace.cohortEvaluations![0]!;
+  assert.equal(evaluation.sampleSize, 2);
+  assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-estimated" && /estimated/.test(item.reason)));
+  assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-unknown" && /unknown/.test(item.reason)));
+  assert.ok(evaluation.excluded.some((item) => item.publicationExperimentId === "experiment-conflict" && /conflict/.test(item.reason)));
+  assert.ok(!evaluation.included.some((item) => [500, 2000].includes(item.value)));
+});
+
+test("strict cohort chooses eligible evidence before age closeness", async () => {
+  const fixtureValue = await seedComparableCohort();
+  const workspace = fixtureValue.activation.value!;
+  const questionImport = workspace.performanceImports.find((record) => record.id === "import-question-24h")!;
+  fixtureValue.activation.value = {
+    ...workspace,
+    performanceImports: workspace.performanceImports.map((record) => record.id === questionImport.id
+      ? {
+          ...record,
+          status: "partial" as const,
+          observations: record.observations.map((observation) => ({
+            ...observation,
+            state: "estimated" as const,
+            value: 1000,
+            limitation: "Closest snapshot is only an estimate",
+          })),
+        }
+      : record),
+  };
+
+  const evaluated = await fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const question = evaluated.cohortEvaluations![0]!.included.find((item) => item.publicationExperimentId === "experiment-question");
+  assert.equal(question?.observationId, "obs-question-20h");
+  assert.equal(question?.value, 11);
+});
+
+test("imbalanced three-post cohort remains insufficient under the balanced policy", async () => {
+  const fixtureValue = await seedComparableCohort();
+  appendComparableQuestionExperiment(fixtureValue, "question-two", "2026-07-17T12:00:00.000Z", 13);
+
+  const workspace = await fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const evaluation = workspace.cohortEvaluations![0]!;
+  assert.equal(evaluation.sampleSize, 3);
+  assert.equal(evaluation.confidence, "insufficient");
+  assert.match(evaluation.advisory, /three publications each/i);
+  assert.match(evaluation.limitation, /three comparable publications in each of two groups/i);
+});
+
+test("balanced three-per-group cohort produces emerging advisory guidance without mutating canonical authorities", async () => {
+  const fixtureValue = await seedComparableCohort();
+  appendComparableQuestionExperiment(fixtureValue, "question-two", "2026-07-17T12:00:00.000Z", 13);
+  appendComparableQuestionExperiment(fixtureValue, "question-three", "2026-07-19T12:00:00.000Z", 14);
+  appendComparableQuestionExperiment(fixtureValue, "proof-two", "2026-07-21T12:00:00.000Z", 9, { group: "product_proof" });
+  appendComparableQuestionExperiment(fixtureValue, "proof-three", "2026-07-23T12:00:00.000Z", 8, { group: "product_proof" });
+  const productBefore = JSON.stringify(fixtureValue.products.value);
+  const campaignBefore = JSON.stringify(fixtureValue.campaignStore.value);
+
+  const workspace = await fixtureValue.service.evaluatePublicationCohort("workspace-1", {
+    referenceExperimentId: "experiment-reference",
+    metric: "impressions",
+    ageBucket: "24h",
+    compareVariable: "hook",
+    createdBy: "Analyst",
+  });
+  const evaluation = workspace.cohortEvaluations![0]!;
+  assert.equal(evaluation.sampleSize, 6);
+  assert.equal(evaluation.distinctPublicationDates, 6);
+  assert.equal(evaluation.confidence, "emerging");
+  assert.deepEqual(evaluation.groups.map((group) => [group.groupValue, group.sampleSize]), [
+    ["question", 3],
+    ["product_proof", 3],
+  ]);
+  assert.match(evaluation.advisory, /higher median impressions/i);
+  assert.match(evaluation.advisory, /not proof of causality/i);
+  assert.match(evaluation.nextExperimentSuggestion, /Repeat a single-variable hook experiment/i);
+  assert.equal(JSON.stringify(fixtureValue.products.value), productBefore);
+  assert.equal(JSON.stringify(fixtureValue.campaignStore.value), campaignBefore);
+});
+
 test("scheduled work remains distinct from delivery and requires evidence", async () => {
   const { service } = fixture();
   let workspace = await packageReady(service);
@@ -295,6 +852,459 @@ test("retrospective compares compatible metrics and writes a learning entry", as
   assert.equal(workspace.retrospectives[0]!.comparisons[0]!.delta, 3);
   assert.equal(workspace.learningLedger[0]!.attributionModel, "manual");
   assert.match(workspace.learningLedger[0]!.reversibleNextAction, /Repeat one manual LinkedIn/);
+});
+
+test("re-importing identical normalized performance evidence is idempotent", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const input = {
+    calendarEntryId: entryId,
+    status: "complete" as const,
+    source: "Manual review log",
+    sourceClassification: "human_recorded" as const,
+    importedBy: "Analyst",
+    notes: "Outcome window complete",
+    observations: [{
+      ...outcomeObservation,
+      metric: "Qualified Reviews",
+      providerMetric: "Qualified review conversions",
+      providerDefinition: "Provider-native count of attributed review conversions",
+    }],
+  };
+  workspace = await service.importPerformance("workspace-1", input);
+  const firstDigest = workspace.performanceImports[0]!.normalizedDigest;
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.metric, "qualified_reviews");
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.providerMetric, "Qualified review conversions");
+  workspace = await service.importPerformance("workspace-1", { ...input, importedBy: "Second analyst", notes: "Same evidence re-selected" });
+  assert.equal(workspace.performanceImports.length, 1);
+  assert.match(firstDigest ?? "", /^[0-9a-f]{64}$/);
+  assert.equal(workspace.performanceImports[0]!.normalizedDigest, firstDigest);
+});
+
+test("manual analytics snapshot can bind exact publication experiment and preserve provider-native provenance", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    publicationExperimentId: "experiment-linkedin",
+    providerPublicationId: "urn:li:share:123",
+    status: "complete",
+    source: "LinkedIn export",
+    sourceClassification: "provider_export",
+    importedBy: "Analyst",
+    notes: "Manual export from the provider dashboard",
+    observations: [{
+      ...outcomeObservation,
+      metric: "Post Impressions",
+      providerMetric: "Impressions",
+      providerDefinition: "Times the post was shown in LinkedIn",
+      value: 42,
+      source: "LinkedIn export",
+      evidenceReference: "linkedin-export-2026-07-31.csv",
+    }],
+  });
+  const record = workspace.performanceImports[0]!;
+  assert.equal(record.publicationExperimentId, "experiment-linkedin");
+  assert.equal(record.providerPublicationId, "urn:li:share:123");
+  assert.equal(record.observations[0]!.metric, "post_impressions");
+  assert.equal(record.observations[0]!.providerMetric, "Impressions");
+  assert.match(record.normalizedDigest ?? "", /^[0-9a-f]{64}$/);
+});
+
+test("conflicting observations for the same metric window withhold a retrospective delta", async () => {
+  const { service } = fixture();
+  let workspace = await packageReady(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.markExportDownloaded("workspace-1", workspace.exportOperations[0]!.id);
+  workspace = await service.recordDeliveryOutcome("workspace-1", {
+    calendarEntryId: entryId, packageId: workspace.packages[0]!.id, status: "delivered", evidenceClassification: "human_recorded",
+    source: "Operator", observedAt: "2026-07-17T13:05:00.000Z", recordedBy: "Operator", evidenceReferences: ["delivery-proof-1"], note: "Published manually",
+    deliveryUrl: "https://www.linkedin.com/posts/example",
+  });
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Provider export A", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "First export", observations: [{
+      ...outcomeObservation,
+      source: "Provider export A",
+      evidenceReference: "outcome-note-1",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Provider export B", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Second export disagrees with the first",
+    observations: [{
+      ...outcomeObservation,
+      value: 9,
+      capturedAt: "2026-07-31T15:00:00.000Z",
+      source: "Provider export B",
+      evidenceReference: "outcome-note-2",
+    }],
+  });
+  const reconciled = await service.reconcilePerformanceEvidence("workspace-1", entryId);
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0]!.state, "conflict");
+  assert.equal(reconciled[0]!.value, undefined);
+  assert.match(reconciled[0]!.source, /Provider export A/);
+  assert.match(reconciled[0]!.source, /Provider export B/);
+  assert.match(reconciled[0]!.evidenceReference, /outcome-note-1/);
+  assert.match(reconciled[0]!.evidenceReference, /outcome-note-2/);
+
+  workspace = await service.completeRetrospective("workspace-1", {
+    calendarEntryId: entryId, completedBy: "Campaign owner", summary: "Conflicting provider evidence must not produce a numeric conclusion",
+    learnings: ["Resolve the evidence conflict before drawing a conclusion"], decision: "inconclusive", attributionModel: "manual",
+    attributionUncertainty: "Two provider exports disagree for the same metric and reporting window",
+    evidenceReferences: ["delivery-proof-1", "outcome-note-1", "outcome-note-2"],
+    reversibleNextAction: "Review the underlying exports", icpConfidenceEffect: "unknown",
+    icpConfidenceRationale: "The disputed metric does not support an ICP conclusion",
+    positioningEffect: "No positioning change while evidence conflicts",
+    learningChange: "Do not change the campaign from disputed evidence", learningOutcome: "Numeric outcome withheld",
+    learningFollowUp: "Reconcile the source records",
+  });
+  const comparison = workspace.retrospectives[0]!.comparisons[0]!;
+  assert.equal(comparison.delta, undefined);
+  assert.match(comparison.limitation ?? "", /conflict/i);
+});
+
+test("same normalized metric and reporting window with incompatible units reconciles as conflict", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Export A", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Count metric", observations: [{
+      ...outcomeObservation, metric: "Post impressions", value: 100, unit: "count", source: "Export A", evidenceReference: "a.csv",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Export B", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Ratio mislabeled as the same normalized metric", observations: [{
+      ...outcomeObservation, metric: "post_impressions", value: 0.5, unit: "ratio", source: "Export B", evidenceReference: "b.csv",
+    }],
+  });
+  const reconciled = await service.reconcilePerformanceEvidence("workspace-1", entryId);
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0]!.state, "conflict");
+  assert.match(reconciled[0]!.limitation ?? "", /units disagree/i);
+});
+
+test("estimated and unknown metric states preserve uncertainty instead of becoming observed or zero", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  await assert.rejects(service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "partial", source: "Estimate", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Missing limitation", observations: [{
+      ...outcomeObservation, metric: "reach", state: "estimated", value: 25, source: "Estimate", evidenceReference: "estimate-1",
+    }],
+  }), /Estimated metric requires a limitation/);
+  await assert.rejects(service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "partial", source: "Unknown", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Unknown cannot be numeric", observations: [{
+      ...outcomeObservation, metric: "reach", state: "unknown", value: 0, source: "Unknown", evidenceReference: "unknown-1", limitation: "Provider does not expose this metric",
+    }],
+  }), /unknown metric cannot include a numeric value/i);
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "partial", source: "Estimate", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Explicit estimate", observations: [{
+      ...outcomeObservation, metric: "reach", state: "estimated", value: 25, source: "Estimate", evidenceReference: "estimate-1", limitation: "Estimated from a sampled dashboard",
+    }],
+  });
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.state, "estimated");
+  assert.equal(workspace.performanceImports[0]!.observations[0]!.value, 25);
+});
+
+test("estimated and partial numeric disagreement reconciles as conflict", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId,
+    observationStartsAt: "2026-07-17T13:00:00.000Z",
+    observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation],
+    createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "partial",
+    source: "Estimate A",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Estimated reach",
+    observations: [{
+      ...outcomeObservation,
+      metric: "members_reached",
+      state: "estimated",
+      value: 25,
+      source: "Estimate A",
+      evidenceReference: "estimate-a",
+      limitation: "Estimated from sampled dashboard evidence",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "partial",
+    source: "Partial B",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Partial reach count",
+    observations: [{
+      ...outcomeObservation,
+      metric: "members_reached",
+      state: "partial",
+      value: 30,
+      source: "Partial B",
+      evidenceReference: "partial-b",
+      limitation: "Only part of the reporting window was visible",
+    }],
+  });
+  const reconciled = await service.reconcilePerformanceEvidence("workspace-1", entryId);
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0]!.state, "conflict");
+  assert.equal(reconciled[0]!.value, undefined);
+  assert.match(reconciled[0]!.limitation ?? "", /25 vs 30/);
+});
+
+test("retrospective compares only the exact measurement-plan outcome window", async () => {
+  const { service } = fixture();
+  let workspace = await packageReady(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.markExportDownloaded("workspace-1", workspace.exportOperations[0]!.id);
+  workspace = await service.recordDeliveryOutcome("workspace-1", {
+    calendarEntryId: entryId,
+    packageId: workspace.packages[0]!.id,
+    status: "delivered",
+    evidenceClassification: "human_recorded",
+    source: "Operator",
+    observedAt: "2026-07-17T13:05:00.000Z",
+    recordedBy: "Operator",
+    evidenceReferences: ["delivery-proof-window"],
+    note: "Published manually",
+    deliveryUrl: "https://www.linkedin.com/posts/example",
+  });
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId,
+    observationStartsAt: outcomeObservation.windowStartsAt,
+    observationEndsAt: outcomeObservation.windowEndsAt,
+    baseline: [baselineObservation],
+    createdBy: "Analyst",
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "complete",
+    source: "Planned outcome window",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Exact plan window",
+    observations: [{
+      ...outcomeObservation,
+      source: "Planned outcome window",
+      evidenceReference: "planned-window",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId,
+    status: "complete",
+    source: "Later checkpoint",
+    sourceClassification: "human_recorded",
+    importedBy: "Analyst",
+    notes: "Different reporting window",
+    observations: [{
+      ...outcomeObservation,
+      value: 9,
+      windowStartsAt: "2026-08-01T00:00:00.000Z",
+      windowEndsAt: "2026-08-07T23:59:59.000Z",
+      capturedAt: "2026-08-08T10:00:00.000Z",
+      source: "Later checkpoint",
+      evidenceReference: "later-window",
+    }],
+  });
+  workspace = await service.completeRetrospective("workspace-1", {
+    calendarEntryId: entryId,
+    completedBy: "Campaign owner",
+    summary: "Use the planned outcome window only",
+    learnings: ["Later checkpoints should not silently replace the planned outcome window"],
+    decision: "continue",
+    attributionModel: "manual",
+    attributionUncertainty: "Manual attribution remains bounded",
+    evidenceReferences: ["delivery-proof-window", "planned-window", "later-window"],
+    reversibleNextAction: "Continue the same bounded experiment",
+    icpConfidenceEffect: "no_change",
+    icpConfidenceRationale: "The planned window is the comparison authority",
+    positioningEffect: "No positioning change",
+    learningChange: "Keep the planned observation window explicit",
+    learningOutcome: "Planned window produced three qualified reviews",
+    learningFollowUp: "Review later checkpoints separately",
+  });
+  const comparison = workspace.retrospectives[0]!.comparisons[0]!;
+  assert.equal(comparison.outcomeValue, 3);
+  assert.equal(comparison.delta, 3);
+});
+
+test("derived ratio records formula version and mixed-source provenance without hiding it", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Provider export", sourceClassification: "provider_export", importedBy: "Analyst",
+    notes: "Provider reach", observations: [{
+      metric: "impressions", state: "observed", value: 100, unit: "count", ...window,
+      source: "Provider export", evidenceReference: "provider-impressions.csv", providerMetric: "Impressions",
+    }],
+  });
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Manual reach check", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Manual reached count", observations: [{
+      metric: "members_reached", state: "observed", value: 50, unit: "count", ...window,
+      source: "Manual reach check", evidenceReference: "reach-note-1",
+    }],
+  });
+  const deriveInput = {
+    calendarEntryId: entryId,
+    metric: "impressions_per_reached",
+    formula: "ratio" as const,
+    sourceMetrics: ["impressions", "members_reached"],
+    windowStartsAt: window.windowStartsAt,
+    windowEndsAt: window.windowEndsAt,
+    unit: "ratio",
+    createdBy: "Analyst",
+  };
+  workspace = await service.derivePerformanceMetric("workspace-1", deriveInput);
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.value, 2);
+  assert.equal(derived.state, "observed");
+  assert.equal(derived.formulaVersion, "1");
+  assert.deepEqual(derived.sourceClassifications, ["human_recorded", "provider_export"]);
+  assert.equal(derived.sourceImportIds.length, 2);
+  assert.equal(derived.sourceObservationIds.length, 2);
+  assert.match(derived.normalizedDigest, /^[0-9a-f]{64}$/);
+
+  workspace = await service.derivePerformanceMetric("workspace-1", deriveInput);
+  assert.equal(workspace.derivedMetrics!.length, 1);
+});
+
+test("derived sum with incompatible source units is a conflict instead of arithmetic", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Mixed units", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Two numeric sources with incompatible units", observations: [
+      { metric: "reactions", state: "observed", value: 10, unit: "count", ...window, source: "Mixed units", evidenceReference: "mixed-1" },
+      { metric: "engagement_rate", state: "observed", value: 0.2, unit: "ratio", ...window, source: "Mixed units", evidenceReference: "mixed-2" },
+    ],
+  });
+  workspace = await service.derivePerformanceMetric("workspace-1", {
+    calendarEntryId: entryId, metric: "nonsense_total", formula: "sum",
+    sourceMetrics: ["reactions", "engagement_rate"], windowStartsAt: window.windowStartsAt, windowEndsAt: window.windowEndsAt,
+    unit: "count", createdBy: "Analyst",
+  });
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.state, "conflict");
+  assert.equal(derived.value, undefined);
+  assert.match(derived.limitation ?? "", /source units disagree/i);
+});
+
+test("derived sum output unit must match compatible source units", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Counts", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Compatible counts", observations: [
+      { metric: "reactions", state: "observed", value: 10, unit: "count", ...window, source: "Counts", evidenceReference: "count-1" },
+      { metric: "comments", state: "observed", value: 2, unit: "count", ...window, source: "Counts", evidenceReference: "count-2" },
+    ],
+  });
+  workspace = await service.derivePerformanceMetric("workspace-1", {
+    calendarEntryId: entryId, metric: "engagements", formula: "sum",
+    sourceMetrics: ["reactions", "comments"], windowStartsAt: window.windowStartsAt, windowEndsAt: window.windowEndsAt,
+    unit: "ratio", createdBy: "Analyst",
+  });
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.state, "unavailable");
+  assert.equal(derived.value, undefined);
+  assert.match(derived.limitation ?? "", /output unit must match/i);
+});
+
+test("derived ratio with a verified-zero denominator is unavailable rather than zero", async () => {
+  const { service } = fixture();
+  let workspace = await approvedSchedule(service);
+  const entryId = workspace.calendarEntries[0]!.id;
+  workspace = await service.createMeasurementPlan("workspace-1", {
+    calendarEntryId: entryId, observationStartsAt: "2026-07-17T13:00:00.000Z", observationEndsAt: "2026-07-31T13:00:00.000Z",
+    baseline: [baselineObservation], createdBy: "Analyst",
+  });
+  const window = {
+    windowStartsAt: "2026-07-17T13:00:00.000Z",
+    windowEndsAt: "2026-07-31T13:00:00.000Z",
+    capturedAt: "2026-07-31T14:00:00.000Z",
+  };
+  workspace = await service.importPerformance("workspace-1", {
+    calendarEntryId: entryId, status: "complete", source: "Manual metrics", sourceClassification: "human_recorded", importedBy: "Analyst",
+    notes: "Observed impressions with verified-zero reach", observations: [
+      { metric: "impressions", state: "observed", value: 12, unit: "count", ...window, source: "Manual metrics", evidenceReference: "metric-1" },
+      { metric: "members_reached", state: "verified_zero", value: 0, unit: "count", ...window, source: "Manual metrics", evidenceReference: "metric-2" },
+    ],
+  });
+  workspace = await service.derivePerformanceMetric("workspace-1", {
+    calendarEntryId: entryId, metric: "impressions_per_reached", formula: "ratio",
+    sourceMetrics: ["impressions", "members_reached"], windowStartsAt: window.windowStartsAt, windowEndsAt: window.windowEndsAt,
+    unit: "ratio", createdBy: "Analyst",
+  });
+  const derived = workspace.derivedMetrics![0]!;
+  assert.equal(derived.state, "unavailable");
+  assert.equal(derived.value, undefined);
+  assert.match(derived.limitation ?? "", /Division by zero/);
 });
 
 test("authority changes invalidate scheduled work and its package", async () => {

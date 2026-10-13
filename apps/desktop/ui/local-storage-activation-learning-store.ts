@@ -15,9 +15,9 @@ export class LocalStorageActivationLearningStore implements ActivationLearningSt
       {
         arrays: [
           "destinations", "calendarEntries", "publicationPolicies", "publicationInventory", "publicationJobs", "publicationAttempts",
-          "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "retrospectives", "learningLedger",
+          "packages", "exportOperations", "deliveryOutcomes", "measurementPlans", "performanceImports", "derivedMetrics", "cohortEvaluations", "retrospectives", "learningLedger",
         ],
-        defaultArrays: ["publicationPolicies", "publicationInventory", "publicationJobs", "publicationAttempts"],
+        defaultArrays: ["publicationPolicies", "publicationInventory", "publicationJobs", "publicationAttempts", "derivedMetrics", "cohortEvaluations"],
         strings: ["updatedAt"],
       },
     );

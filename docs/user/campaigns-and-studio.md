@@ -2,7 +2,7 @@
 
 ## Status
 
-The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18. Signals-to-Campaign materialization landed through PR #67, and Campaign-owned content-brief materialization landed through PR #68 as the governed content destination for reviewed signal work. UX completion issue #78 adds explicit package-level channel selection so manual exports do not silently expand beyond campaign intent.
+The Campaigns and Studio desktop workflow is implemented and automatedly validated through PR #18. Signals-to-Campaign materialization landed through PR #67, and Campaign-owned content-brief materialization landed through PR #68 as the governed content destination for reviewed signal work. UX completion issue #78 adds explicit package-level channel selection so manual exports do not silently expand beyond campaign intent. #167 / PR #172 adds revisioned composition briefs and exact publication-experiment identity without adding model generation or publishing authority.
 
 The workflow is internal. Hands-on keyboard and assistive-technology review, unfamiliar-user acceptance, and any resulting remediation remain open under issue #6 and the relevant Signals acceptance work.
 
@@ -69,6 +69,25 @@ Content brief review is a distinct domain transition. Named review revalidates P
 A content brief does not create a canonical asset, channel variant, manual export, publishing approval, publication, or delivery claim. Those remain separate downstream records and decisions.
 
 Materialization uses a deterministic destination identifier derived from the Signals conversion, so retry returns the same authoritative content brief instead of creating duplicates.
+
+## Plan and revise a composition experiment
+
+Composition planning is structured guidance. It does not generate or rewrite the channel copy.
+
+From **Studio**, after an approved Campaign and an active Calendar / Activation destination exist:
+
+1. create a composition brief against the approved Campaign;
+2. choose an active destination whose channel is inside the Campaign plan;
+3. record objective, desired outcome, topic, content family, format, optional hook archetype, tone constraints, prohibited claims, media references, CTA/link policy, and the experiment hypothesis;
+4. review the separate truth, audience, message, channel, experiment, and approval readiness facets;
+5. author and obtain named approval for the actual channel variant through the normal Studio lifecycle;
+6. bind the composition brief to that exact approved variant and record the intentionally changed variables;
+7. inspect the exact composition revision and variant SHA-256 fingerprints;
+8. revise composition intent when the plan changes, with a named editor and rationale.
+
+Composition revisions are versioned. An existing publication experiment stays attached to the exact planning revision and exact approved copy it originally described. If Product Core authority, the Campaign, the destination, the composition revision, the variant revision, or the variant content changes, Viable marks the binding stale instead of silently following the new state.
+
+A current experiment binding is **not** publishing approval, scheduling, delivery, or a provider receipt. Those remain separate Calendar / Activation authorities.
 
 ## Create a canonical asset
 

@@ -6,10 +6,12 @@ import type {
   ConfidenceEffect,
   DestinationChannel,
   MetricEvidenceState,
+  MetricObservation,
+  ObservationAgeBucket,
   RetrospectiveDecision,
 } from "../../../src/activation-learning/domain/activation-learning.js";
 import { ActivationLearningService } from "../../../src/activation-learning/services/activation-learning-service.js";
-import type { CampaignWorkspace } from "../../../src/campaigns/domain/campaign.js";
+import type { CampaignWorkspace, ExperimentVariable } from "../../../src/campaigns/domain/campaign.js";
 import type { RepositoryGrowthWorkspace } from "../../../src/repository-growth/domain/repository-growth.js";
 import type { VideoProductionWorkspace } from "../../../src/video-production/domain/video-production.js";
 import { LocalStorageActivationLearningStore } from "./local-storage-activation-learning-store.js";
@@ -24,9 +26,9 @@ const escapeHtml = (value: unknown): string => String(value ?? "")
 const cleanLines = (value: FormDataEntryValue | null): string[] => String(value ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
 const label = (value: string): string => value.replaceAll("_", " ");
 const tone = (value: string): string =>
-  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero"].includes(value) ? "implemented"
-    : ["draft", "in_review", "ready_for_manual_activation", "partial", "delayed", "interrupted", "outcome_unknown", "not_collected"].includes(value) ? "warning"
-      : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable"].includes(value) ? "error" : "neutral";
+  ["scheduled", "delivered", "complete", "manual_export_ready", "downloaded", "observed", "verified_zero", "current", "repeatable_candidate", "established_local_pattern"].includes(value) ? "implemented"
+    : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected", "insufficient", "emerging"].includes(value) ? "warning"
+      : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable", "conflict"].includes(value) ? "error" : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
 const toIso = (value: FormDataEntryValue | null, name: string): string => {
@@ -60,6 +62,7 @@ export class ActivationLearningViewController {
   private campaigns?: CampaignWorkspace;
   private repositories?: RepositoryGrowthWorkspace;
   private videos?: VideoProductionWorkspace;
+  private readonly reconciledEvidence = new Map<string, readonly MetricObservation[]>();
   private failure?: string;
 
   constructor(readonly workspaceId: string, private readonly defaultOwner: string) {}
@@ -75,6 +78,7 @@ export class ActivationLearningViewController {
     this.campaigns = campaigns;
     this.repositories = repositories;
     this.videos = videos;
+    await this.refreshReconciliation();
   }
 
   render(page: "calendar" | "analytics"): string {
@@ -178,13 +182,21 @@ export class ActivationLearningViewController {
       if (kind === "activation-performance-import") {
         const state = String(form.get("state")) as MetricEvidenceState;
         const value = metricValue(state, form.get("value"));
+        const publicationExperimentId = String(form.get("publicationExperimentId") ?? "").trim();
+        const providerPublicationId = String(form.get("providerPublicationId") ?? "").trim();
+        const providerMetric = String(form.get("providerMetric") ?? "").trim();
+        const providerDefinition = String(form.get("providerDefinition") ?? "").trim();
         this.activation = await this.service.importPerformance(this.workspaceId, {
           calendarEntryId: String(form.get("calendarEntryId")),
+          ...(publicationExperimentId ? { publicationExperimentId } : {}),
+          ...(providerPublicationId ? { providerPublicationId } : {}),
           status: String(form.get("status")) as "complete" | "partial" | "delayed" | "unavailable" | "failed",
           source: String(form.get("source")),
-          sourceClassification: String(form.get("sourceClassification")) as "human_recorded" | "provider_export" | "provider_api",
+          sourceClassification: String(form.get("sourceClassification")) as "human_recorded" | "provider_export",
           observations: [{
             metric: String(form.get("metric")),
+            ...(providerMetric ? { providerMetric } : {}),
+            ...(providerDefinition ? { providerDefinition } : {}),
             state,
             ...(value !== undefined ? { value } : {}),
             ...(String(form.get("unit")).trim() ? { unit: String(form.get("unit")).trim() } : {}),
@@ -198,7 +210,35 @@ export class ActivationLearningViewController {
           importedBy: String(form.get("importedBy")),
           notes: String(form.get("notes")),
         });
-        return "Performance evidence imported without converting missing data into zero";
+        await this.refreshReconciliation();
+        return "Performance evidence imported idempotently without converting missing data into zero";
+      }
+      if (kind === "activation-derived-metric") {
+        const multiplierText = String(form.get("multiplier") ?? "").trim();
+        const multiplier = multiplierText ? Number(multiplierText) : 1;
+        if (!Number.isFinite(multiplier)) throw new Error("Derived metric multiplier must be numeric");
+        this.activation = await this.service.derivePerformanceMetric(this.workspaceId, {
+          calendarEntryId: String(form.get("calendarEntryId")),
+          metric: String(form.get("metric")),
+          formula: String(form.get("formula")) as "ratio" | "sum",
+          sourceMetrics: cleanLines(form.get("sourceMetrics")),
+          windowStartsAt: toIso(form.get("windowStartsAt"), "Derived metric window start"),
+          windowEndsAt: toIso(form.get("windowEndsAt"), "Derived metric window end"),
+          unit: String(form.get("unit")),
+          multiplier,
+          createdBy: String(form.get("createdBy")),
+        });
+        return "Derived metric calculated from reconciled evidence with formula provenance";
+      }
+      if (kind === "activation-cohort-evaluation") {
+        this.activation = await this.service.evaluatePublicationCohort(this.workspaceId, {
+          referenceExperimentId: String(form.get("referenceExperimentId")),
+          metric: String(form.get("metric")),
+          ageBucket: String(form.get("ageBucket")) as ObservationAgeBucket,
+          compareVariable: String(form.get("compareVariable")) as ExperimentVariable,
+          createdBy: String(form.get("createdBy")),
+        });
+        return "Comparable publication cohort evaluated with conservative advisory guidance";
       }
       if (kind === "activation-retrospective") {
         this.activation = await this.service.completeRetrospective(this.workspaceId, {
@@ -310,11 +350,13 @@ export class ActivationLearningViewController {
       <section class="metrics" aria-label="Analytics status">
         <article><span>Measurement plans</span><strong>${workspace.measurementPlans.length}</strong><small>Pre-recorded baselines</small></article>
         <article><span>Performance imports</span><strong>${workspace.performanceImports.length}</strong><small>Explicit evidence states</small></article>
+        <article><span>Cohort evaluations</span><strong>${workspace.cohortEvaluations?.length ?? 0}</strong><small>Observational advisory only</small></article>
         <article><span>Retrospectives</span><strong>${workspace.retrospectives.length}</strong><small>Decision and uncertainty</small></article>
         <article><span>Learning entries</span><strong>${workspace.learningLedger.length}</strong><small>Reversible next actions</small></article>
       </section>
       ${this.measurementPlanSection()}
       ${this.performanceImportSection()}
+      ${this.cohortEvaluationSection()}
       ${this.retrospectiveSection()}
       ${this.learningLedgerSection()}
     </section>`;
@@ -382,7 +424,7 @@ export class ActivationLearningViewController {
       if (entry.scheduleStatus === "scheduled" && !packageRecord) actions.push(`<button class="primary" type="button" data-activation-action="create-package" data-id="${entry.id}">Create manual activation package</button>`);
       if (!['cancelled'].includes(entry.scheduleStatus) && entry.activationStatus !== "delivered") actions.push(`<button type="button" data-activation-action="cancel-entry" data-id="${entry.id}">Cancel</button>`);
     }
-    return `<article class="calendar-card"><div class="card-heading"><div><h4>${escapeHtml(entry.title)}</h4><p>${humanDate(entry.startsAt)} · ${escapeHtml(entry.timezone)}</p></div><div class="status-stack">${pill(entry.scheduleStatus)}${pill(entry.activationStatus)}</div></div>
+    return `<article class="calendar-card" data-calendar-entry-id="${escapeHtml(entry.id)}"><div class="card-heading"><div><h4>${escapeHtml(entry.title)}</h4><p>${humanDate(entry.startsAt)} · ${escapeHtml(entry.timezone)}</p></div><div class="status-stack">${pill(entry.scheduleStatus)}${pill(entry.activationStatus)}</div></div>
       <p>${escapeHtml(entry.notes || "No notes")}</p>
       <div class="calendar-meta"><span><strong>Kind</strong>${escapeHtml(label(entry.kind))}</span><span><strong>Owner</strong>${escapeHtml(entry.owner)}</span><span><strong>Source</strong>${entry.source ? escapeHtml(`${label(entry.source.kind)} · ${entry.source.title}`) : "Internal planning"}</span><span><strong>Review</strong>${entry.reviewedBy ? escapeHtml(`${entry.reviewedBy} · ${humanDate(entry.reviewedAt)}`) : "Not required or not reviewed"}</span></div>
       ${actions.length ? `<div class="actions">${actions.join("")}</div>` : ""}</article>`;
@@ -428,14 +470,103 @@ export class ActivationLearningViewController {
 
   private performanceImportSection(): string {
     const workspace = this.activation!;
-    return `<section class="panel" aria-labelledby="performance-import-heading"><div class="section-heading"><div><p class="eyebrow">Outcome evidence</p><h3 id="performance-import-heading">Import one explicit metric observation</h3></div>${pill(`${workspace.performanceImports.length} imports`)}</div>
+    const experiments = this.campaigns?.publicationExperiments ?? [];
+    const experimentOptions = experiments.map((record) =>
+      `<option value="${record.id}">${escapeHtml(this.publicationExperimentLabel(record.id))}</option>`).join("");
+    return `<section class="panel" aria-labelledby="performance-import-heading"><div class="section-heading"><div><p class="eyebrow">Outcome evidence</p><h3 id="performance-import-heading">Record an append-only analytics snapshot</h3></div>${pill(`${workspace.performanceImports.length} snapshots`)}</div>
+      <p class="guidance">The normalized metric family supports comparison. Provider-native metric names and definitions remain visible as provenance. Re-selecting identical normalized evidence does not create another snapshot.</p>
       ${workspace.measurementPlans.length ? `<form data-form="activation-performance-import"><label>Calendar entry<select name="calendarEntryId">${workspace.measurementPlans.map((plan) => `<option value="${plan.calendarEntryId}">${escapeHtml(this.entryTitle(plan.calendarEntryId))}</option>`).join("")}</select></label>
-        <div class="three"><label>Import status<select name="status"><option value="complete">Complete</option><option value="partial">Partial</option><option value="delayed">Delayed</option><option value="unavailable">Unavailable</option><option value="failed">Failed</option></select></label><label>Source classification<select name="sourceClassification"><option value="human_recorded">Human recorded</option><option value="provider_export">Provider export</option><option value="provider_api">Provider API</option></select></label><label>Imported by<input name="importedBy" required value="${escapeHtml(this.defaultOwner)}"></label></div>
-        ${metricFields("Outcome")}
+        <div class="two"><label>Publication experiment, when applicable<select name="publicationExperimentId"><option value="">No experiment linkage</option>${experimentOptions}</select></label><label>Provider publication ID, when available<input name="providerPublicationId" placeholder="Provider receipt / publication identifier"></label></div>
+        <div class="three"><label>Import status<select name="status"><option value="complete">Complete</option><option value="partial">Partial</option><option value="delayed">Delayed</option><option value="unavailable">Unavailable</option><option value="failed">Failed</option></select></label><label>Source classification<select name="sourceClassification"><option value="human_recorded">Manual / human recorded</option><option value="provider_export">Provider export</option></select></label><label>Imported by<input name="importedBy" required value="${escapeHtml(this.defaultOwner)}"></label></div>
+        ${metricFields("Outcome", true)}
         <div class="three"><label>Metric window starts<input type="datetime-local" name="windowStartsAt" required></label><label>Metric window ends<input type="datetime-local" name="windowEndsAt" required></label><label>Captured at<input type="datetime-local" name="capturedAt" required></label></div>
-        <label>Import notes<textarea name="notes" rows="3" required>State what was available, missing, delayed, partial, or unavailable.</textarea></label><button class="primary" type="submit">Import performance evidence</button></form>` : `<section class="state warning"><strong>Performance import is blocked.</strong><span>Create a measurement plan and baseline first.</span></section>`}
-      <div class="card-list">${workspace.performanceImports.slice().reverse().map((record) => `<article><div class="card-heading"><div><h4>${escapeHtml(this.entryTitle(record.calendarEntryId))}</h4><p>${escapeHtml(record.source)} · ${humanDate(record.importedAt)}</p></div>${pill(record.status)}</div><p>${escapeHtml(record.notes)}</p>${record.observations.map(metricSummary).join("")}</article>`).join("")}</div>
+        <label>Import notes<textarea name="notes" rows="3" required>State what was available, missing, delayed, partial, estimated, or unknown.</textarea></label><button class="primary" type="submit">Record analytics snapshot</button></form>` : `<section class="state warning"><strong>Analytics snapshot is blocked.</strong><span>Create a measurement plan and baseline first.</span></section>`}
+      <div class="card-list">${workspace.performanceImports.slice().reverse().map((record) => `<article><div class="card-heading"><div><h4>${escapeHtml(this.entryTitle(record.calendarEntryId))}</h4><p>${escapeHtml(record.source)} · ${humanDate(record.importedAt)}</p></div>${pill(record.status)}</div>
+        <p>${escapeHtml(record.notes)}</p>
+        <dl><div><dt>Source class</dt><dd>${escapeHtml(label(record.sourceClassification))}</dd></div><div><dt>Experiment</dt><dd>${record.publicationExperimentId ? escapeHtml(this.publicationExperimentLabel(record.publicationExperimentId)) : "Not linked"}</dd></div><div><dt>Provider publication</dt><dd>${escapeHtml(record.providerPublicationId ?? "Not recorded")}</dd></div><div><dt>Normalized digest</dt><dd>${record.normalizedDigest ? `<code>${escapeHtml(record.normalizedDigest.slice(0, 12))}…</code>` : "Legacy import without digest"}</dd></div></dl>
+        ${record.observations.map(metricSummary).join("")}</article>`).join("")}</div>
+      <section aria-labelledby="reconciled-evidence-heading"><div class="section-heading"><div><p class="eyebrow">Reconciliation</p><h4 id="reconciled-evidence-heading">What Viable can safely compare</h4></div>${pill("computed")}</div>
+        <p class="guidance">Equivalent evidence counts once. Missing evidence stays missing. Conflicting values for the same normalized metric and reporting window remain a conflict; capture time does not decide truth.</p>
+        <div class="card-list">${workspace.measurementPlans.map((plan) => {
+          const evidence = this.reconciledEvidence.get(plan.calendarEntryId) ?? [];
+          return `<article><div class="card-heading"><div><h4>${escapeHtml(this.entryTitle(plan.calendarEntryId))}</h4><p>${evidence.length} reconciled metric${evidence.length === 1 ? "" : "s"}</p></div>${evidence.some((item) => item.state === "conflict") ? pill("conflict") : pill("current")}</div>${evidence.length ? evidence.map(metricSummary).join("") : `<div class="state empty"><strong>No outcome evidence yet.</strong><span>Record an analytics snapshot before reconciliation.</span></div>`}</article>`;
+        }).join("")}</div>
+      </section>
+      <section aria-labelledby="derived-metric-heading"><div class="section-heading"><div><p class="eyebrow">Derived metrics</p><h4 id="derived-metric-heading">Calculate only from reconciled evidence</h4></div>${pill(`${workspace.derivedMetrics?.length ?? 0} derived`)}</div>
+        <p class="guidance">Formulas are versioned and preserve source imports, observations, and evidence classifications. Mixed manual/provider inputs remain visible. Division by zero or disputed inputs withhold the value.</p>
+        ${workspace.performanceImports.length ? `<details><summary>Create deterministic derived metric</summary><form data-form="activation-derived-metric">
+          <div class="two"><label>Calendar entry<select name="calendarEntryId">${workspace.measurementPlans.map((plan) => `<option value="${plan.calendarEntryId}">${escapeHtml(this.entryTitle(plan.calendarEntryId))}</option>`).join("")}</select></label><label>Derived metric family<input name="metric" required placeholder="engagement_per_reached"></label></div>
+          <div class="three"><label>Formula<select name="formula"><option value="ratio">Ratio</option><option value="sum">Sum</option></select></label><label>Output unit<input name="unit" required value="ratio"></label><label>Multiplier<input name="multiplier" type="number" step="any" value="1"></label></div>
+          <label>Source normalized metric families, one per line<textarea name="sourceMetrics" required rows="3" placeholder="engagements&#10;members_reached"></textarea></label>
+          <div class="three"><label>Reporting window starts<input type="datetime-local" name="windowStartsAt" required></label><label>Reporting window ends<input type="datetime-local" name="windowEndsAt" required></label><label>Calculated by<input name="createdBy" required value="${escapeHtml(this.defaultOwner)}"></label></div>
+          <button type="submit">Calculate derived metric</button>
+        </form></details>` : `<div class="state empty"><strong>No source analytics evidence exists.</strong><span>Record snapshots before deriving metrics.</span></div>`}
+        <div class="card-list">${(workspace.derivedMetrics ?? []).slice().reverse().map((record) => `<article><div class="card-heading"><div><h4>${escapeHtml(record.metric)}</h4><p>${escapeHtml(record.expression)} · formula v${record.formulaVersion}</p></div>${pill(record.state)}</div>
+          <span>${record.value !== undefined ? `${record.value} ${escapeHtml(record.unit)}` : "No numeric value"}</span>
+          <dl><div><dt>Source metrics</dt><dd>${escapeHtml(record.sourceMetrics.join(" · "))}</dd></div><div><dt>Evidence classes</dt><dd>${escapeHtml(record.sourceClassifications.map(label).join(" · ") || "No usable source evidence")}</dd></div><div><dt>Source imports</dt><dd>${record.sourceImportIds.length}</dd></div><div><dt>Source observations</dt><dd>${record.sourceObservationIds.length}</dd></div><div><dt>Digest</dt><dd><code>${escapeHtml(record.normalizedDigest.slice(0, 12))}…</code></dd></div></dl>
+          ${record.limitation ? `<p class="guidance">${escapeHtml(record.limitation)}</p>` : ""}
+        </article>`).join("")}</div>
+      </section>
     </section>`;
+  }
+
+  private cohortEvaluationSection(): string {
+    const workspace = this.activation!;
+    const experiments = this.campaigns?.publicationExperiments ?? [];
+    const linked = new Set(workspace.performanceImports.map((record) => record.publicationExperimentId).filter(Boolean));
+    const references = experiments.filter((record) => linked.has(record.id));
+    const compareVariables: readonly ExperimentVariable[] = ["topic", "hook", "tone", "format", "media", "timing", "audience", "cta"];
+    return `<section class="panel" aria-labelledby="cohort-evaluation-heading">
+      <div class="section-heading"><div><p class="eyebrow">Comparable cohorts</p><h3 id="cohort-evaluation-heading">Compare like with like, then keep the conclusion advisory</h3></div>${pill(`${workspace.cohortEvaluations?.length ?? 0} evaluations`)}</div>
+      <p class="guidance">Policy v1 chooses strict reconciled evidence by provider, platform, historical composition context, metric definition, unit, and observation age before reading metric values. One publication experiment counts at most once. This is observational guidance, not causal proof.</p>
+      ${references.length ? `<details><summary>Evaluate a comparable publication cohort</summary><form data-form="activation-cohort-evaluation">
+        <label>Reference publication experiment<select name="referenceExperimentId" required>${references.map((record) => `<option value="${record.id}">${escapeHtml(this.publicationExperimentLabel(record.id))}</option>`).join("")}</select></label>
+        <div class="three">
+          <label>Normalized metric family<input name="metric" required placeholder="impressions"></label>
+          <label>Observation age<select name="ageBucket"><option value="24h">Up to 24 hours</option><option value="48h">24 to 48 hours</option><option value="7d">48 hours to 7 days</option></select></label>
+          <label>Variable being compared<select name="compareVariable">${compareVariables.map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("")}</select></label>
+        </div>
+        <label>Evaluated by<input name="createdBy" required value="${escapeHtml(this.defaultOwner)}"></label>
+        <button class="primary" type="submit">Evaluate comparable cohort</button>
+      </form></details>` : `<div class="state warning"><strong>No publication experiment has linked analytics evidence yet.</strong><span>Link an analytics snapshot to an exact publication experiment before evaluating a cohort.</span></div>`}
+      <div class="card-list">${(workspace.cohortEvaluations ?? []).slice().reverse().map((record) => `<article>
+        <div class="card-heading"><div><h4>${escapeHtml(record.metric)} · ${escapeHtml(label(record.compareVariable))}</h4><p>${escapeHtml(record.ageBucket)} · strict evidence · policy v${record.policyVersion}</p></div>${pill(record.confidence)}</div>
+        <p>${escapeHtml(record.advisory)}</p>
+        <dl>
+          <div><dt>Comparable publications</dt><dd>${record.sampleSize}</dd></div>
+          <div><dt>Distinct publication dates</dt><dd>${record.distinctPublicationDates}</dd></div>
+          <div><dt>Reference experiment</dt><dd>${escapeHtml(this.publicationExperimentLabel(record.referenceExperimentId))}</dd></div>
+          <div><dt>Excluded candidates</dt><dd>${record.excluded.length}</dd></div>
+        </dl>
+        ${record.confidence !== "insufficient" && record.groups.length
+          ? `<div class="comparison-list">${record.groups.map((group) => `<div><strong>${escapeHtml(group.groupValue)}</strong><span>median ${group.median} · range ${group.minimum}–${group.maximum}</span><small>N=${group.sampleSize}</small></div>`).join("")}</div>`
+          : record.groups.length
+            ? `<div class="state warning"><strong>Group medians withheld until the evidence threshold is met.</strong><span>${escapeHtml(record.groups.map((group) => `${group.groupValue}: N=${group.sampleSize}`).join(" · "))}</span></div>`
+            : ""}
+        <details><summary>Included evidence (${record.included.length})</summary><ul>${record.included.map((item) => `<li><code>${escapeHtml(item.publicationExperimentId)}</code> · ${item.value}${item.unit ? ` ${escapeHtml(item.unit)}` : ""} · ${item.observationAgeHours.toFixed(1)}h · ${escapeHtml(item.observationId)}</li>`).join("")}</ul></details>
+        <details><summary>Excluded candidates (${record.excluded.length})</summary>${record.excluded.length ? `<ul>${record.excluded.map((item) => `<li>${item.publicationExperimentId ? `<code>${escapeHtml(item.publicationExperimentId)}</code> · ` : ""}${escapeHtml(item.reason)}</li>`).join("")}</ul>` : `<p class="guidance">No candidates were excluded.</p>`}</details>
+        <p class="guidance"><strong>Limitations:</strong> ${escapeHtml(record.limitation)}</p>
+        <p><strong>Next experiment:</strong> ${escapeHtml(record.nextExperimentSuggestion)}</p>
+      </article>`).join("")}</div>
+    </section>`;
+  }
+
+  private async refreshReconciliation(): Promise<void> {
+    this.reconciledEvidence.clear();
+    for (const plan of this.activation?.measurementPlans ?? []) {
+      this.reconciledEvidence.set(
+        plan.calendarEntryId,
+        await this.service.reconcilePerformanceEvidence(this.workspaceId, plan.calendarEntryId),
+      );
+    }
+  }
+
+  private publicationExperimentLabel(id: string): string {
+    const experiment = this.campaigns?.publicationExperiments?.find((record) => record.id === id);
+    if (!experiment) return id;
+    const brief = this.campaigns?.compositionBriefs?.find((record) => record.id === experiment.compositionBriefId);
+    const variant = this.campaigns?.variants.find((record) => record.id === experiment.channelVariantId);
+    return `${brief?.topic ?? "Publication experiment"} · ${variant ? label(variant.channel) : experiment.provider} · composition v${experiment.compositionBriefVersion} / variant v${experiment.channelVariantVersion}`;
   }
 
   private retrospectiveSection(): string {
@@ -511,10 +642,11 @@ function channelOptions(): string {
     .map((value) => `<option value="${value}">${escapeHtml(label(value))}</option>`).join("");
 }
 
-function metricFields(prefix: string): string {
-  return `<div class="three"><label>${prefix} metric<input name="metric" required placeholder="qualified_reviews"></label><label>Evidence state<select name="state"><option value="observed">Observed non-zero</option><option value="verified_zero">Verified zero</option><option value="delayed">Delayed</option><option value="partial">Partial</option><option value="unavailable">Unavailable</option><option value="not_collected">Not collected</option></select></label><label>Numeric value, when allowed<input name="value" type="number" step="any"></label></div>
+function metricFields(prefix: string, includeProviderProvenance = false): string {
+  return `<div class="three"><label>${prefix} normalized metric family<input name="metric" required placeholder="qualified_reviews"></label><label>Evidence state<select name="state"><option value="observed">Observed non-zero</option><option value="verified_zero">Verified zero</option><option value="estimated">Estimated</option><option value="delayed">Delayed</option><option value="partial">Partial</option><option value="unavailable">Unavailable</option><option value="unknown">Unknown</option><option value="not_collected">Not collected</option></select></label><label>Numeric value, when allowed<input name="value" type="number" step="any"></label></div>
+    ${includeProviderProvenance ? `<div class="two"><label>Provider-native metric name<input name="providerMetric" placeholder="Optional exact provider label"></label><label>Provider metric definition<textarea name="providerDefinition" rows="2" placeholder="Optional provider-native definition or reporting note"></textarea></label></div>` : ""}
     <div class="three"><label>Unit<input name="unit" placeholder="count, percent, seconds"></label><label>Evidence source<input name="source" required></label><label>Evidence reference<input name="evidenceReference" required></label></div>
-    <label>Limitation, required for incomplete states<textarea name="limitation" rows="2"></textarea></label>`;
+    <label>Limitation, required for incomplete or estimated states<textarea name="limitation" rows="2"></textarea></label>`;
 }
 
 function metricValue(state: MetricEvidenceState, value: FormDataEntryValue | null): number | undefined {
@@ -526,8 +658,8 @@ function metricValue(state: MetricEvidenceState, value: FormDataEntryValue | nul
   return parsed;
 }
 
-function metricSummary(item: Readonly<{ metric: string; state: string; value?: number; unit?: string; source: string; limitation?: string }>): string {
-  return `<div class="metric-evidence"><div><strong>${escapeHtml(item.metric)}</strong>${pill(item.state)}</div><span>${item.value !== undefined ? `${item.value} ${escapeHtml(item.unit ?? "")}` : "No numeric value"}</span><small>${escapeHtml(item.source)}${item.limitation ? ` · ${escapeHtml(item.limitation)}` : ""}</small></div>`;
+function metricSummary(item: Readonly<{ metric: string; providerMetric?: string; providerDefinition?: string; state: string; value?: number; unit?: string; source: string; limitation?: string }>): string {
+  return `<div class="metric-evidence"><div><strong>${escapeHtml(item.metric)}</strong>${pill(item.state)}</div><span>${item.value !== undefined ? `${item.value} ${escapeHtml(item.unit ?? "")}` : "No numeric value"}</span>${item.providerMetric ? `<small>Provider-native: ${escapeHtml(item.providerMetric)}${item.providerDefinition ? ` · ${escapeHtml(item.providerDefinition)}` : ""}</small>` : ""}<small>${escapeHtml(item.source)}${item.limitation ? ` · ${escapeHtml(item.limitation)}` : ""}</small></div>`;
 }
 
 function downloadJson(filename: string, content: string): void {

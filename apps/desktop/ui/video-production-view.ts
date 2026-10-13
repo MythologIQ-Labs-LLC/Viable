@@ -69,7 +69,7 @@ export class VideoProductionViewController {
         ${this.importSection()}
         ${this.artifactSection()}
         ${this.variantSection()}
-        <section class="state warning"><strong>Calendar handoff is not implemented.</strong><span>Approved video variants cannot enter scheduling or measurement until issue #7 provides those authoritative records.</span></section>
+        <section class="state"><strong>Next: schedule an approved platform variant in Calendar.</strong><span>An approved video platform variant becomes an approved source in Calendar, where it still needs a destination-bound named review before manual activation. Approval here is not scheduling, publication, or delivery.</span></section>
       </section>`;
   }
 
@@ -178,7 +178,7 @@ export class VideoProductionViewController {
     const briefs = this.workspace!.briefs;
     return `<section class="panel" aria-labelledby="video-brief-list-heading"><div class="section-heading"><div><p class="eyebrow">Review queue</p><h3 id="video-brief-list-heading">Video briefs</h3></div><button type="button" data-video-action="detect-authority-impact">Recheck Product and Campaign authority</button></div>
       ${briefs.length ? `<div class="card-list">${briefs.map((brief) => `<article><div class="card-heading"><div><h4>${escapeHtml(brief.title)}</h4><p>${escapeHtml(brief.objective)}</p></div>${pill(brief.status)}</div>
-        <dl><div><dt>Script source</dt><dd>${escapeHtml(brief.sourceAssetId)} · v${brief.sourceAssetVersion}</dd></div><div><dt>Audience</dt><dd>${escapeHtml(brief.audience)}</dd></div><div><dt>Providers</dt><dd>${escapeHtml(brief.providers.map((provider) => `${provider.kind}: ${provider.provider}/${provider.model} ${provider.estimatedCost} ${provider.currency}`).join("; "))}</dd></div><div><dt>Rights assets</dt><dd>${brief.sourceAssets.length}</dd></div></dl>
+        <dl><div><dt>Script source</dt><dd>${escapeHtml(this.campaigns?.assets.find((asset) => asset.id === brief.sourceAssetId)?.title ?? "Canonical script no longer in Campaigns")} · v${brief.sourceAssetVersion}</dd></div><div><dt>Audience</dt><dd>${escapeHtml(brief.audience)}</dd></div><div><dt>Providers</dt><dd>${escapeHtml(brief.providers.map((provider) => `${provider.kind}: ${provider.provider}/${provider.model} ${provider.estimatedCost} ${provider.currency}`).join("; "))}</dd></div><div><dt>Rights assets</dt><dd>${brief.sourceAssets.length}</dd></div></dl>
         ${reviewButtons("brief", brief.id, brief.status)}</article>`).join("")}</div>` : `<div class="state empty"><strong>No video brief yet.</strong><span>Create one from an approved canonical script.</span></div>`}</section>`;
   }
 

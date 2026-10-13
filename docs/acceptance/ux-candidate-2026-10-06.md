@@ -1,5 +1,7 @@
 # UX Acceptance Candidate — 2026-10-06
 
+> **Superseded** by [UX candidate 2026-10-07](ux-candidate-2026-10-07.md). A machine-driven QA pass found P1 defects in this build, including Home showing an empty profile right after the seed restore; #145 fixed them. No human acceptance results were recorded against this candidate. It is kept unchanged below as history.
+
 ## Purpose
 
 Freeze one integrated Viable build for human accessibility (#79) and unfamiliar-user (#81) acceptance on the PWA-first runtime (ADR-0010).

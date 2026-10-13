@@ -5,8 +5,8 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-10-07 |
-| Reviewed against | `main` through `e788430143465d1554c50292413508fa20102fbf` (#109 and #134–#137 included), plus the open human-gated work listed below |
+| Last reviewed | 2026-10-11 |
+| Reviewed against | `main` through `aa6f35ff032e1b807ebf8d88e517dea625343c47` (#173 merged), plus the #169 comparable-cohort candidate on this branch and the open human/release gates listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -45,6 +45,8 @@ npm run pwa:selfhost   # serves http://localhost:4175
 
 The native Tauri runtime is retained only where a capability earns it: the OS credential vault and connected provider publishing.
 
+**2026-10-11 productization-learning resumption:** issue #156 is decomposed into #167–#169. #167 merged through PR #172 at `82b445618e57cde337db35b45e2ff5ba972ccae8`. #168 merged through PR #173 at `aa6f35ff032e1b807ebf8d88e517dea625343c47` after exact-head CI, production Chromium PWA smoke, Rust tests, desktop bundle, and Debian validation passed. #169 is the active candidate: historical experiment-context verification, comparable-age cohort eligibility, balanced evidence thresholds, explicit exclusions, source-citing group summaries, and conservative advisory next experiments. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
+
 Viable is suitable for **persistent local dogfooding in a Chromium desktop browser**. It is **not** a supported end-user release: human acceptance, generalized schema migration/rollback, per-browser storage-eviction evidence, public-origin deployment trust, and operational support remain open.
 
 ## Current dogfood runtime and support boundary
@@ -53,7 +55,7 @@ Viable is suitable for **persistent local dogfooding in a Chromium desktop brows
 |---|---|---|
 | Chromium (desktop) PWA at `http://localhost:4175` | **Supported for dogfood.** Install, service-worker control, IndexedDB authority, backup/delete/restore, offline reload, user-confirmed update, per-tab reload consent, migration, and fail-closed storage are validated by the real-browser smoke on every pull request. | CI `validate` job; PR #126 |
 | Firefox PWA | **Experimental candidate.** Before PR #124 the app did not finish starting in Firefox. Merged #124 passed the full Playwright Firefox smoke on exact-head validation. On `main` at `e788430` (#137) one new check failed in Firefox: its simulated-eviction setup asserted on the IndexedDB deletion request's own result, which in Firefox stays `blocked` while a just-closed app page still holds its connection and completes only later; every Viable behavior under test passed. The smoke now closes the app page first and checks the outcome instead: after Viable restarts, no evicted record survives in IndexedDB or `localStorage`. No person has dogfooded Firefox yet, so Chromium remains the supported dogfood browser. | PR #124 |
-| WebKit / Safari PWA | **Experimental; Safari support is not claimed.** Merged #124 now starts and completes the Playwright Linux WebKit smoke with four documented limitations. Three reload-related findings are reproduced by app-free controls with no Viable application code: reload after Back across multiple `pushState` entries; offline reload under Playwright's offline emulation; and the user-confirmed service-worker `controllerchange` update reload using production-equivalent cache churn. `navigator.storage.persist()` is also unavailable in that engine. Chromium and Firefox cover the affected contracts. **Undiagnosed (from `main` at `e788430`):** the WebKit renderer crashes (`Page crashed`) on the reload right after a replace-current restore. It is not yet reproduced by an app-free control, so it is not classified as an engine defect, and the rest of that smoke section (recovery-point undo and recovery mode) does not run in WebKit. The restore/reload probe narrows it: download → delete → restore → reload passes 3/3 in WebKit with and without service workers (CI run 37574642948), so restore itself is not the trigger; only variants that use Back across `pushState` entries hang on reload, matching the known app-free Back defect. The storage-durability, eviction and refused-write sections pass in WebKit. **No real Safari has been tested**, so Safari stays unsupported until a hand test exists. | PR #124 exact head `65fd274`; CI run 37506023154 |
+| WebKit / Safari PWA | **Experimental; Safari support is not claimed.** Merged #124 now starts and completes the Playwright Linux WebKit smoke with documented limitations (five as of 2026-10-08). Three reload-related findings are reproduced by app-free controls with no Viable application code: reload after Back across multiple `pushState` entries; offline reload under Playwright's offline emulation; and the user-confirmed service-worker `controllerchange` update reload using production-equivalent cache churn. `navigator.storage.persist()` is also unavailable in that engine. Chromium and Firefox cover the affected contracts. **Diagnosed (2026-10-08):** the renderer crash on the reload after a replace-current restore was a fourth Playwright Linux WebKit defect, not a Viable or restore defect. A second reload of a history entry created by `pushState` hangs, even on an app-free page with no service worker; a `location.hash` entry or no history write reloads twice normally (restore/reload probe, CI runs 37787010731 and 37789427572). Restore was incidental: any second reload after app navigation hangs. The smoke now runs that app-free control and, while it reproduces, loads a fresh page of the same profile wherever the replace-current section would reload. That section, including the recovery-point undo and recovery mode, now passes in WebKit (CI run 37791493270), and the WebKit smoke passes with five documented limitations. The storage-durability, eviction and refused-write sections pass in WebKit. **No real Safari has been tested**, so Safari stays unsupported until a hand test exists. | PR #124 exact head `65fd274`; CI run 37506023154 |
 | Native Tauri (Linux `.deb` build) | **Capability runtime, not the dogfood path.** Builds and packages in CI. Required for the OS credential vault and (when proven) LinkedIn publishing. | Desktop workflow |
 
 Persistence rules for dogfood profiles:
@@ -167,6 +169,11 @@ Website Watch Stage 1 does not perform live collection, Context.dev requests, We
 ### Campaigns and Studio
 
 - Product Core-traceable campaign briefs;
+- revisioned composition briefs that structure productization intent without generating prose (#167 / PR #172 candidate);
+- separate truth, audience, message, channel, experiment, and approval readiness facets;
+- active Calendar/Activation destination validation for composition work;
+- publication-experiment identity bound to exact composition revision and exact approved channel-variant SHA-256 fingerprints;
+- visible stale-binding detection after Product Core, Campaign, destination, composition, or variant authority changes;
 - selected ICP or deliberate test audience;
 - one primary audience and outcome;
 - canonical assets and channel variants;
@@ -217,7 +224,15 @@ The implementation does not install or execute ViMax, invoke generation provider
 - delivery, failure, cancellation, and unknown outcomes;
 - explicit evidence classifications;
 - measurement plans, baselines, observation windows, and metric evidence states;
-- performance imports, retrospectives, attribution uncertainty, and learning-ledger entries;
+- append-only manual/provider-export analytics snapshots with optional exact publication-experiment and provider-publication linkage (#168 merged);
+- normalized metric families while preserving provider-native metric names/definitions;
+- SHA-256 normalized-import identity so identical evidence is idempotent;
+- conflict-safe reconciliation that preserves incompatible values/units instead of trusting the newest capture;
+- explicit estimated, unknown, unavailable, not-collected, verified-zero, and conflict semantics;
+- versioned ratio/sum derived metrics with source import/observation/classification provenance and no zero-division fabrication;
+- strict comparable-age publication cohorts using historical experiment context, exact destination/provider controls, 24h/48h/7d reporting-age buckets, one observation per experiment, explicit exclusions, and a balanced three-per-group minimum before directional guidance (#169 candidate);
+- advisory cohort confidence, limitations, source IDs, group medians/ranges, and reversible next-experiment guidance without causal or "winner" claims;
+- performance retrospectives, attribution uncertainty, and learning-ledger entries;
 - advisory ICP and positioning effects without automatic Product Core mutation.
 
 ## Automated viability baseline
@@ -278,7 +293,8 @@ Coverage floors apply to reusable core source. They do not prove user comprehens
 | #107 | LinkedIn member publishing proof | Implementation is merged and validated. Clean-install guidance acceptance and one human-owned live publication with a human-generated token and consent remain. |
 | #110 | Discoverability strategy on channel variants | #112 is merged and bounded; real-content dogfood and the later evidence loop remain, sequenced behind the LinkedIn live proof. |
 | #36 | Release foundations | Durable migration/recovery, browser storage durability evidence, operational readiness, and public-release trust remain. Public-hosting work is deferred until external distribution is justified. |
-| #95, #96, #111, #121 | Dependency updates | Triage separately. Do not raise the pinned Rust 1.88 baseline implicitly; #111 requires a deliberate baseline decision. |
+| #144 | Cross-origin migration through the portable backup (#36) | Open, separate from product changes. |
+| #121 | Dependency updates (development tooling) | Triage separately. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Merged convergence work: #124 (cross-browser/runtime correctness), #129 (public GitHub reads and native CSP/O5), and #93 (acceptance runbooks/seed/candidate).
 
@@ -288,11 +304,13 @@ Merged convergence work: #124 (cross-browser/runtime correctness), #129 (public 
 
 No known machine-verifiable blocker remains for routine Chromium localhost dogfood. #124 and #129 are merged: the PWA runtime is stable on the supported Chromium path, public GitHub reads work, and startup no longer leaves the main region indefinitely busy.
 
+A machine-driven pass through the production PWA on 2026-10-07 (empty and seeded profiles, every view, the full governed loop, Repository Growth, Video Production, Website Watch, Workspace, and an approximation of 200% zoom) found and fixed P1 defects that the automated suite had not caught: Home showed an empty workspace right after a restore and a deleted workspace right after a delete, stale evidence could not be rechecked, hidden UI stayed visible, and cancelling a review removed the record's review controls. The record, including remaining P2/P3 findings, is `docs/reviews/local-dogfood-qa-2026-10-07.md`. Those defects were present in the frozen 2026-10-06 acceptance candidate. #145 merged the fixes. The remaining P2 findings (#146 Repository Growth address, #147 browser prompts) and the WebKit smoke finding #149 were fixed afterwards, as were the P3 findings #157–#161. [UX candidate 2026-10-07c](../acceptance/ux-candidate-2026-10-07c.md) is the current candidate.
+
 This is a dogfood statement, not a public-release statement. #36 still contains release-foundation work.
 
 ### Human gates (cannot be satisfied by automation)
 
-- **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. The governed runbooks, deterministic seed, and candidate record are now merged under `docs/acceptance/`; start with `ux-candidate-2026-10-06.md`. The frozen candidate is `fee77c8` (PWA build `1bd83169cbba`), and the record explains when current `main` is application-equivalent.
+- **#79 / #81:** keyboard-only primary journeys, operation at 200% zoom, status understandable without color or motion, unfamiliar-user journeys, and recorded participants, environments, findings, and remediation. The governed runbooks, deterministic seed, and candidate record are now merged under `docs/acceptance/`; start with `ux-candidate-2026-10-07c.md`. The frozen candidate is `7285d0d` (PWA build `d8047c019a59`), and the record explains when current `main` is application-equivalent. It supersedes the 2026-10-07b (`faffc1e`, build `7cc740dd951b`), 2026-10-07 (`445378c`, build `86c2c9a956b4`), and 2026-10-06 (`fee77c8`, build `1bd83169cbba`) candidates.
 - **#107 / #109:** clean-install guidance acceptance plus one developer-owned LinkedIn publication with a human-generated token and consent.
 - **#110 / #112:** real-content dogfood of the merged discoverability guidance and the later evidence loop, after the LinkedIn live proof exists.
 - Slice-level acceptance for #2, #3, #4, #5, #6, #7, and #29 is carried by the #81 demo acceptance journeys.
