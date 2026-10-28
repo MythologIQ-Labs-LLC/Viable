@@ -1107,6 +1107,20 @@ async function run() {
         const reviseDisclosure = compositionCard.locator("summary", { hasText: "Revise composition intent" });
         await reviseDisclosure.click();
         const reviseForm = compositionCard.locator('form[data-form="campaign-revise-composition"]');
+
+        // #171: a failed canonical save must retain local intent and expose
+        // retry/correction instead of rerendering the form away.
+        await reviseForm.locator('input[name="rationale"]').fill("Smoke no-op revision should remain recoverable");
+        await reviseForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("[data-persistence-state='failed']")?.textContent?.includes("not saved"), undefined, { timeout: 10000 });
+        const retainedRationale = await reviseForm.locator('input[name="rationale"]').inputValue();
+        check(
+          retainedRationale === "Smoke no-op revision should remain recoverable"
+          && await reviseForm.isVisible()
+          && ((await journey.locator("[data-persistence-state='failed']").textContent()) ?? "").includes("entered values remain available"),
+          "failed Campaign save remains visibly failed and retains the entered form intent for retry",
+        );
+
         await reviseForm.locator('input[name="rationale"]').fill("Narrow the experiment to qualified pilot review");
         await reviseForm.locator('select[name="objective"]').selectOption("lead_generation");
         await reviseForm.locator('input[name="desiredOutcome"]').fill("One qualified pilot inquiry");
