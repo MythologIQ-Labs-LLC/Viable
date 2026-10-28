@@ -1,5 +1,6 @@
 import {
   DurableKeyValueStorage,
+  DurableStorageConflictError,
   purgeLegacyWorkspaceCopy,
   type DurableStorageBackend,
   type MigrationReport,
@@ -81,6 +82,7 @@ class IndexedDbBackend implements DurableStorageBackend {
   }
 
   commit(changes: readonly StorageChange[]): Promise<void> {
+    // Reserved for the existing one-time migration, never ordinary edits.
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction(STORE, "readwrite", { durability: "strict" });
       const store = transaction.objectStore(STORE);
@@ -90,6 +92,48 @@ class IndexedDbBackend implements DurableStorageBackend {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error ?? new Error("Workspace storage transaction aborted"));
+    });
+  }
+
+  commitIfUnchanged(changes: readonly StorageChange[], expected: readonly StorageChange[]): Promise<void> {
+    // Reads and writes share ONE readwrite transaction. A preflight read in a
+    // separate transaction would leave a race between checking and writing.
+    return new Promise((resolve, reject) => {
+      const expectedKeys = new Set(expected.map(({ key }) => key));
+      if (expectedKeys.size !== expected.length || changes.some(({ key }) => !expectedKeys.has(key))) {
+        reject(new Error("A workspace change lacked a complete unique expected-value set."));
+        return;
+      }
+      const transaction = this.db.transaction(STORE, "readwrite", { durability: "strict" });
+      const store = transaction.objectStore(STORE);
+      let conflict: DurableStorageConflictError | undefined;
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(conflict ?? transaction.error ?? new Error("Workspace storage transaction aborted"));
+      const compare = (index: number): void => {
+        const expectedChange = expected[index];
+        if (!expectedChange) {
+          // All reads matched while the transaction held the write lock.
+          // No other tab can interleave a same-store write before these puts.
+          for (const { key, value } of changes) {
+            if (value === null) store.delete(key); else store.put(value, key);
+          }
+          return;
+        }
+        const read = store.get(expectedChange.key);
+        read.onsuccess = () => {
+          const actual = typeof read.result === "string" ? read.result : null;
+          if (actual !== expectedChange.value) {
+            conflict = new DurableStorageConflictError();
+            transaction.abort();
+            return;
+          }
+          compare(index + 1);
+        };
+        // IDB request failures abort the transaction automatically; onabort
+        // rejects with the actual error rather than claiming a stale write.
+      };
+      compare(0);
     });
   }
 }
