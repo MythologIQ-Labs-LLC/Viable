@@ -284,3 +284,45 @@ test("browser IndexedDB compares authoritative record values inside the write tr
   assert.match(shell, /store\.get\(expectedChange\.key\)/);
   assert.match(shell, /transaction\.abort\(\)/);
 });
+
+test("first-use migration cannot replay an older localStorage copy after another tab saved newer data", async () => {
+  let releaseSecond!: () => void;
+  let reachedSecond!: () => void;
+  const held = new Promise<void>((resolve) => { releaseSecond = resolve; });
+  const reached = new Promise<void>((resolve) => { reachedSecond = resolve; });
+  class DelayedSecondMigrator extends MemoryBackend {
+    migrations = 0;
+    override async commit(changes: readonly StorageChange[]): Promise<void> {
+      if (changes.some(({ key }) => key === MIGRATION_MARKER_KEY) && ++this.migrations === 2) {
+        reachedSecond();
+        await held;
+      }
+      await super.commit(changes);
+    }
+  }
+  const backend = new DelayedSecondMigrator();
+  const legacy = new LegacyStorage({ "viable.product-workspace.ws": "stale legacy" });
+  const firstOpening = DurableKeyValueStorage.open(backend, legacy, clock);
+  const secondOpening = DurableKeyValueStorage.open(backend, legacy, clock);
+  // A bounded timeout makes a missing second migrator a useful test failure,
+  // rather than a permanently hanging CI run.
+  const timeout = setTimeout(() => releaseSecond(), 1500);
+  try {
+    await Promise.race([reached, new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("second migration never reached the gate")), 1500))]);
+    const first = await firstOpening;
+    assert.deepEqual(first.migration, { status: "migrated", keys: 1 });
+    first.storage.setItem("viable.product-workspace.ws", "newer durable edit");
+    await first.storage.commit();
+    releaseSecond();
+    const second = await secondOpening;
+    assert.deepEqual(second.migration, { status: "already_migrated" });
+    assert.equal(backend.data.get("viable.product-workspace.ws"), "newer durable edit",
+      "a delayed second migration must never replay the old legacy copy");
+    assert.equal(second.storage.getItem("viable.product-workspace.ws"), "newer durable edit");
+    assert.equal(backend.migrations, 1, "there must be only one actual migration write");
+  } finally {
+    clearTimeout(timeout);
+    releaseSecond();
+  }
+});
