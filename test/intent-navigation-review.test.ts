@@ -52,7 +52,10 @@ test("contextual review shows item evidence prior feedback reviewer decision and
   ]) assert.match(shell, new RegExp(marker));
   assert.match(shell, /noteRequired: true/);
   assert.match(shell, /current authority model has no separate durable review-note field/i);
-  assert.match(shell, /Review decision sent to the owning workflow for durable recording/);
+  assert.match(shell, /Review decision submitted to the owning workflow\. Durable acknowledgement is pending/);
+  assert.match(shell, /resetReviewFormsAfterFailure/);
+  assert.match(shell, /Wait for acknowledgement before closing this panel/);
+  assert.doesNotMatch(shell, /Review decision sent to the owning workflow for durable recording/);
 });
 
 test("review action discovery is bound to the exact opened panel and fails closed when state changes", async () => {

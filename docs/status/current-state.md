@@ -5,8 +5,8 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-10-11 |
-| Reviewed against | `main` through `aa6f35ff032e1b807ebf8d88e517dea625343c47` (#173 merged), plus the #169 comparable-cohort candidate on this branch and the open human/release gates listed below |
+| Last reviewed | 2026-10-28 |
+| Reviewed against | `main` through `2c1eea8765d6e6365655ec4d56632c038efa7739` (#181 native RustSec patch merged), plus the active #171 acknowledged-persistence hardening candidate and the open human/release gates listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -45,7 +45,9 @@ npm run pwa:selfhost   # serves http://localhost:4175
 
 The native Tauri runtime is retained only where a capability earns it: the OS credential vault and connected provider publishing.
 
-**2026-10-11 productization-learning resumption:** issue #156 is decomposed into #167–#169. #167 merged through PR #172 at `82b445618e57cde337db35b45e2ff5ba972ccae8`. #168 merged through PR #173 at `aa6f35ff032e1b807ebf8d88e517dea625343c47` after exact-head CI, production Chromium PWA smoke, Rust tests, desktop bundle, and Debian validation passed. #169 is the active candidate: historical experiment-context verification, comparable-age cohort eligibility, balanced evidence thresholds, explicit exclusions, source-citing group summaries, and conservative advisory next experiments. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
+**2026-10-11 productization-learning tranche:** #167 merged through PR #172, #168 merged through PR #173, and #169 merged through PR #174 at `0b3bbd53776ec5acf855807b3f7bf0bb4775b88a`. PR #174's exact head passed CI and Desktop validation. The implemented loop now includes historical experiment-context verification, comparable-age cohort eligibility, balanced three-per-group minimums for directional guidance, explicit exclusions, source-citing group summaries, conservative confidence labels, and reversible next-experiment guidance. Job Ranger implementation code was not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
+
+**2026-10-28 hardening resumption:** #171 is the active reliability slice. Candidate acknowledged-persistence gates now cover Campaign/Studio, Video, Repository Growth, Calendar/Analytics, Publication Inventory, Product Core, and Signals. Workspace destructive delete/restore is guarded through durable commit, and contextual review distinguishes pending dispatch from owning acknowledgement with failed-review retry. PWA failure/retry and Workspace same-turn overlap probes are added but not yet executed. Cross-tab whole-workspace lost-update guarantees remain open. See `docs/reviews/acknowledged-persistence-hardening-2026-10-28.md`. The original six native RustSec vulnerabilities were resolved separately through #181 (merged); #182 tracks remaining informational warnings. #179's integrated UI candidate passed full CI/Chromium at `b4895425`, with final no-op and native exact-head gates pending.
 
 Viable is suitable for **persistent local dogfooding in a Chromium desktop browser**. It is **not** a supported end-user release: human acceptance, generalized schema migration/rollback, per-browser storage-eviction evidence, public-origin deployment trust, and operational support remain open.
 

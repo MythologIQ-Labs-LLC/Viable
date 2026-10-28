@@ -1,3 +1,4 @@
+import { AcknowledgedPersistenceGate } from "./acknowledged-persistence-gate.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { ActivationLearningViewController } from "./activation-learning-view.js";
 import { PublicationInventoryViewController } from "./publication-inventory-view.js";
@@ -9,9 +10,91 @@ const live = document.querySelector<HTMLElement>("#live-region");
 let page: "calendar" | "analytics" | undefined;
 let controller: ActivationLearningViewController | undefined;
 let inventoryController: PublicationInventoryViewController | undefined;
+const persistenceGate = new AcknowledgedPersistenceGate();
 
 function announce(message: string): void {
   if (live) live.textContent = message;
+}
+
+function mutationControlsDisabled(disabled: boolean): void {
+  if (!main) return;
+  for (const control of main.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement>("input, select, textarea, button")) {
+    if (disabled) {
+      if (!control.disabled) {
+        control.disabled = true;
+        control.dataset.persistenceGateDisabled = "true";
+      }
+    } else if (control.dataset.persistenceGateDisabled === "true") {
+      control.disabled = false;
+      delete control.dataset.persistenceGateDisabled;
+    }
+  }
+}
+
+function showPersistenceState(state: "pending" | "saved" | "failed", detail?: string): void {
+  if (!main) return;
+  main.querySelector("[data-persistence-state]")?.remove();
+  const section = document.createElement("section");
+  section.dataset.persistenceState = state;
+  section.className = `state ${state === "failed" ? "error" : state === "pending" ? "loading" : "success"}`;
+  section.setAttribute("role", state === "failed" ? "alert" : "status");
+  const strong = document.createElement("strong");
+  strong.textContent = state === "pending" ? "Saving this change…" : state === "saved" ? "Change saved." : "This change was not saved.";
+  const span = document.createElement("span");
+  span.textContent = state === "pending"
+    ? "Wait for canonical acknowledgement before starting another Calendar, Analytics, or publication mutation."
+    : state === "saved"
+      ? "The local Activation/Learning workspace acknowledged the change."
+      : `${detail ?? "The operation failed."} Your entered values remain available so you can correct the problem and retry.`;
+  section.append(strong, span);
+  main.prepend(section);
+}
+
+async function runAcknowledgedMutation(operation: () => Promise<string | undefined>): Promise<void> {
+  if (persistenceGate.state === "pending") {
+    announce("A Calendar or Analytics change is still being saved. Wait for acknowledgement before starting another mutation.");
+    return;
+  }
+  // Start the controller synchronously so it snapshots FormData before
+  // disabling inputs; disabled controls are omitted from FormData.
+  const mutation = persistenceGate.run(operation);
+  mutationControlsDisabled(true);
+  main?.setAttribute("aria-busy", "true");
+  showPersistenceState("pending");
+  const result = await mutation;
+  if (!result.accepted) {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+    announce("A Calendar or Analytics change is still being saved. Wait for acknowledgement before starting another mutation.");
+    return;
+  }
+  if (result.state === "failed") {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+    const detail = result.error instanceof Error ? result.error.message : "Unknown Calendar or Analytics error";
+    showPersistenceState("failed", detail);
+    announce(`Change not saved: ${detail}`);
+    return;
+  }
+  try {
+    if (result.value === undefined) {
+      persistenceGate.reset();
+      main?.querySelector("[data-persistence-state]")?.remove();
+      announce("No change was recorded.");
+      return;
+    }
+    await refreshControllers();
+    render();
+    showPersistenceState("saved");
+    announce(result.value);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown view refresh error";
+    showPersistenceState("saved");
+    announce(`Change acknowledged, but the view could not refresh: ${detail}`);
+  } finally {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+  }
 }
 
 function activateNavigation(): void {
@@ -189,6 +272,12 @@ document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
   if (!button) return;
   const target = button.dataset.nav;
+  if (persistenceGate.state === "pending" && (target || button.dataset.activationAction || button.dataset.publicationAction)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    announce("A Calendar or Analytics change is still being saved. Navigation and additional mutations are blocked until acknowledgement.");
+    return;
+  }
   if (target === "calendar" || target === "analytics") {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -205,41 +294,30 @@ document.addEventListener("click", (event) => {
   if (!activationAction && !publicationAction) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  main?.setAttribute("aria-busy", "true");
   const operation = activationAction
-    ? controller?.click(button)
-    : inventoryController?.click(button);
-  if (!operation) {
-    main?.setAttribute("aria-busy", "false");
-    return;
-  }
-  void operation.then(async (message) => {
-    await refreshControllers();
-    render();
-    if (message) announce(message);
-  }).catch((error: unknown) => {
-    render();
-    announce(`Calendar or Analytics action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }).finally(() => main?.setAttribute("aria-busy", "false"));
+    ? () => controller!.click(button)
+    : () => inventoryController!.click(button);
+  void runAcknowledgedMutation(operation);
 }, true);
 
 document.addEventListener("submit", (event) => {
   const form = event.target as HTMLFormElement;
   const formKind = form.dataset.form ?? "";
   if (!page || (!formKind.startsWith("activation-") && !formKind.startsWith("publication-"))) return;
-  const operation = formKind.startsWith("publication-")
-    ? inventoryController?.submit(form)
-    : controller?.submit(form);
-  if (!operation) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  main?.setAttribute("aria-busy", "true");
-  void operation.then(async (message) => {
-    await refreshControllers();
-    render();
-    if (message) announce(message);
-  }).catch((error: unknown) => {
-    render();
-    announce(`Calendar or Analytics operation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }).finally(() => main?.setAttribute("aria-busy", "false"));
+  if (persistenceGate.state === "pending") {
+    announce("A Calendar or Analytics change is still being saved. Wait for acknowledgement before submitting another change.");
+    return;
+  }
+  const operation = formKind.startsWith("publication-")
+    ? () => inventoryController!.submit(form)
+    : () => controller!.submit(form);
+  void runAcknowledgedMutation(operation);
 }, true);
+
+window.addEventListener("beforeunload", (event) => {
+  if (persistenceGate.state !== "pending") return;
+  event.preventDefault();
+  event.returnValue = "";
+});

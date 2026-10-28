@@ -1,3 +1,4 @@
+import { AcknowledgedPersistenceGate } from "./acknowledged-persistence-gate.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { CampaignsViewController } from "./campaigns-view.js";
 import { VideoProductionViewController } from "./video-production-view.js";
@@ -10,9 +11,100 @@ const live = document.querySelector<HTMLElement>("#live-region");
 let page: "campaigns" | "studio" | undefined;
 let controller: CampaignsViewController | undefined;
 let videoController: VideoProductionViewController | undefined;
+const persistenceGate = new AcknowledgedPersistenceGate();
 
 function announce(message: string): void {
   if (live) live.textContent = message;
+}
+
+function mutationControlsDisabled(disabled: boolean): void {
+  if (!main) return;
+  const controls = main.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement>(
+    "input, select, textarea, button",
+  );
+  for (const control of controls) {
+    if (disabled) {
+      if (!control.disabled) {
+        control.disabled = true;
+        control.dataset.persistenceGateDisabled = "true";
+      }
+    } else if (control.dataset.persistenceGateDisabled === "true") {
+      control.disabled = false;
+      delete control.dataset.persistenceGateDisabled;
+    }
+  }
+}
+
+function showPersistenceState(state: "pending" | "saved" | "failed", detail?: string): void {
+  if (!main) return;
+  main.querySelector("[data-persistence-state]")?.remove();
+  const section = document.createElement("section");
+  section.dataset.persistenceState = state;
+  section.className = `state ${state === "failed" ? "error" : state === "pending" ? "loading" : "success"}`;
+  section.setAttribute("role", state === "failed" ? "alert" : "status");
+  const title = state === "pending"
+    ? "Saving this change…"
+    : state === "saved"
+      ? "Change saved."
+      : "This change was not saved.";
+  const body = state === "pending"
+    ? "Wait for canonical acknowledgement before starting another mutation or leaving this workflow."
+    : state === "saved"
+      ? "The local workspace acknowledged the change."
+      : `${detail ?? "The operation failed."} Your entered values remain available so you can correct the problem and retry.`;
+  section.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(body)}</span>`;
+  main.prepend(section);
+}
+
+async function runAcknowledgedMutation(
+  operation: () => Promise<string | undefined>,
+  options: Readonly<{ refreshVideo?: boolean }> = {},
+): Promise<void> {
+  if (persistenceGate.state === "pending") {
+    announce("A change is still being saved. Wait for acknowledgement before starting another mutation.");
+    return;
+  }
+  // Start the controller synchronously so it snapshots FormData before
+  // disabling inputs; disabled controls are omitted from FormData.
+  const mutation = persistenceGate.run(operation);
+  mutationControlsDisabled(true);
+  main?.setAttribute("aria-busy", "true");
+  showPersistenceState("pending");
+  const result = await mutation;
+  if (!result.accepted) {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+    announce("A change is still being saved. Wait for acknowledgement before starting another mutation.");
+    return;
+  }
+  if (result.state === "failed") {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+    const detail = result.error instanceof Error ? result.error.message : "Unknown local workflow error";
+    showPersistenceState("failed", detail);
+    announce(`Change not saved: ${detail}`);
+    return;
+  }
+  try {
+    if (result.value === undefined) {
+      // A dismissed inline prompt or unsupported action did not save.
+      persistenceGate.reset();
+      main?.querySelector("[data-persistence-state]")?.remove();
+      announce("No change was recorded.");
+      return;
+    }
+    if (options.refreshVideo) await refreshVideo();
+    render();
+    showPersistenceState("saved");
+    announce(result.value);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown view refresh error";
+    showPersistenceState("saved");
+    announce(`Change acknowledged, but the view could not refresh: ${detail}`);
+  } finally {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+  }
 }
 
 function escapeHtml(value: unknown): string {
@@ -123,6 +215,12 @@ document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
   if (!button) return;
   const target = button.dataset.nav;
+  if (persistenceGate.state === "pending" && (target || button.dataset.videoAction || button.dataset.campaignAction)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    announce("A change is still being saved. Navigation and additional mutations are blocked until acknowledgement.");
+    return;
+  }
   if (target === "campaigns" || target === "studio") {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -133,32 +231,23 @@ document.addEventListener("click", (event) => {
   if (button.dataset.videoAction && videoController && page === "studio") {
     event.preventDefault();
     event.stopImmediatePropagation();
-    main?.setAttribute("aria-busy", "true");
-    void videoController.click(button).then((message) => {
-      render();
-      if (message) announce(message);
-    }).catch((error: unknown) => {
-      render();
-      announce(`Video production action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    }).finally(() => main?.setAttribute("aria-busy", "false"));
+    void runAcknowledgedMutation(() => videoController!.click(button));
     return;
   }
   if (!button.dataset.campaignAction || !controller || !page) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  main?.setAttribute("aria-busy", "true");
-  void controller.click(button).then(async (message) => {
-    await refreshVideo();
-    render();
-    if (message) announce(message);
-  }).catch((error: unknown) => {
-    render();
-    announce(`Campaign action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }).finally(() => main?.setAttribute("aria-busy", "false"));
+  void runAcknowledgedMutation(() => controller!.click(button), { refreshVideo: true });
 }, true);
 
 document.addEventListener("submit", (event) => {
   const form = event.target as HTMLFormElement;
+  if (persistenceGate.state === "pending" && (form.dataset.form?.startsWith("video-") || form.dataset.form?.startsWith("campaign-"))) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    announce("A change is still being saved. Wait for acknowledgement before submitting another change.");
+    return;
+  }
   if (form.dataset.form?.startsWith("video-") && videoController && page === "studio") {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -166,14 +255,7 @@ document.addEventListener("submit", (event) => {
       announce("Select at least one video platform and aspect ratio");
       return;
     }
-    main?.setAttribute("aria-busy", "true");
-    void videoController.submit(form).then((message) => {
-      render();
-      if (message) announce(message);
-    }).catch((error: unknown) => {
-      render();
-      announce(`Video production operation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    }).finally(() => main?.setAttribute("aria-busy", "false"));
+    void runAcknowledgedMutation(() => videoController!.submit(form));
     return;
   }
   if (!form.dataset.form?.startsWith("campaign-") || !controller || !page) return;
@@ -183,13 +265,11 @@ document.addEventListener("submit", (event) => {
     announce("Select at least one campaign channel");
     return;
   }
-  main?.setAttribute("aria-busy", "true");
-  void controller.submit(form).then(async (message) => {
-    await refreshVideo();
-    render();
-    if (message) announce(message);
-  }).catch((error: unknown) => {
-    render();
-    announce(`Campaign operation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }).finally(() => main?.setAttribute("aria-busy", "false"));
+  void runAcknowledgedMutation(() => controller!.submit(form), { refreshVideo: true });
 }, true);
+
+window.addEventListener("beforeunload", (event) => {
+  if (persistenceGate.state !== "pending") return;
+  event.preventDefault();
+  event.returnValue = "";
+});
