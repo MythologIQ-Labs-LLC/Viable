@@ -19,6 +19,8 @@ for (const [name, path] of [
     assert.match(shell, /state === "saved"/);
     assert.match(shell, /beforeunload/);
     assert.match(shell, /entered values remain available/);
+    assert.match(shell, /result\.value === undefined/, "cancelled/no-op actions must not claim a durable write");
+    assert.match(shell, /Change acknowledged, but the view could not refresh/, "post-commit refresh failures must not be reported as failed writes");
     const snapshot = shell.indexOf("const mutation = persistenceGate.run(operation)");
     const disable = shell.indexOf("mutationControlsDisabled(true)");
     assert.ok(snapshot >= 0 && disable > snapshot, "controller must snapshot FormData before disabling its inputs");
