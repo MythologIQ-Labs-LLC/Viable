@@ -105,10 +105,16 @@ Before #171 can close:
 - `bde8c436`: production browser journey exercises same-turn duplicate clicks through the actual visible Workspace delete button.
 - `fe3bdcda`: added static regression contracts for Product/Signals, Workspace, and contextual review.
 
-The candidate remains **unqualified** until TypeScript/core tests and actual PWA/Desktop gates have executed. No native install, external publishing, or human acceptance was claimed in this review.
+The candidate received an initial exact-head CI/Chromium PASS at `014f0ead` (427/427 deterministic tests and all new UI-only smoke probes). Native qualification initially failed due to separate RustSec advisories, resolved in #181 and merged to `main`. The combined UX/security head `b4895425` subsequently passed full CI/Chromium. Final no-op patch and native exact-head qualification remain pending. No native install, external publishing, or human acceptance was claimed in this review.
 
 ## Final pre-CI gate audit
 
 A final review caught a misleading success state: shell operations that returned no action result (for example a cancelled inline review) were being announced as durably saved. The Campaign/Studio, Repository Growth, and Activation/Learning shells now explicitly treat `undefined` as no submitted mutation, clear the pending indicator and do not claim canonical success. A failure while refreshing the view after a completed write is reported as **saved, but refresh failed**, not as a failed write. Every post-operation path returns controls to an interactive state.
 
 Draft PR #179 is the integration candidate. As of this note, CodeQL has begun, but core TypeScript, deterministic tests, production PWA smoke and native Desktop qualification have not yet been observed passing on the final head. No release or merge authorization follows from this implementation.
+
+## Security reconciliation and final no-op review (2026-10-28)
+
+The independent native security patch #181 merged to `main` at `2c1eea8765d6e6365655ec4d56632c038efa7739`. It changed only Cargo-generated lockfile dependencies, passed RustSec with **0 vulnerabilities**, Rust 1.88's 22 tests, Tauri bundling and Debian inspection; #182 tracks nine unmaintained and two unsound informational warnings. UX PR #179's ancestry-preserving integration `b48954255e98110e04efa3ffe65649ffe1238a14` is 0 commits behind `main` and alters no Rust files.
+
+An additional code review identified a Signals-only no-op path: `SignalsViewController.click()` returns `undefined` when the human cancels the named review, tag, assignment or retention prompt. Product Core's shared `act()` wrapper previously treated that controller cancellation as a durably saved action, though ordinary Product Core service operations legitimately resolve `void` after a write. The narrow fix introduces an optional `requiresSavedResult` guard for **Signals** actions and submissions only. It clears the pending indicator and reports `No change was recorded` if the Signals controller did nothing. Existing Product Core `void` writes retain their acknowledged-success semantics. A static test checks both routed Signals call sites and cancellation behavior. This final edit is awaiting its exact-head CI and native validation; no human acceptance is inferred.
