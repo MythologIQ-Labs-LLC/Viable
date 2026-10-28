@@ -28,6 +28,7 @@ let quarantineExportedFor: string | undefined;
 let recoveryPointFor: Readonly<{ workspaceId: string; fingerprint: string }> | undefined;
 // Set when startup failed and only this screen is running (recovery mode).
 let startupFailure: string | undefined;
+let durableActionPending = false;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -40,6 +41,19 @@ function escapeHtml(value: unknown): string {
 
 function announce(message: string): void {
   if (live) live.textContent = message;
+}
+
+function setDurableActionPending(pending: boolean): void {
+  durableActionPending = pending;
+  main?.setAttribute("aria-busy", String(pending));
+  if (!pending || !main) return;
+  const status = document.createElement("section");
+  status.dataset.workspaceDurablePending = "true";
+  status.className = "state loading";
+  status.setAttribute("role", "status");
+  status.textContent = "Changing saved workspace data. Wait for the durable commit before navigating or starting another operation.";
+  main.prepend(status);
+  for (const control of main.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement>("input, select, textarea, button")) control.disabled = true;
 }
 
 function knownWorkspaceIds(): string[] {
@@ -313,6 +327,7 @@ async function readImport(input: HTMLInputElement): Promise<void> {
 }
 
 async function performRestore(mode: "empty_profile" | "replace_current"): Promise<void> {
+  if (durableActionPending) return;
   if (!pendingImportText || !pendingImport) return;
   const wording = mode === "replace_current"
     ? "Replace the current local workspace with this validated backup? Existing workspace-scoped data for this workspace ID will be overwritten."
@@ -329,6 +344,7 @@ async function performRestore(mode: "empty_profile" | "replace_current"): Promis
   }
   if (!window.confirm(wording)) return;
   actionFailure = undefined;
+  setDurableActionPending(true);
   try {
     const restored = lifecycle.restoreBackup(pendingImportText, mode, {
       quarantineExported: quarantineExportedFor === target,
@@ -346,8 +362,10 @@ async function performRestore(mode: "empty_profile" | "replace_current"): Promis
   } catch (error) {
     actionFailure = error instanceof Error ? error.message : "Unknown restore error";
     announce(`Workspace restore failed: ${actionFailure}`);
+  } finally {
+    setDurableActionPending(false);
+    renderWorkspace();
   }
-  renderWorkspace();
 }
 
 new MutationObserver(() => activateNavigation()).observe(sidebar ?? document.body, { childList: true, subtree: true });
@@ -359,6 +377,12 @@ document.addEventListener("click", (event) => {
   if (!(target instanceof Element)) return;
   const button = target.closest<HTMLButtonElement>("button");
   if (!button) return;
+  if (durableActionPending && (button.dataset.action || button.dataset.nav || button.dataset.workspaceAction)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    announce("Workspace deletion or restore is still pending. Wait for the durable commit before navigating.");
+    return;
+  }
 
   if (button.dataset.action === "reset-workspace" || button.dataset.nav === "workspace") {
     event.preventDefault();
@@ -412,6 +436,11 @@ document.addEventListener("click", (event) => {
 }, true);
 
 document.addEventListener("change", (event) => {
+  if (durableActionPending) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    return;
+  }
   const target = event.target;
   if (target instanceof HTMLSelectElement && target.matches("[data-workspace-select]")) {
     selectedWorkspaceId = target.value;
@@ -429,6 +458,10 @@ document.addEventListener("submit", (event) => {
   if (!(form instanceof HTMLFormElement) || !form.matches("[data-workspace-delete]")) return;
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (durableActionPending) {
+    announce("Workspace deletion or restore is still pending. Wait for the durable commit before retrying.");
+    return;
+  }
   const workspaceId = currentWorkspaceId();
   if (!workspaceId) return;
   const preview = lifecycle.inspect(workspaceId);
@@ -454,6 +487,8 @@ document.addEventListener("submit", (event) => {
 }, true);
 
 async function deleteDurably(workspaceId: string, recoveryPoint: RecoveryPointDecision): Promise<void> {
+  if (durableActionPending) return;
+  setDurableActionPending(true);
   try {
     lifecycle.deleteWorkspace(workspaceId, { recoveryPoint });
     await workspaceStorage.commit();
@@ -471,6 +506,14 @@ async function deleteDurably(workspaceId: string, recoveryPoint: RecoveryPointDe
   } catch (error) {
     actionFailure = error instanceof Error ? error.message : "Unknown workspace deletion error";
     announce(`Workspace deletion failed: ${actionFailure}`);
+  } finally {
+    setDurableActionPending(false);
+    renderWorkspace();
   }
-  renderWorkspace();
 }
+
+window.addEventListener("beforeunload", (event) => {
+  if (!durableActionPending) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
