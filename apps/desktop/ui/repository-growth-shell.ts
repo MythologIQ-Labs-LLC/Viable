@@ -1,3 +1,4 @@
+import { AcknowledgedPersistenceGate } from "./acknowledged-persistence-gate.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { RepositoryGrowthViewController } from "./repository-growth-view.js";
 
@@ -6,6 +7,7 @@ const main = document.querySelector<HTMLElement>("#main");
 const live = document.querySelector<HTMLElement>("#live-region");
 let active = false;
 let controller: RepositoryGrowthViewController | undefined;
+const persistenceGate = new AcknowledgedPersistenceGate();
 
 // Repository Growth lives inside Product but has its own address, so reload,
 // Back, and Forward keep the person here (navigation-history-shell maps this
@@ -58,6 +60,68 @@ function reportOpenFailure(error: unknown): void {
 
 function announce(message: string): void {
   if (live) live.textContent = message;
+}
+
+function mutationControlsDisabled(disabled: boolean): void {
+  if (!main) return;
+  for (const control of main.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement>("input, select, textarea, button")) {
+    if (disabled) {
+      if (!control.disabled) {
+        control.disabled = true;
+        control.dataset.persistenceGateDisabled = "true";
+      }
+    } else if (control.dataset.persistenceGateDisabled === "true") {
+      control.disabled = false;
+      delete control.dataset.persistenceGateDisabled;
+    }
+  }
+}
+
+function showPersistenceState(state: "pending" | "saved" | "failed", detail?: string): void {
+  if (!main) return;
+  main.querySelector("[data-persistence-state]")?.remove();
+  const section = document.createElement("section");
+  section.dataset.persistenceState = state;
+  section.className = `state ${state === "failed" ? "error" : state === "pending" ? "loading" : "success"}`;
+  section.setAttribute("role", state === "failed" ? "alert" : "status");
+  const title = state === "pending" ? "Saving this change…" : state === "saved" ? "Change saved." : "This change was not saved.";
+  const body = state === "pending"
+    ? "Wait for canonical acknowledgement before starting another repository mutation or leaving this workflow."
+    : state === "saved"
+      ? "The local repository-growth workspace acknowledged the change."
+      : `${detail ?? "The operation failed."} Your entered values remain available so you can correct the problem and retry.`;
+  section.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(body)}</span>`;
+  main.prepend(section);
+}
+
+async function runAcknowledgedMutation(operation: () => Promise<string | undefined>): Promise<void> {
+  if (persistenceGate.state === "pending") {
+    announce("A repository change is still being saved. Wait for acknowledgement before starting another mutation.");
+    return;
+  }
+  mutationControlsDisabled(true);
+  main?.setAttribute("aria-busy", "true");
+  showPersistenceState("pending");
+  const result = await persistenceGate.run(operation);
+  if (!result.accepted) {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+    announce("A repository change is still being saved. Wait for acknowledgement before starting another mutation.");
+    return;
+  }
+  if (result.state === "failed") {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+    const detail = result.error instanceof Error ? result.error.message : "Unknown repository workflow error";
+    showPersistenceState("failed", detail);
+    announce(`Repository change not saved: ${detail}`);
+    return;
+  }
+  render();
+  mutationControlsDisabled(false);
+  main?.setAttribute("aria-busy", "false");
+  showPersistenceState("saved");
+  if (result.value) announce(result.value);
 }
 
 function decorateProduct(): void {
@@ -154,6 +218,12 @@ document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
   if (!button) return;
   const action = button.dataset.repositoryAction;
+  if (persistenceGate.state === "pending" && (action || button.dataset.nav)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    announce("A repository change is still being saved. Navigation and additional mutations are blocked until acknowledgement.");
+    return;
+  }
   if (action === "open") {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -176,27 +246,25 @@ document.addEventListener("click", (event) => {
   if (!active || !action || !controller) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  main?.setAttribute("aria-busy", "true");
-  void controller.click(button).then((message) => {
-    render();
-    if (message) announce(message);
-  }).catch((error: unknown) => {
-    render();
-    announce(`Repository action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }).finally(() => main?.setAttribute("aria-busy", "false"));
+  void runAcknowledgedMutation(() => controller!.click(button));
 }, true);
 
 document.addEventListener("submit", (event) => {
   const form = event.target as HTMLFormElement;
   if (!active || !controller || !form.dataset.form?.startsWith("repository-")) return;
+  if (persistenceGate.state === "pending") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    announce("A repository change is still being saved. Wait for acknowledgement before submitting another change.");
+    return;
+  }
   event.preventDefault();
   event.stopImmediatePropagation();
-  main?.setAttribute("aria-busy", "true");
-  void controller.submit(form).then((message) => {
-    render();
-    if (message) announce(message);
-  }).catch((error: unknown) => {
-    render();
-    announce(`Repository operation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }).finally(() => main?.setAttribute("aria-busy", "false"));
+  void runAcknowledgedMutation(() => controller!.submit(form));
 }, true);
+
+window.addEventListener("beforeunload", (event) => {
+  if (persistenceGate.state !== "pending") return;
+  event.preventDefault();
+  event.returnValue = "";
+});
