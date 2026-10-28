@@ -25,6 +25,34 @@ for (const [name, path] of [
   });
 }
 
+test("Product Core and Signals share the acknowledged mutation boundary", async () => {
+  const shell = await read("apps/desktop/ui/app.ts");
+  assert.match(shell, /AcknowledgedPersistenceGate/);
+  assert.match(shell, /const mutation = persistenceGate\.run\(task\)/);
+  assert.match(shell, /entered values remain available to correct and retry/);
+  assert.match(shell, /beforeunload/);
+  assert.match(shell, /signalsController!\.submit\(formElement\)/);
+  assert.doesNotMatch(shell, /Signal operation failed:[^\n]*\}\);\s*return;/);
+});
+
+test("Workspace lifecycle serializes destructive operations through durable acknowledgement", async () => {
+  const shell = await read("apps/desktop/ui/workspace-lifecycle-shell.ts");
+  assert.match(shell, /durableActionPending/);
+  assert.match(shell, /setDurableActionPending\(true\)/);
+  assert.match(shell, /setDurableActionPending\(false\)/);
+  assert.match(shell, /workspaceStorage\.commit\(\)/);
+  assert.match(shell, /beforeunload/);
+  assert.match(shell, /Workspace deletion or restore is still pending/);
+});
+
+test("Contextual human reviews remain pending until their owning workflow acknowledges the save", async () => {
+  const shell = await read("apps/desktop/ui/contextual-review-shell.ts");
+  assert.match(shell, /resetReviewFormsAfterFailure/);
+  assert.match(shell, /Review decision submitted to the owning workflow\. Durable acknowledgement is pending/);
+  assert.match(shell, /Wait for acknowledgement before closing this panel/);
+  assert.doesNotMatch(shell, /Review decision sent to the owning workflow for durable recording/);
+});
+
 test("Campaign and Studio browser journey preserves a failed form for correction and retry", async () => {
   const smoke = await read("scripts/pwa-smoke.mjs");
   assert.match(smoke, /Smoke no-op revision should remain recoverable/);
@@ -33,4 +61,5 @@ test("Campaign and Studio browser journey preserves a failed form for correction
   assert.match(smoke, /failed Campaign save remains visibly failed and retains the entered form intent for retry/);
   assert.match(smoke, /Repository Growth failed import remains visibly unsaved with editable input preserved/);
   assert.match(smoke, /Analytics failed cohort evaluation keeps exact form values available for correction/);
+  assert.match(smoke, /workspace deletion disables the visible submit control until its durable commit acknowledges/);
 });
