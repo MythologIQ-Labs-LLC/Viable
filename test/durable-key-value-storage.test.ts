@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   DurableKeyValueStorage,
   DurableStorageCommitError,
+  DurableStorageConflictError,
   MIGRATION_MARKER_KEY,
   purgeLegacyWorkspaceCopy,
   type DurableStorageBackend,
@@ -18,6 +20,17 @@ class MemoryBackend implements DurableStorageBackend {
 
   async loadAll(): Promise<ReadonlyMap<string, string>> {
     return new Map(this.data);
+  }
+
+  async commitIfUnchanged(changes: readonly StorageChange[], expected: readonly StorageChange[]): Promise<void> {
+    // Mimic one IndexedDB readwrite transaction: compare before applying any
+    // change. A test fake must not hide the write-race it is testing.
+    for (const { key, value } of expected) {
+      if ((this.data.get(key) ?? null) !== value) {
+        throw new DurableStorageConflictError("Another window changed the saved workspace.");
+      }
+    }
+    await this.commit(changes);
   }
 
   async commit(changes: readonly StorageChange[]): Promise<void> {
@@ -187,4 +200,87 @@ test("purging removes the legacy active pointer only when it still names the del
   const other = new RemovableLegacyStorage({ "viable.product-workspace.active": "other" });
   assert.equal(purgeLegacyWorkspaceCopy(other, [], pointer), 0);
   assert.deepEqual(other.values, { "viable.product-workspace.active": "other" });
+});
+
+test("two tabs cannot silently overwrite the same whole-workspace record", async () => {
+  const backend = new MemoryBackend();
+  const first = (await DurableKeyValueStorage.open(backend)).storage;
+  first.setItem("viable.product-workspace.ws", '{"version":1,"a":0,"b":0}');
+  await first.commit();
+  const second = (await DurableKeyValueStorage.open(backend)).storage;
+  const seen: StorageChange[][] = [];
+  second.onCommitted((changes) => seen.push([...changes]));
+
+  first.setItem("viable.product-workspace.ws", '{"version":2,"a":1,"b":0}');
+  second.setItem("viable.product-workspace.ws", '{"version":2,"a":0,"b":1}');
+  await first.commit();
+  await assert.rejects(second.commit(), (error: unknown) =>
+    error instanceof DurableStorageConflictError && /another.*window|another.*tab/i.test(error.message),
+  );
+  assert.equal(backend.data.get("viable.product-workspace.ws"), '{"version":2,"a":1,"b":0}');
+  assert.deepEqual(seen, [], "refused write must never broadcast canonical success");
+  assert.equal(second.hasPendingChanges(), false);
+});
+
+test("two tabs can commit independent keys without false conflicts", async () => {
+  const backend = new MemoryBackend();
+  const first = (await DurableKeyValueStorage.open(backend)).storage;
+  const second = (await DurableKeyValueStorage.open(backend)).storage;
+  first.setItem("viable.product-workspace.a", "first");
+  second.setItem("viable.signals-inbox.b", "second");
+  await Promise.all([first.commit(), second.commit()]);
+  assert.equal(backend.data.get("viable.product-workspace.a"), "first");
+  assert.equal(backend.data.get("viable.signals-inbox.b"), "second");
+});
+
+test("a pending mutation keeps its original expected value despite cross-tab notifications", async () => {
+  const backend = new MemoryBackend();
+  const first = (await DurableKeyValueStorage.open(backend)).storage;
+  first.setItem("viable.campaign-workspace.ws", "original");
+  await first.commit();
+  const second = (await DurableKeyValueStorage.open(backend)).storage;
+  second.setItem("viable.campaign-workspace.ws", "stale edit");
+  first.setItem("viable.campaign-workspace.ws", "other tab saved");
+  await first.commit();
+  second.applyExternal([{ key: "viable.campaign-workspace.ws", value: "other tab saved" }]);
+  assert.equal(second.getItem("viable.campaign-workspace.ws"), "stale edit", "pending intent stays visible until acknowledgement");
+  await assert.rejects(second.commit(), DurableStorageConflictError);
+  assert.equal(backend.data.get("viable.campaign-workspace.ws"), "other tab saved");
+  assert.equal(second.getItem("viable.campaign-workspace.ws"), "other tab saved", "failed mutation reverts to latest notified durable state");
+});
+
+test("stale delete fails closed and does not delete a newer workspace value", async () => {
+  const backend = new MemoryBackend();
+  const first = (await DurableKeyValueStorage.open(backend)).storage;
+  first.setItem("viable.product-workspace.ws", "v1");
+  await first.commit();
+  const second = (await DurableKeyValueStorage.open(backend)).storage;
+  second.removeItem("viable.product-workspace.ws");
+  first.setItem("viable.product-workspace.ws", "v2");
+  await first.commit();
+  await assert.rejects(second.commit(), DurableStorageConflictError);
+  assert.equal(backend.data.get("viable.product-workspace.ws"), "v2");
+});
+
+test("conditional commit refuses an entire batch when even one expected record is stale", async () => {
+  const backend = new MemoryBackend();
+  const first = (await DurableKeyValueStorage.open(backend)).storage;
+  first.setItem("viable.product-workspace.ws", "initial");
+  await first.commit();
+  const second = (await DurableKeyValueStorage.open(backend)).storage;
+  second.setItem("viable.product-workspace.ws", "stale");
+  second.setItem("viable.signals-inbox.ws", "new");
+  first.setItem("viable.product-workspace.ws", "latest");
+  await first.commit();
+  await assert.rejects(second.commit(), DurableStorageConflictError);
+  assert.equal(backend.data.get("viable.product-workspace.ws"), "latest");
+  assert.equal(backend.data.has("viable.signals-inbox.ws"), false, "no partial writes on conflict");
+});
+
+test("browser IndexedDB compares authoritative record values inside the write transaction", async () => {
+  const shell = await readFile("apps/desktop/ui/workspace-storage.ts", "utf8");
+  assert.match(shell, /commitIfUnchanged\(changes: readonly StorageChange\[\], expected: readonly StorageChange\[\]\)/);
+  assert.match(shell, /this\.db\.transaction\(STORE, "readwrite", \{ durability: "strict" \}\)/);
+  assert.match(shell, /store\.get\(expectedChange\.key\)/);
+  assert.match(shell, /transaction\.abort\(\)/);
 });
