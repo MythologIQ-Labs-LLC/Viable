@@ -1364,7 +1364,19 @@ async function run() {
         await deletion.locator('[name="scopeConfirmed"]').check();
         await deletion.locator('[name="declineRecoveryPoint"]').check();
         await deletion.locator('[name="confirmation"]').fill("DELETE");
-        await deletion.locator('button[type="submit"]').click();
+        const deleteOverlap = await deletion.evaluate((form) => {
+          const submit = form.querySelector('button[type="submit"]');
+          if (!(submit instanceof HTMLButtonElement)) throw new Error("Visible deletion submit button is missing");
+          // Use the actual visible UI control twice in the same turn, not
+          // internal lifecycle/storage APIs. The first click starts commit;
+          // the second must not start a second destructive operation.
+          submit.click();
+          const pending = Boolean(document.querySelector("[data-workspace-durable-pending]"));
+          const disabled = submit.disabled;
+          submit.click();
+          return { pending, disabled };
+        });
+        check(deleteOverlap.pending && deleteOverlap.disabled, "workspace deletion disables the visible submit control until its durable commit acknowledges");
         await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("deletion completed"), undefined, { timeout: 10000 });
         await go("home");
         check(await journey.locator('form[data-form="create-workspace"]').isVisible() && !((await journey.locator("#main").textContent()) ?? "").includes("Ledgerly"), "Home stops showing a deleted workspace without a reload");
