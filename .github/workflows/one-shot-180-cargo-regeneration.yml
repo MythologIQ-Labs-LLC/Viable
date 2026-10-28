@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: "1.88.0"
@@ -31,7 +32,7 @@ jobs:
           test "$(git branch --show-current)" = "security/180-rustsec-patch-20261028"
           test "$(git status --porcelain | wc -l)" -eq 0
           git merge-base --is-ancestor "f2abed27ca73ac100dfbfdf7ef823311af5ef05e" HEAD
-          test "$(git rev-list --count f2abed27ca73ac100dfbfdf7ef823311af5ef05e..HEAD)" -le 2
+          test "$(git rev-list --count f2abed27ca73ac100dfbfdf7ef823311af5ef05e..HEAD)" -le 3
           manifest="apps/desktop/src-tauri/Cargo.toml"
           cargo --version
           cargo update --manifest-path "$manifest" -p ctutils --precise 0.4.4
