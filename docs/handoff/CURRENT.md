@@ -23,8 +23,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 
 | PR | What it is | What remains |
 |---|---|---|
-| #171 candidate branch | Acknowledged-persistence and UI-only journey hardening | Campaign/Studio remediation is implemented; finish Repository Growth, Activation/Learning, destructive-action and contextual-review qualification before PR/merge. |
-| #144 | Cross-origin migration proof through the portable backup (#36) | Release-foundation evidence. Keep it isolated from product changes. |
+| #171 candidate branch | Acknowledged-persistence and UI-only journey hardening | Guarded mutations now cover Campaign/Studio, Video, Repository Growth, Calendar/Analytics, Publication Inventory, Product Core, Signals, Workspace destructive operations, and contextual review failure recovery. Exact-head CI/PWA/Desktop qualification and residual race evaluation remain before merge. |
 | Dependabot #121 | Development-tooling bumps | Triage independently. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Recently merged convergence work:
@@ -130,7 +129,7 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 
 ## Next priorities
 
-1. Continue #171 acknowledged-persistence hardening from `docs/reviews/acknowledged-persistence-hardening-2026-10-28.md`; Campaign/Studio is the first remediated surface, with Repository Growth and Activation/Learning next.
+1. Qualify #171's candidate end-to-end with deterministic tests, Chromium PWA UI-only failure/retry and destructive-action probes, and Desktop/Tauri gates. Reproduce remaining cross-tab lost-update race before proposing a revision-bound storage solution.
 2. Preserve #79/#81 human acceptance as a release gate. The existing `ux-candidate-2026-10-07c.md` remains the frozen pre-#172 candidate; a new candidate must be recorded after product-facing #156 work stabilizes rather than pretending the old human-acceptance target covers new UI.
 3. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
 4. Progress the remaining #36 release-foundation evidence through isolated work such as #144. Leave public hosting until external distribution is justified.
