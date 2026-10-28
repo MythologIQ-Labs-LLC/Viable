@@ -966,6 +966,105 @@ async function run() {
       }
     });
 
+    if (BROWSER === "chromium") await section("real IndexedDB atomic first-use migration", async () => {
+      const modulePath = "/generated/apps/desktop/ui/workspace-storage.js";
+      const legacyKey = "viable.migration-probe.record";
+      const markerKey = "viable.storage.migrated-from-local-storage";
+      const legacyValue = "legacy profile";
+      async function readDurable(tab, key) {
+        return tab.evaluate(async (key) => {
+          const db = await new Promise((resolve, reject) => {
+            const opened = indexedDB.open("viable-workspace", 1);
+            opened.onsuccess = () => resolve(opened.result);
+            opened.onerror = () => reject(opened.error);
+          });
+          try {
+            return await new Promise((resolve, reject) => {
+              const get = db.transaction("kv", "readonly").objectStore("kv").get(key);
+              get.onsuccess = () => resolve(get.result ?? null);
+              get.onerror = () => reject(get.error);
+            });
+          } finally { db.close(); }
+        }, key);
+      }
+      async function status(tab) {
+        return tab.evaluate(async (path) => {
+          const { workspaceStorage, workspaceStorageStatus } = await import(path);
+          return { engine: workspaceStorageStatus.engine, migration: workspaceStorageStatus.migration,
+            value: workspaceStorage.getItem("viable.migration-probe.record") };
+        }, modulePath);
+      }
+      async function seed(context) {
+        const setup = await context.newPage();
+        await setup.goto(origin + ENGINE_CONTROL_PATH);
+        await setup.evaluate(([key, value]) => localStorage.setItem(key, value), [legacyKey, legacyValue]);
+        await setup.close();
+      }
+      {
+        const isolated = await browser.newContext();
+        try {
+          await seed(isolated);
+          const first = await isolated.newPage();
+          const second = await isolated.newPage();
+          first.on("pageerror", (error) => errors.push("migration first tab: " + error.message));
+          second.on("pageerror", (error) => errors.push("migration second tab: " + error.message));
+          await Promise.all([
+            first.goto(origin + "/", { waitUntil: "domcontentloaded" }),
+            second.goto(origin + "/", { waitUntil: "domcontentloaded" }),
+          ]);
+          const states = await Promise.all([status(first), status(second)]);
+          assert.deepEqual(states.map((x) => x.engine), ["indexeddb", "indexeddb"]);
+          assert.deepEqual(states.map((x) => x.value), [legacyValue, legacyValue]);
+          assert.equal(states.filter((x) => x.migration.status === "migrated").length, 1);
+          assert.equal(states.filter((x) => x.migration.status === "already_migrated").length, 1);
+          assert.equal(JSON.parse(await readDurable(first, markerKey)).keys, 1,
+            "the migration marker counts only the one copied profile record");
+          assert.equal(await readDurable(second, legacyKey), legacyValue);
+          const saved = await first.evaluate(async (path) => {
+            const { workspaceStorage } = await import(path);
+            workspaceStorage.setItem("viable.migration-probe.record", "newer saved work");
+            await workspaceStorage.commit();
+            return workspaceStorage.getItem("viable.migration-probe.record");
+          }, modulePath);
+          assert.equal(saved, "newer saved work");
+          const later = await isolated.newPage();
+          await later.goto(origin + "/", { waitUntil: "domcontentloaded" });
+          assert.equal((await status(later)).migration.status, "already_migrated");
+          assert.equal(await readDurable(later, legacyKey), "newer saved work");
+          assert.equal(await later.evaluate((key) => localStorage.getItem(key), legacyKey), legacyValue,
+            "the untouched legacy recovery source must remain available");
+          check(true, "real Chromium simultaneous first-use tabs migrate only once and preserve later authoritative edits");
+        } finally { await isolated.close(); }
+      }
+      {
+        const isolated = await browser.newContext();
+        try {
+          await seed(isolated);
+          const faulted = await isolated.newPage();
+          await faulted.addInitScript(() => {
+            const nativeTransaction = IDBDatabase.prototype.transaction;
+            IDBDatabase.prototype.transaction = function (...args) {
+              if (args[1] === "readwrite") throw new DOMException("Injected first-use migration failure", "QuotaExceededError");
+              return nativeTransaction.apply(this, args);
+            };
+          });
+          await faulted.goto(origin + "/", { waitUntil: "domcontentloaded" });
+          const failure = await status(faulted);
+          assert.equal(failure.engine, "unavailable", "failed migration must fail closed");
+          assert.equal(await readDurable(faulted, markerKey), null, "no false completed marker after failure");
+          assert.equal(await readDurable(faulted, legacyKey), null, "no partially copied legacy data");
+          assert.equal(await faulted.evaluate((key) => localStorage.getItem(key), legacyKey), legacyValue);
+          const recovered = await isolated.newPage();
+          await recovered.goto(origin + "/", { waitUntil: "domcontentloaded" });
+          const state = await status(recovered);
+          assert.equal(state.engine, "indexeddb");
+          assert.deepEqual(state.migration, { status: "migrated", keys: 1 });
+          assert.equal(await readDurable(recovered, legacyKey), legacyValue);
+          check(true, "real Chromium first-use failure leaves no partial migration and a fresh tab recovers");
+        } finally { await isolated.close(); }
+      }
+    });
+
     await section("seeded acceptance journeys", async () => {
       const journeyContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
       const journey = await journeyContext.newPage();
