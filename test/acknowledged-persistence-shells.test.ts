@@ -33,7 +33,10 @@ test("Product Core and Signals share the acknowledged mutation boundary", async 
   assert.match(shell, /const mutation = persistenceGate\.run\(task\)/);
   assert.match(shell, /entered values remain available to correct and retry/);
   assert.match(shell, /beforeunload/);
-  assert.match(shell, /signalsController!\.submit\(formElement\)/);
+  assert.match(shell, /signalsController!\.submit\(formElement\), "Signals change saved", true/);
+  assert.match(shell, /signalsController!\.click\(button\), "Signals action saved", true/);
+  assert.match(shell, /requiresSavedResult && result\.value === undefined/);
+  assert.match(shell, /No change was recorded\./);
   assert.doesNotMatch(shell, /Signal operation failed:[^\n]*\}\);\s*return;/);
 });
 
