@@ -76,12 +76,25 @@ async function runAcknowledgedMutation(operation: () => Promise<string | undefin
     announce(`Change not saved: ${detail}`);
     return;
   }
-  await refreshControllers();
-  render();
-  mutationControlsDisabled(false);
-  main?.setAttribute("aria-busy", "false");
-  showPersistenceState("saved");
-  if (result.value) announce(result.value);
+  try {
+    if (result.value === undefined) {
+      persistenceGate.reset();
+      main?.querySelector("[data-persistence-state]")?.remove();
+      announce("No change was recorded.");
+      return;
+    }
+    await refreshControllers();
+    render();
+    showPersistenceState("saved");
+    announce(result.value);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown view refresh error";
+    showPersistenceState("saved");
+    announce(`Change acknowledged, but the view could not refresh: ${detail}`);
+  } finally {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+  }
 }
 
 function activateNavigation(): void {
