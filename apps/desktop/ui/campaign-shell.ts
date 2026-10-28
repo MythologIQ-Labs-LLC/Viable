@@ -85,12 +85,26 @@ async function runAcknowledgedMutation(
     announce(`Change not saved: ${detail}`);
     return;
   }
-  if (options.refreshVideo) await refreshVideo();
-  render();
-  mutationControlsDisabled(false);
-  main?.setAttribute("aria-busy", "false");
-  showPersistenceState("saved");
-  if (result.value) announce(result.value);
+  try {
+    if (result.value === undefined) {
+      // A dismissed inline prompt or unsupported action did not save.
+      persistenceGate.reset();
+      main?.querySelector("[data-persistence-state]")?.remove();
+      announce("No change was recorded.");
+      return;
+    }
+    if (options.refreshVideo) await refreshVideo();
+    render();
+    showPersistenceState("saved");
+    announce(result.value);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown view refresh error";
+    showPersistenceState("saved");
+    announce(`Change acknowledged, but the view could not refresh: ${detail}`);
+  } finally {
+    mutationControlsDisabled(false);
+    main?.setAttribute("aria-busy", "false");
+  }
 }
 
 function escapeHtml(value: unknown): string {
