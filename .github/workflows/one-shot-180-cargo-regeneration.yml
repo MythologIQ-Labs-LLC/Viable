@@ -30,7 +30,8 @@ jobs:
           set -euo pipefail
           test "$(git branch --show-current)" = "security/180-rustsec-patch-20261028"
           test "$(git status --porcelain | wc -l)" -eq 0
-          test "$(git rev-parse HEAD^)" = "f2abed27ca73ac100dfbfdf7ef823311af5ef05e"
+          git merge-base --is-ancestor "f2abed27ca73ac100dfbfdf7ef823311af5ef05e" HEAD
+          test "$(git rev-list --count f2abed27ca73ac100dfbfdf7ef823311af5ef05e..HEAD)" -le 2
           manifest="apps/desktop/src-tauri/Cargo.toml"
           cargo --version
           cargo update --manifest-path "$manifest" -p ctutils --precise 0.4.4
@@ -57,7 +58,8 @@ jobs:
           set -euo pipefail
           rm .github/workflows/one-shot-180-cargo-regeneration.yml
           git add apps/desktop/src-tauri/Cargo.lock .github/workflows/one-shot-180-cargo-regeneration.yml
-          test "$(git diff --cached --name-only)" = "apps/desktop/src-tauri/Cargo.lock"
+          expected="$(printf '%s\n' '.github/workflows/one-shot-180-cargo-regeneration.yml' 'apps/desktop/src-tauri/Cargo.lock' | sort)"
+          test "$(git diff --cached --name-only | sort)" = "$expected"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "fix(security): regenerate RustSec-patched Cargo.lock (#180) [skip ci]"
