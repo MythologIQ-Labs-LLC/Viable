@@ -6,12 +6,12 @@ This is the restart entrypoint for Viable work. It preserves the context require
 
 Implementation truth lives in [`docs/status/current-state.md`](../status/current-state.md). This handoff says where work stands and what to do next. If they disagree, the status record and the repository win.
 
-## Repository state (2026-10-11)
+## Repository state (2026-10-28)
 
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `aa6f35ff032e1b807ebf8d88e517dea625343c47` (#173 merged). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
+- `main` at review: `f2abed27ca73ac100dfbfdf7ef823311af5ef05e` (#144 merged). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
@@ -23,11 +23,13 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 
 | PR | What it is | What remains |
 |---|---|---|
-| Candidate #169 branch | Comparable-age publication cohorts and conservative advisory learning | Finish adversarial review and branch normalization, then exact-head CI, real-browser cohort journey, Desktop/Tauri validation, and review before merge. |
+| #171 candidate branch | Acknowledged-persistence and UI-only journey hardening | Campaign/Studio remediation is implemented; finish Repository Growth, Activation/Learning, destructive-action and contextual-review qualification before PR/merge. |
 | #144 | Cross-origin migration proof through the portable backup (#36) | Release-foundation evidence. Keep it isolated from product changes. |
 | Dependabot #121 | Development-tooling bumps | Triage independently. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Recently merged convergence work:
+- #144: portable PWA migration across browser origins is on `main` at `f2abed27ca73ac100dfbfdf7ef823311af5ef05e`.
+- #174: #169 comparable-age cohorts and conservative advisory learning is on `main` at `0b3bbd53776ec5acf855807b3f7bf0bb4775b88a`; the exact PR head passed CI and Desktop validation.
 - #173: #168 manual-first analytics evidence, conflict-safe reconciliation, and deterministic derived metrics is on `main` at `aa6f35ff032e1b807ebf8d88e517dea625343c47`; exact-head CI, Chromium PWA journey, Rust tests, desktop bundle, and Debian validation passed.
 - #172: #167 composition guidance and exact publication-experiment identity is on `main` at `82b445618e57cde337db35b45e2ff5ba972ccae8`; exact-head CI, Chromium PWA journey, Rust tests, desktop bundle, and Debian validation passed.
 - #109: LinkedIn member publishing implementation is on `main`. Exact-head CI, real-browser PWA smoke, Rust tests, desktop bundle, and Debian package validation passed. #107 stays open for the two human evidence gates.
@@ -128,7 +130,7 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 
 ## Next priorities
 
-1. Complete the owner-directed #156 productization-learning tranche in bounded order: #167 and #168 are merged; #169 comparable-age cohorts and conservative advisory learning is the active candidate.
+1. Continue #171 acknowledged-persistence hardening from `docs/reviews/acknowledged-persistence-hardening-2026-10-28.md`; Campaign/Studio is the first remediated surface, with Repository Growth and Activation/Learning next.
 2. Preserve #79/#81 human acceptance as a release gate. The existing `ux-candidate-2026-10-07c.md` remains the frozen pre-#172 candidate; a new candidate must be recorded after product-facing #156 work stabilizes rather than pretending the old human-acceptance target covers new UI.
 3. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
 4. Progress the remaining #36 release-foundation evidence through isolated work such as #144. Leave public hosting until external distribution is justified.
