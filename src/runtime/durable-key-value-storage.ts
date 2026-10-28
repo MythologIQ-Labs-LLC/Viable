@@ -22,8 +22,8 @@ export type StorageChange = Readonly<{ key: string; value: string | null }>;
 export interface DurableStorageBackend {
   readonly engine: string;
   loadAll(): Promise<ReadonlyMap<string, string>>;
-  /** Migration-only unconditional commit; no ordinary workspace write may use it. */
-  commit(changes: readonly StorageChange[]): Promise<void>;
+  /** An atomic snapshot-and-copy-if-absent migration; the marker check must share the write transaction. */
+  migrateLegacy(entries: readonly (readonly [string, string])[], migratedAt: string): Promise<LegacyMigrationResult>;
   /** Rejects the ENTIRE change batch unless all expected values still match durable authority. */
   commitIfUnchanged(changes: readonly StorageChange[], expected: readonly StorageChange[]): Promise<void>;
 }
@@ -39,6 +39,11 @@ export type MigrationReport = Readonly<
   | { status: "already_migrated" }
   | { status: "migrated"; keys: number }
 >;
+
+export type LegacyMigrationResult = Readonly<{
+  snapshot: ReadonlyMap<string, string>;
+  migration: MigrationReport;
+}>;
 
 export const MIGRATION_MARKER_KEY = "viable.storage.migrated-from-local-storage";
 const MIGRATED_PREFIX = "viable.";
@@ -83,22 +88,12 @@ export class DurableKeyValueStorage {
     legacy?: LegacyKeyValueSource,
     clock: () => Date = () => new Date(),
   ): Promise<{ storage: DurableKeyValueStorage; migration: MigrationReport }> {
-    const existing = await backend.loadAll();
-    if (existing.has(MIGRATION_MARKER_KEY)) {
-      return { storage: new DurableKeyValueStorage(backend, existing), migration: { status: "already_migrated" } };
-    }
-    const legacyEntries = legacy ? readLegacy(legacy) : [];
-    const toCopy = legacyEntries.filter(([key]) => !existing.has(key));
-    const marker = JSON.stringify({ migratedAt: clock().toISOString(), keys: toCopy.length });
-    await backend.commit([...toCopy.map(([key, value]) => ({ key, value })), { key: MIGRATION_MARKER_KEY, value: marker }]);
-    const verified = await backend.loadAll();
-    for (const [key, value] of toCopy) {
-      if (verified.get(key) !== value) throw new DurableStorageCommitError(`Workspace storage migration could not be verified for ${key}. The original data was left untouched.`);
-    }
-    return {
-      storage: new DurableKeyValueStorage(backend, verified),
-      migration: toCopy.length ? { status: "migrated", keys: toCopy.length } : { status: "not_needed" },
-    };
+    // Never decide marker absence from a separate readonly snapshot. Two tabs
+    // can otherwise both plan migration before either has committed it.
+    // The backend checks marker, copies missing legacy keys, verifies, and
+    // returns the authoritative snapshot within ONE readwrite transaction.
+    const result = await backend.migrateLegacy(legacy ? readLegacy(legacy) : [], clock().toISOString());
+    return { storage: new DurableKeyValueStorage(backend, result.snapshot), migration: result.migration };
   }
 
   get engine(): string {

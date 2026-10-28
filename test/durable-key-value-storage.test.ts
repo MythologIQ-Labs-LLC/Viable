@@ -6,6 +6,7 @@ import {
   DurableStorageCommitError,
   DurableStorageConflictError,
   MIGRATION_MARKER_KEY,
+  type LegacyMigrationResult,
   purgeLegacyWorkspaceCopy,
   type DurableStorageBackend,
   type StorageChange,
@@ -20,6 +21,25 @@ class MemoryBackend implements DurableStorageBackend {
 
   async loadAll(): Promise<ReadonlyMap<string, string>> {
     return new Map(this.data);
+  }
+
+  async migrateLegacy(entries: readonly (readonly [string, string])[], migratedAt: string): Promise<LegacyMigrationResult> {
+    const existing = await this.loadAll();
+    if (existing.has(MIGRATION_MARKER_KEY)) {
+      return { snapshot: existing, migration: { status: "already_migrated" } };
+    }
+    const toCopy = entries.filter(([key]) => key !== MIGRATION_MARKER_KEY && key.startsWith("viable.") && !existing.has(key));
+    await this.commit([
+      ...toCopy.map(([key, value]) => ({ key, value })),
+      { key: MIGRATION_MARKER_KEY, value: JSON.stringify({ migratedAt, keys: toCopy.length }) },
+    ]);
+    const verified = await this.loadAll();
+    for (const [key, value] of toCopy) {
+      if (verified.get(key) !== value) {
+        throw new DurableStorageCommitError("Workspace migration could not be verified. The original legacy source was retained.");
+      }
+    }
+    return { snapshot: verified, migration: toCopy.length ? { status: "migrated", keys: toCopy.length } : { status: "not_needed" } };
   }
 
   async commitIfUnchanged(changes: readonly StorageChange[], expected: readonly StorageChange[]): Promise<void> {
@@ -283,4 +303,83 @@ test("browser IndexedDB compares authoritative record values inside the write tr
   assert.match(shell, /this\.db\.transaction\(STORE, "readwrite", \{ durability: "strict" \}\)/);
   assert.match(shell, /store\.get\(expectedChange\.key\)/);
   assert.match(shell, /transaction\.abort\(\)/);
+});
+
+test("first-use migration cannot replay an older localStorage copy after another tab saved newer data", async () => {
+  let releaseSecond!: () => void;
+  let reachedSecond!: () => void;
+  const held = new Promise<void>((resolve) => { releaseSecond = resolve; });
+  const reached = new Promise<void>((resolve) => { reachedSecond = resolve; });
+  class DelayedSecondMigrator extends MemoryBackend {
+    migrations = 0;
+    migrationCalls = 0;
+    override async migrateLegacy(entries: readonly (readonly [string, string])[], migratedAt: string): Promise<LegacyMigrationResult> {
+      this.migrationCalls += 1;
+      if (this.migrationCalls === 2) {
+        reachedSecond();
+        await held;
+      }
+      return super.migrateLegacy(entries, migratedAt);
+    }
+    override async commit(changes: readonly StorageChange[]): Promise<void> {
+      if (changes.some(({ key }) => key === MIGRATION_MARKER_KEY)) this.migrations += 1;
+      await super.commit(changes);
+    }
+  }
+  const backend = new DelayedSecondMigrator();
+  const legacy = new LegacyStorage({ "viable.product-workspace.ws": "stale legacy" });
+  const firstOpening = DurableKeyValueStorage.open(backend, legacy, clock);
+  const secondOpening = DurableKeyValueStorage.open(backend, legacy, clock);
+  // A bounded timeout makes a missing second migrator a useful test failure,
+  // rather than a permanently hanging CI run.
+  const timeout = setTimeout(() => releaseSecond(), 1500);
+  try {
+    await Promise.race([reached, new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("second migration never reached the gate")), 1500))]);
+    const first = await firstOpening;
+    assert.deepEqual(first.migration, { status: "migrated", keys: 1 });
+    first.storage.setItem("viable.product-workspace.ws", "newer durable edit");
+    await first.storage.commit();
+    releaseSecond();
+    const second = await secondOpening;
+    assert.deepEqual(second.migration, { status: "already_migrated" });
+    assert.equal(backend.data.get("viable.product-workspace.ws"), "newer durable edit",
+      "a delayed second migration must never replay the old legacy copy");
+    assert.equal(second.storage.getItem("viable.product-workspace.ws"), "newer durable edit");
+    assert.equal(backend.migrations, 1, "there must be only one actual migration write");
+  } finally {
+    clearTimeout(timeout);
+    releaseSecond();
+  }
+});
+
+test("a failed first-use migration does not persist a marker or partially copied records", async () => {
+  const backend = new MemoryBackend();
+  backend.failNext = true;
+  const legacy = new LegacyStorage({
+    "viable.product-workspace.ws": "original",
+    "viable.campaign-workspace.ws": "second original",
+  });
+  await assert.rejects(DurableKeyValueStorage.open(backend, legacy, clock));
+  assert.equal(backend.data.has(MIGRATION_MARKER_KEY), false, "failed migration must not look complete");
+  assert.equal(backend.data.has("viable.product-workspace.ws"), false);
+  assert.equal(backend.data.has("viable.campaign-workspace.ws"), false);
+  assert.equal(legacy.getItem("viable.product-workspace.ws"), "original");
+  const retried = await DurableKeyValueStorage.open(backend, legacy, clock);
+  assert.deepEqual(retried.migration, { status: "migrated", keys: 2 });
+});
+
+test("migration ignores a forged legacy marker and preserves existing authoritative values", async () => {
+  const backend = new MemoryBackend();
+  backend.data.set("viable.product-workspace.ws", "authoritative");
+  const legacy = new LegacyStorage({
+    [MIGRATION_MARKER_KEY]: "forged legacy marker",
+    "viable.product-workspace.ws": "outdated",
+    "viable.signals-inbox.ws": "candidate",
+  });
+  const result = await DurableKeyValueStorage.open(backend, legacy, clock);
+  assert.deepEqual(result.migration, { status: "migrated", keys: 1 });
+  assert.equal(result.storage.getItem("viable.product-workspace.ws"), "authoritative");
+  assert.equal(result.storage.getItem("viable.signals-inbox.ws"), "candidate");
+  assert.notEqual(result.storage.getItem(MIGRATION_MARKER_KEY), "forged legacy marker");
 });
