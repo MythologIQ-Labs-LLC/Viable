@@ -22,8 +22,10 @@ export type StorageChange = Readonly<{ key: string; value: string | null }>;
 export interface DurableStorageBackend {
   readonly engine: string;
   loadAll(): Promise<ReadonlyMap<string, string>>;
-  /** Applies all changes atomically: either every change is durable or none is. */
+  /** Migration-only unconditional commit; no ordinary workspace write may use it. */
   commit(changes: readonly StorageChange[]): Promise<void>;
+  /** Rejects the ENTIRE change batch unless all expected values still match durable authority. */
+  commitIfUnchanged(changes: readonly StorageChange[], expected: readonly StorageChange[]): Promise<void>;
 }
 
 export interface LegacyKeyValueSource {
@@ -48,10 +50,21 @@ export class DurableStorageCommitError extends Error {
   }
 }
 
+export class DurableStorageConflictError extends DurableStorageCommitError {
+  constructor() {
+    super("Another Viable window changed saved workspace data. Your change was not saved. Keep the entered values, reload to review the other changes, then retry.");
+    this.name = "DurableStorageConflictError";
+  }
+}
+
 export class DurableKeyValueStorage {
   private readonly snapshot: Map<string, string>;
   private readonly committed: Map<string, string>;
   private readonly pending = new Map<string, string | null>();
+  // Snapshot the previously observed value at first edit, not at commit time:
+  // an external notification cannot reauthorize a stale whole-workspace edit.
+  private readonly pendingExpected = new Map<string, string | null>();
+  private readonly inFlightKeys = new Set<string>();
   private commitChain: Promise<void> = Promise.resolve();
   private readonly listeners = new Set<(changes: readonly StorageChange[]) => void>();
 
@@ -105,11 +118,13 @@ export class DurableKeyValueStorage {
   }
 
   setItem(key: string, value: string): void {
+    if (!this.pending.has(key)) this.pendingExpected.set(key, this.snapshot.get(key) ?? null);
     this.snapshot.set(key, String(value));
     this.pending.set(key, String(value));
   }
 
   removeItem(key: string): void {
+    if (!this.pending.has(key)) this.pendingExpected.set(key, this.snapshot.get(key) ?? null);
     this.snapshot.delete(key);
     this.pending.set(key, null);
   }
@@ -133,8 +148,9 @@ export class DurableKeyValueStorage {
   applyExternal(changes: readonly StorageChange[]): void {
     for (const change of changes) {
       if (change.value === null) this.committed.delete(change.key); else this.committed.set(change.key, change.value);
-      // A local uncommitted edit to the same key wins until it commits.
-      if (this.pending.has(change.key)) continue;
+      // A local edit, including an in-flight transaction, keeps its intent
+      // until acknowledgement; CAS rejects it if external authority changed.
+      if (this.pending.has(change.key) || this.inFlightKeys.has(change.key)) continue;
       if (change.value === null) this.snapshot.delete(change.key); else this.snapshot.set(change.key, change.value);
     }
   }
@@ -147,9 +163,12 @@ export class DurableKeyValueStorage {
   private async commitPending(): Promise<void> {
     if (this.pending.size === 0) return;
     const changes: StorageChange[] = [...this.pending].map(([key, value]) => ({ key, value }));
+    const expected: StorageChange[] = changes.map(({ key }) => ({ key, value: this.pendingExpected.get(key) ?? null }));
     this.pending.clear();
+    this.pendingExpected.clear();
+    for (const { key } of changes) this.inFlightKeys.add(key);
     try {
-      await this.backend.commit(changes);
+      await this.backend.commitIfUnchanged(changes, expected);
     } catch (error) {
       for (const { key } of changes) {
         // Keys edited again after this batch started stay pending for the next commit.
@@ -157,10 +176,13 @@ export class DurableKeyValueStorage {
         const previous = this.committed.get(key);
         if (previous === undefined) this.snapshot.delete(key); else this.snapshot.set(key, previous);
       }
+      if (error instanceof DurableStorageConflictError) throw error;
       throw new DurableStorageCommitError(
         "Viable could not save your change to this device's storage. The previous saved version is still in place; nothing was partially saved.",
         { cause: error },
       );
+    } finally {
+      for (const { key } of changes) this.inFlightKeys.delete(key);
     }
     for (const { key, value } of changes) {
       if (value === null) this.committed.delete(key); else this.committed.set(key, value);

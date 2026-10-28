@@ -15,6 +15,7 @@
 // checks assert graceful behavior where an engine lacks a capability, and
 // every limitation is written to pwa-smoke-report-<engine>.json.
 
+import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { access, readFile, writeFile, cp, rm } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
@@ -855,6 +856,116 @@ async function run() {
     // and delete must show up without a reload, stale evidence must be
     // recheckable, a cancelled review must leave the record reviewable, and a
     // rejected import must say so and keep what the person pasted.
+    // #183: exercise the actual production IndexedDB adapter from two
+    // independently hydrated Chromium tabs. These are storage authority
+    // probes, not user-facing journey mutations; UI journeys remain above.
+    if (BROWSER === "chromium") await section("real IndexedDB competing-tab CAS", async () => {
+      const modulePath = "/generated/apps/desktop/ui/workspace-storage.js";
+      async function act(tab, kind, key, value) {
+        return tab.evaluate(async ({ path, kind, key, value }) => {
+          const { workspaceStorage: store, workspaceStorageStatus: status } = await import(path);
+          if (status.engine !== "indexeddb") throw new Error("IndexedDB authority not available");
+          if (kind === "set") { store.setItem(key, value); return "staged"; }
+          if (kind === "delete") { store.removeItem(key); return "staged"; }
+          if (kind === "read") return store.getItem(key);
+          if (kind === "monitor") { window.__casCommitEvents = []; store.onCommitted((changes) => window.__casCommitEvents.push(changes)); return "monitoring"; }
+          if (kind === "events") return window.__casCommitEvents ?? [];
+          if (kind === "commit") {
+            try { await store.commit(); return { state: "saved" }; }
+            catch (error) { return { state: "failed", name: error.name, message: error.message }; }
+          }
+          throw new Error("Unknown CAS probe action");
+        }, { path: modulePath, kind, key, value });
+      }
+      async function durable(tab, key) {
+        return tab.evaluate(async (key) => {
+          const db = await new Promise((resolve, reject) => {
+            const request = indexedDB.open("viable-workspace", 1);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          try {
+            return await new Promise((resolve, reject) => {
+              const request = db.transaction("kv", "readonly").objectStore("kv").get(key);
+              request.onsuccess = () => resolve(request.result ?? null);
+              request.onerror = () => reject(request.error);
+            });
+          } finally { db.close(); }
+        }, key);
+      }
+      async function pair(seedKey, seedValue) {
+        const isolated = await browser.newContext();
+        const first = await isolated.newPage();
+        first.on("pageerror", (error) => errors.push("CAS first tab: " + error.message));
+        await first.goto(origin + "/", { waitUntil: "domcontentloaded" });
+        assert.equal(await first.evaluate(async (path) => (await import(path)).workspaceStorageStatus.engine, modulePath), "indexeddb");
+        if (seedKey) {
+          await act(first, "set", seedKey, seedValue);
+          assert.deepEqual(await act(first, "commit"), { state: "saved" });
+        }
+        const second = await isolated.newPage();
+        second.on("pageerror", (error) => errors.push("CAS second tab: " + error.message));
+        await second.goto(origin + "/", { waitUntil: "domcontentloaded" });
+        assert.equal(await second.evaluate(async (path) => (await import(path)).workspaceStorageStatus.engine, modulePath), "indexeddb");
+        if (seedKey) assert.equal(await act(second, "read", seedKey), seedValue);
+        return { isolated, first, second };
+      }
+      {
+        const key = "viable.cas-probe.concurrent";
+        const { isolated, first, second } = await pair(key, "initial");
+        try {
+          await act(second, "monitor");
+          await Promise.all([act(first, "set", key, "first"), act(second, "set", key, "second")]);
+          const outcomes = await Promise.all([act(first, "commit"), act(second, "commit")]);
+          assert.equal(outcomes.filter((x) => x.state === "saved").length, 1);
+          const loser = outcomes.find((x) => x.state === "failed");
+          assert.equal(loser?.name, "DurableStorageConflictError");
+          assert.match(loser.message, /not saved/i);
+          assert.equal(await durable(first, key), outcomes[0].state === "saved" ? "first" : "second");
+          if (outcomes[1].state === "failed") assert.deepEqual(await act(second, "events"), []);
+          check(true, "real IndexedDB competing tabs reject the stale same-key writer without a false save");
+        } finally { await isolated.close(); }
+      }
+      {
+        const { isolated, first, second } = await pair();
+        try {
+          const a = "viable.cas-probe.a", b = "viable.cas-probe.b";
+          await Promise.all([act(first, "set", a, "A"), act(second, "set", b, "B")]);
+          assert.deepEqual(await Promise.all([act(first, "commit"), act(second, "commit")]), [{ state: "saved" }, { state: "saved" }]);
+          assert.equal(await durable(first, a), "A");
+          assert.equal(await durable(second, b), "B");
+          check(true, "real IndexedDB independent-key writes do not falsely conflict");
+        } finally { await isolated.close(); }
+      }
+      {
+        const key = "viable.cas-probe.delete";
+        const { isolated, first, second } = await pair(key, "original");
+        try {
+          await act(second, "delete", key);
+          await act(first, "set", key, "newer");
+          assert.deepEqual(await act(first, "commit"), { state: "saved" });
+          assert.equal((await act(second, "commit")).name, "DurableStorageConflictError");
+          assert.equal(await durable(first, key), "newer");
+          check(true, "real IndexedDB rejects stale deletes without erasing newer records");
+        } finally { await isolated.close(); }
+      }
+      {
+        const key = "viable.cas-probe.batch", other = "viable.cas-probe.batch-new";
+        const { isolated, first, second } = await pair(key, "original");
+        try {
+          await act(second, "set", key, "stale");
+          await act(second, "set", other, "uncommitted");
+          await act(first, "set", key, "newer");
+          assert.deepEqual(await act(first, "commit"), { state: "saved" });
+          assert.equal(await act(second, "read", key), "stale", "incoming broadcast does not replace pending intent");
+          assert.equal((await act(second, "commit")).name, "DurableStorageConflictError");
+          assert.equal(await durable(first, key), "newer");
+          assert.equal(await durable(first, other), null);
+          check(true, "real IndexedDB conflict aborts the entire multi-key batch");
+        } finally { await isolated.close(); }
+      }
+    });
+
     await section("seeded acceptance journeys", async () => {
       const journeyContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
       const journey = await journeyContext.newPage();

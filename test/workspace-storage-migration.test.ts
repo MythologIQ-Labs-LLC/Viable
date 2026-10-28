@@ -63,6 +63,12 @@ class MemoryBackend implements DurableStorageBackend {
       if (value === null) this.data.delete(key); else this.data.set(key, value);
     }
   }
+  async commitIfUnchanged(changes: readonly StorageChange[], expected: readonly StorageChange[]): Promise<void> {
+    for (const { key, value } of expected) {
+      if ((this.data.get(key) ?? null) !== value) throw new Error("Another workspace instance changed saved state");
+    }
+    await this.commit(changes);
+  }
 }
 
 function keyFor(name: string): string {
