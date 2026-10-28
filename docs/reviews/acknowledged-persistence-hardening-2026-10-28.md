@@ -55,14 +55,16 @@ Campaign/Studio now:
 
 This is a same-page/user-flow protection. It does **not** claim a cross-tab storage transaction or compare-and-swap guarantee.
 
+The same gate is now wired into Repository Growth (`b83919b7`) and Calendar/Analytics + Publication Inventory (`c1e747f1`). A regression contract at `26cdbd45` requires all three shells to retain the acknowledged-persistence boundary and the Campaign/Studio production-PWA failure/retry journey.
+
 ## Product-wide risk inventory
 
 | Surface | Current finding | Classification | Next evidence/action |
 |---|---|---|---|
 | Campaign / Studio | `aria-busy` without mutation serialization; failed form rerender lost local intent | **Confirmed, remediation candidate implemented** | Run deterministic gate tests + production Chromium journey + exact-head CI |
 | Video Production inside Studio shell | Shares Campaign shell mutation dispatch | **Covered by candidate gate at shell boundary** | Verify no Video-specific retry state is lost |
-| Repository Growth | Click/submit paths set `aria-busy`, start async controller work, rerender on success **and failure**, and do not serialize another mutation | **High-risk pattern, reproduction pending** | Add failed-form retention test; then reuse gate if reproduced |
-| Calendar / Activation / Analytics | Activation and Publication Inventory actions/submits have the same async fire/rerender pattern and no pending-mutation serialization | **High-risk pattern, reproduction pending** | Target analytics/import and destination/action mutations first |
+| Repository Growth | Click/submit paths set `aria-busy`, started async controller work, rerendered on success **and failure**, and did not serialize another mutation | **Confirmed pattern; remediation candidate implemented** | Gate now blocks overlapping visible mutations/navigation, preserves failed form DOM, and adds pending/saved/failed state. Add a focused browser failure/retry probe before merge. |
+| Calendar / Activation / Analytics | Activation and Publication Inventory actions/submits shared the same async fire/rerender pattern and could overlap each other | **Confirmed pattern; remediation candidate implemented** | Shared shell gate now serializes visible Activation and Publication Inventory mutations, preserves failed form DOM, blocks click-navigation while pending, and adds `beforeunload`. Add focused browser failure/retry coverage. |
 | Product Core shell (`app.ts`) | `act()` marks busy but does not reject a second action; failures rerender. Signals actions use independent promise chains | **High-risk pattern, reproduction pending** | Test overlapping Product Core writes and failed long-form save retention |
 | Signals inline workflows | Some user prompts were already replaced by inline forms and existing browser journeys prove several recovery paths | **Partially hardened** | Check whether failed controller submit rerenders discard inline intent |
 | Workspace lifecycle | Destructive delete/replace has scope confirmation, typed DELETE, recovery-point/quarantine decisions, durable commit ordering, and focused error states | **Stronger controls already present** | Verify repeat clicks/restore/delete cannot overlap while durable commit is pending |
@@ -84,7 +86,7 @@ Before #171 can close:
 
 1. run the new acknowledged-persistence gate tests;
 2. run the production Chromium PWA journey including failed-save retention/retry;
-3. reproduce and remediate the highest-risk Repository Growth and Activation/Learning paths or record why their existing semantics are sufficient;
+3. add focused browser failure/retry probes for the now-remediated Repository Growth and Activation/Learning paths;
 4. verify Workspace destructive operations against repeat invocation while pending;
 5. verify contextual-review ownership/acknowledgement behavior;
 6. reconcile status/handoff documentation;
