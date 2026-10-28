@@ -106,3 +106,9 @@ Before #171 can close:
 - `fe3bdcda`: added static regression contracts for Product/Signals, Workspace, and contextual review.
 
 The candidate remains **unqualified** until TypeScript/core tests and actual PWA/Desktop gates have executed. No native install, external publishing, or human acceptance was claimed in this review.
+
+## Final pre-CI gate audit
+
+A final review caught a misleading success state: shell operations that returned no action result (for example a cancelled inline review) were being announced as durably saved. The Campaign/Studio, Repository Growth, and Activation/Learning shells now explicitly treat `undefined` as no submitted mutation, clear the pending indicator and do not claim canonical success. A failure while refreshing the view after a completed write is reported as **saved, but refresh failed**, not as a failed write. Every post-operation path returns controls to an interactive state.
+
+Draft PR #179 is the integration candidate. As of this note, CodeQL has begun, but core TypeScript, deterministic tests, production PWA smoke and native Desktop qualification have not yet been observed passing on the final head. No release or merge authorization follows from this implementation.
