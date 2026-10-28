@@ -1,7 +1,10 @@
 import {
   DurableKeyValueStorage,
+  DurableStorageCommitError,
   DurableStorageConflictError,
+  MIGRATION_MARKER_KEY,
   purgeLegacyWorkspaceCopy,
+  type LegacyMigrationResult,
   type DurableStorageBackend,
   type MigrationReport,
   type StorageChange,
@@ -81,17 +84,84 @@ class IndexedDbBackend implements DurableStorageBackend {
     return entries;
   }
 
-  commit(changes: readonly StorageChange[]): Promise<void> {
-    // Reserved for the existing one-time migration, never ordinary edits.
+  migrateLegacy(entries: readonly (readonly [string, string])[], migratedAt: string): Promise<LegacyMigrationResult> {
+    // The initial read, marker check, missing-key copy and readback all run
+    // under one readwrite lock. A delayed tab can never replay an old legacy
+    // copy after another tab's migration or later authoritative write.
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction(STORE, "readwrite", { durability: "strict" });
       const store = transaction.objectStore(STORE);
-      for (const { key, value } of changes) {
-        if (value === null) store.delete(key); else store.put(value, key);
-      }
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new Error("Workspace storage transaction aborted"));
+      let outcome: LegacyMigrationResult | undefined;
+      let verificationFailure: DurableStorageCommitError | undefined;
+      transaction.onerror = () => reject(verificationFailure ?? transaction.error);
+      transaction.onabort = () => reject(verificationFailure ?? transaction.error ?? new Error("Workspace migration transaction aborted"));
+      transaction.oncomplete = () => {
+        if (!outcome) {
+          reject(new DurableStorageCommitError("Workspace migration finished without a verified authoritative snapshot."));
+          return;
+        }
+        resolve(outcome);
+      };
+
+      // getAllKeys/getAll are ordered requests within the SAME transaction.
+      // Their successful results describe the atomic state before any copy.
+      const keysRequest = store.getAllKeys();
+      const valuesRequest = store.getAll();
+      let keysReady = false;
+      let valuesReady = false;
+      const apply = (): void => {
+        if (!keysReady || !valuesReady) return;
+        const current = new Map<string, string>();
+        keysRequest.result.forEach((key, index) => {
+          const value = valuesRequest.result[index];
+          if (typeof key === "string" && typeof value === "string") current.set(key, value);
+        });
+        if (current.has(MIGRATION_MARKER_KEY)) {
+          outcome = { snapshot: current, migration: { status: "already_migrated" } };
+          return;
+        }
+
+        let copied = 0;
+        for (const [key, value] of entries) {
+          // No localStorage value may supply or overwrite the authoritative
+          // migration marker, even if the legacy source contains one.
+          if (!key.startsWith("viable.") || key === MIGRATION_MARKER_KEY || current.has(key)) continue;
+          current.set(key, value);
+          store.put(value, key);
+          copied += 1;
+        }
+        const marker = JSON.stringify({ migratedAt, keys: copied });
+        current.set(MIGRATION_MARKER_KEY, marker);
+        store.put(marker, MIGRATION_MARKER_KEY);
+
+        // Validate the actual IndexedDB reads after all queued put requests
+        // but before transaction completion. Any mismatch aborts EVERY write.
+        const verifyKeys = store.getAllKeys();
+        const verifyValues = store.getAll();
+        let verifiedKeys = false;
+        let verifiedValues = false;
+        const verify = (): void => {
+          if (!verifiedKeys || !verifiedValues) return;
+          const actual = new Map<string, string>();
+          verifyKeys.result.forEach((key, index) => {
+            const value = verifyValues.result[index];
+            if (typeof key === "string" && typeof value === "string") actual.set(key, value);
+          });
+          if (actual.size !== current.size || [...current].some(([key, value]) => actual.get(key) !== value)) {
+            verificationFailure = new DurableStorageCommitError("Workspace migration could not be verified. The original legacy copy remains untouched.");
+            transaction.abort();
+            return;
+          }
+          outcome = {
+            snapshot: actual,
+            migration: copied ? { status: "migrated", keys: copied } : { status: "not_needed" },
+          };
+        };
+        verifyKeys.onsuccess = () => { verifiedKeys = true; verify(); };
+        verifyValues.onsuccess = () => { verifiedValues = true; verify(); };
+      };
+      keysRequest.onsuccess = () => { keysReady = true; apply(); };
+      valuesRequest.onsuccess = () => { valuesReady = true; apply(); };
     });
   }
 
