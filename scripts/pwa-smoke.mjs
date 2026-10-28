@@ -1054,6 +1054,27 @@ async function run() {
         const notice = ((await studios().locator("[data-existing-proposals]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
         check(notice.includes("Already proposed from this signal") && notice.includes("Review: Studio owners"), "converting a signal again first shows the proposal it already produced");
 
+        // #171: Repository Growth must retain invalid input after the
+        // controller rejects it. No network request is made: the repository
+        // identifier is invalid before the public collector can start.
+        await go("product");
+        await journey.locator('[data-repository-action="open"]').click();
+        await journey.waitForSelector('form[data-form="repository-import"]', { timeout: 10000 });
+        const repositoryImport = journey.locator('form[data-form="repository-import"]');
+        await repositoryImport.locator('input[name="repository"]').fill("invalid repo input");
+        await repositoryImport.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("[data-persistence-state='failed']")?.textContent?.includes("not saved"), undefined, { timeout: 10000 });
+        const repoInputRetained = await repositoryImport.locator('input[name="repository"]').inputValue();
+        const repoFailure = (await journey.locator("[data-persistence-state='failed']").textContent()) ?? "";
+        check(
+          repoInputRetained === "invalid repo input"
+          && repoFailure.includes("GitHub repository must use owner/name")
+          && await repositoryImport.isVisible(),
+          "Repository Growth failed import remains visibly unsaved with editable input preserved",
+        );
+        await journey.locator('[data-repository-action="return-product"]').click();
+        await settled(journey);
+
         // #167: composition planning and exact experiment identity must be
         // operable through visible Studio controls. The test writes no
         // Campaign state through internal APIs.
@@ -1295,10 +1316,18 @@ async function run() {
         await cohortDisclosure.click();
         const cohortForm = journey.locator('form[data-form="activation-cohort-evaluation"]');
         if (experimentId) await cohortForm.locator('select[name="referenceExperimentId"]').selectOption(experimentId);
-        await cohortForm.locator('input[name="metric"]').fill("cohort_impressions");
+        await cohortForm.locator('input[name="metric"]').fill("smoke_missing_metric");
         await cohortForm.locator('select[name="ageBucket"]').selectOption("24h");
         await cohortForm.locator('select[name="compareVariable"]').selectOption("hook");
         await cohortForm.locator('input[name="createdBy"]').fill("Smoke Analyst");
+        await cohortForm.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("[data-persistence-state='failed']")?.textContent?.includes("not saved"), undefined, { timeout: 10000 });
+        check(
+          (await cohortForm.locator('input[name="metric"]').inputValue()) === "smoke_missing_metric"
+          && await cohortForm.isVisible(),
+          "Analytics failed cohort evaluation keeps exact form values available for correction",
+        );
+        await cohortForm.locator('input[name="metric"]').fill("cohort_impressions");
         await cohortForm.locator('button[type="submit"]').click();
         await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("Comparable publication cohort evaluated"), undefined, { timeout: 10000 });
         await settled(journey);
