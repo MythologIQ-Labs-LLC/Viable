@@ -11,7 +11,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `2c1eea8765d6e6365655ec4d56632c038efa7739` (#181 native RustSec patch merged; #144 also merged). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
+- `main` at review: `7950b34a2bda038d7cb3a0b229622b1c112e1516` (#187 atomic first-use IndexedDB migration merged; #184 ordinary cross-tab CAS, #179 UI persistence hardening, and #181 native RustSec patch also merged). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
@@ -23,10 +23,13 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 
 | PR | What it is | What remains |
 |---|---|---|
-| #179 (draft, issue #171) | Acknowledged-persistence and UI-only journey hardening | Product Core/Signals, Campaign/Studio/Video, Repository Growth, Calendar/Analytics/Inventory, Workspace destructive operations, and contextual review are guarded. Exact-head CI/Chromium passed on the pre-no-op-patch head; rerun on the final head, then review the multi-tab race boundary. |
+| #171 / #183 / #186 | UI acknowledgement, ordinary cross-tab IndexedDB CAS, atomic first-use migration | **Completed and merged** via PRs #179, #184 and #187 respectively. No open PR or new CI required for these completed scopes. |
 | Dependabot #121 | Development-tooling bumps | Triage independently. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Recently merged convergence work:
+- #187: #186 first-use migration atomic marker/copy/readback merged at `7950b34a2bda038d7cb3a0b229622b1c112e1516`; CI passed 436 deterministic tests plus two Chromium migration/recovery probes, Desktop RustSec/tests/Tauri/Debian PASS.
+- #184: #183 real IndexedDB competing-tab stale-write CAS merged at `15ad328fcdda6f5e711bb84fe71d6b40072f3cf2`; four production two-tab storage probes and native qualification passed.
+- #179: #171 acknowledged-persistence UI hardening merged at `097ac5658d5aeb50b7fd40234da17983faaac56d`; final CI and native gates passed.
 - #181: native RustSec advisory patch merged at `2c1eea8765d6e6365655ec4d56632c038efa7739`, with zero audit vulnerabilities, 22 native Rust tests, Tauri bundle and Debian validation. Residual 9 unmaintained and 2 unsound warnings remain open as #182. UX PR #179 was reconciled with this `main`.
 - #144: portable PWA migration across browser origins is on `main` at `f2abed27ca73ac100dfbfdf7ef823311af5ef05e`.
 - #174: #169 comparable-age cohorts and conservative advisory learning is on `main` at `0b3bbd53776ec5acf855807b3f7bf0bb4775b88a`; the exact PR head passed CI and Desktop validation.
@@ -130,11 +133,11 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 
 ## Next priorities
 
-1. Finish #179 / #171 exact-head validation including the cancelled Signals no-op acknowledgement fix, Chromium UI-only failure/retry, and Desktop/Tauri. Review residual multi-tab lost-update risk separately before closing #171 or claiming supported release.
+1. Preserve the merged #179/#184/#187 acknowledgement, cross-tab stale-write rejection and atomic first-use migration guarantees; they are CI/Chromium/native-qualified. Focus next on the remaining *uncompleted* release and human validation gates rather than reopening solved storage work.
 2. Preserve #79/#81 human acceptance as a release gate. The existing `ux-candidate-2026-10-07c.md` remains the frozen pre-#172 candidate; a new candidate must be recorded after product-facing #156 work stabilizes rather than pretending the old human-acceptance target covers new UI.
 3. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
 4. Progress the remaining #36 release-foundation evidence through isolated work such as #144. Leave public hosting until external distribution is justified.
-5. Keep #166 shared-provider mechanics, #170 Signals counterevidence, #171 hardening, and dependency work bounded and separate from canonical cross-product state.
+5. Keep #166 shared-provider mechanics, #170 Signals counterevidence, completed #171 hardening, and dependency work bounded and separate from canonical cross-product state.
 
 The productization work does not change release posture: no automated or cross-product evidence substitutes for the human gates or real provider proof.
 
