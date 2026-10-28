@@ -1,3 +1,4 @@
+import { AcknowledgedPersistenceGate } from "./acknowledged-persistence-gate.js";
 import { ProductCoreService, recheckHorizon } from "../../../src/product-core/services/product-core-service.js";
 import { ICP_DIMENSIONS, type IcpDimension, type IcpHypothesis, type IcpRoles } from "../../../src/product-core/domain/icp.js";
 import type { MarketabilityDimension, ReadinessFinding } from "../../../src/product-core/domain/assessment.js";
@@ -22,6 +23,7 @@ let lastFailure: string | undefined;
 // A failed reload from storage (not a failed change): nothing was changed,
 // and the previously loaded copy is not shown as if it were current.
 let loadFailure: string | undefined;
+const persistenceGate = new AcknowledgedPersistenceGate();
 
 const dimensionLabels: Record<IcpDimension, string> = {
   problemIntensity: "Problem intensity", urgency: "Urgency", productFit: "Product fit",
@@ -72,18 +74,72 @@ async function refresh(): Promise<void> {
   }
   render();
 }
-async function act(task: () => Promise<void>, success: string): Promise<void> {
-  setBusy(true);
+function showPersistenceState(state: "pending" | "saved" | "failed", detail?: string): void {
+  main.querySelector("[data-persistence-state]")?.remove();
+  const section = document.createElement("section");
+  section.dataset.persistenceState = state;
+  section.className = `state ${state === "failed" ? "error" : state === "pending" ? "loading" : "success"}`;
+  section.setAttribute("role", state === "failed" ? "alert" : "status");
+  const heading = document.createElement("strong");
+  heading.textContent = state === "pending" ? "Saving this change…" : state === "saved" ? "Change saved." : "This change was not saved.";
+  const description = document.createElement("span");
+  description.textContent = state === "pending"
+    ? "Wait for the local workspace to acknowledge your change before starting another action."
+    : state === "saved"
+      ? "The canonical workspace acknowledged the change."
+      : `${detail ?? "The operation failed."} Your entered values remain available to correct and retry.`;
+  section.append(heading, description);
+  main.prepend(section);
+}
+
+function mutationControlsDisabled(disabled: boolean): void {
+  for (const control of main.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement>("input, select, textarea, button")) {
+    if (disabled) {
+      if (!control.disabled) {
+        control.disabled = true;
+        control.dataset.persistenceGateDisabled = "true";
+      }
+    } else if (control.dataset.persistenceGateDisabled === "true") {
+      control.disabled = false;
+      delete control.dataset.persistenceGateDisabled;
+    }
+  }
+}
+
+async function act(task: () => Promise<string | void>, success: string): Promise<void> {
+  if (persistenceGate.state === "pending") {
+    announce("A change is still being saved. Wait for acknowledgement before starting another mutation.");
+    return;
+  }
   lastFailure = undefined;
+  // Launch synchronously: submitting controllers must capture FormData before
+  // inputs are disabled. Disabled fields are absent from the FormData API.
+  const mutation = persistenceGate.run(task);
+  mutationControlsDisabled(true);
+  setBusy(true);
+  showPersistenceState("pending");
   try {
-    await task();
-    await refresh();
-    announce(success);
-  } catch (error) {
-    lastFailure = error instanceof Error ? error.message : "Unknown local error";
-    render();
-    announce(`Action failed: ${lastFailure}`);
+    const result = await mutation;
+    if (!result.accepted) return;
+    if (result.state === "failed") {
+      lastFailure = result.error instanceof Error ? result.error.message : "Unknown local error";
+      showPersistenceState("failed", lastFailure);
+      announce(`Action failed, not saved: ${lastFailure}`);
+      return;
+    }
+    try {
+      await refresh();
+      showPersistenceState("saved");
+      announce(result.value || success);
+    } catch (error) {
+      // The mutation was acknowledged before refresh failed: never say that
+      // a committed edit was not saved merely because rendering failed.
+      const detail = error instanceof Error ? error.message : "Unknown refresh error";
+      announce(`Change saved, but the workspace could not be refreshed: ${detail}`);
+      showPersistenceState("saved");
+    }
   } finally {
+    mutationControlsDisabled(false);
     setBusy(false);
   }
 }
@@ -389,6 +445,23 @@ function rolesFrom(form: FormData): IcpRoles {
   };
 }
 
+// Capture before other workflow shells can navigate away from an
+// unacknowledged Product/Signals mutation.
+document.addEventListener("click", (event) => {
+  if (persistenceGate.state !== "pending") return;
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
+  if (!button || (!button.dataset.nav && !button.dataset.action && !button.dataset.signalAction)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  announce("A Product or Signals change is still being saved. Wait for acknowledgement before navigating or starting another action.");
+}, true);
+
+window.addEventListener("beforeunload", (event) => {
+  if (persistenceGate.state !== "pending") return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
 document.addEventListener("click", (event) => {
   const outcome = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-recheck-outcome]");
   const date = outcome?.form?.querySelector<HTMLInputElement>('input[name="nextFreshnessReviewAt"]');
@@ -413,13 +486,7 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (button.dataset.signalAction && signalsController) {
-    void signalsController.click(button).then((message) => {
-      render();
-      if (message) announce(message);
-    }).catch((error: unknown) => {
-      render();
-      announce(`Signal action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    });
+    void act(() => signalsController!.click(button), "Signals action saved");
     return;
   }
   const action = button.dataset.action;
@@ -455,17 +522,14 @@ document.addEventListener("click", (event) => {
 document.addEventListener("submit", (event) => {
   event.preventDefault();
   const formElement = event.target as HTMLFormElement;
+  if (persistenceGate.state === "pending") {
+    announce("A Product or Signals change is still pending. Wait for canonical acknowledgement before submitting again.");
+    return;
+  }
   const kind = formElement.dataset.form;
   const form = new FormData(formElement);
   if (kind?.startsWith("signals-") && signalsController) {
-    void signalsController.submit(formElement).then((message) => {
-      render();
-      if (message) announce(message);
-      formElement.reset();
-    }).catch((error: unknown) => {
-      render();
-      announce(`Signal operation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    });
+    void act(() => signalsController!.submit(formElement), "Signals change saved");
     return;
   }
   if (kind === "create-workspace") void act(async () => {
