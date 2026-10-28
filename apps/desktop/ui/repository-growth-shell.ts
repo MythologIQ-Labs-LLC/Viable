@@ -99,10 +99,13 @@ async function runAcknowledgedMutation(operation: () => Promise<string | undefin
     announce("A repository change is still being saved. Wait for acknowledgement before starting another mutation.");
     return;
   }
+  // Start the controller synchronously so it snapshots FormData before
+  // disabling inputs; disabled controls are omitted from FormData.
+  const mutation = persistenceGate.run(operation);
   mutationControlsDisabled(true);
   main?.setAttribute("aria-busy", "true");
   showPersistenceState("pending");
-  const result = await persistenceGate.run(operation);
+  const result = await mutation;
   if (!result.accepted) {
     mutationControlsDisabled(false);
     main?.setAttribute("aria-busy", "false");
