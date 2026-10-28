@@ -19,6 +19,9 @@ for (const [name, path] of [
     assert.match(shell, /state === "saved"/);
     assert.match(shell, /beforeunload/);
     assert.match(shell, /entered values remain available/);
+    const snapshot = shell.indexOf("const mutation = persistenceGate.run(operation)");
+    const disable = shell.indexOf("mutationControlsDisabled(true)");
+    assert.ok(snapshot >= 0 && disable > snapshot, "controller must snapshot FormData before disabling its inputs");
   });
 }
 
@@ -28,4 +31,6 @@ test("Campaign and Studio browser journey preserves a failed form for correction
   assert.match(smoke, /data-persistence-state='failed'/);
   assert.match(smoke, /entered values remain available/);
   assert.match(smoke, /failed Campaign save remains visibly failed and retains the entered form intent for retry/);
+  assert.match(smoke, /Repository Growth failed import remains visibly unsaved with editable input preserved/);
+  assert.match(smoke, /Analytics failed cohort evaluation keeps exact form values available for correction/);
 });
