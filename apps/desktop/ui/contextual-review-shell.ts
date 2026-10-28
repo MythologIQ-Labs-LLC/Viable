@@ -30,6 +30,17 @@ function announce(message: string): void {
   if (live) live.textContent = message;
 }
 
+// The owning shell (Product, Signals, Campaign, Video, or Calendar) alone
+// acknowledges durable review state. If that save fails, free the contextual
+// form for correction/retry rather than leaving aria-busy stuck forever.
+function resetReviewFormsAfterFailure(): void {
+  if (!main?.querySelector('[data-persistence-state="failed"]')) return;
+  for (const form of main.querySelectorAll<HTMLFormElement>('form[data-contextual-review-form][aria-busy="true"]')) {
+    form.setAttribute("aria-busy", "false");
+  }
+}
+new MutationObserver(resetReviewFormsAfterFailure).observe(main ?? document.body, { childList: true, subtree: true });
+
 function reviewConfig(button: HTMLButtonElement): ReviewConfig | undefined {
   const card = owningCard(button);
   if (!card) return undefined;
@@ -237,6 +248,10 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopImmediatePropagation();
     const panel = cancel.closest<HTMLElement>("[data-contextual-review]");
+    if (panel?.querySelector('form[aria-busy="true"]')) {
+      announce("The owning review decision is still being saved. Wait for acknowledgement before closing this panel.");
+      return;
+    }
     if (panel) closePanel(panel);
     announce("Review panel closed without changing the record.");
     return;
@@ -254,6 +269,10 @@ document.addEventListener("keydown", (event) => {
   const panel = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-contextual-review]");
   if (!panel) return;
   event.preventDefault();
+  if (panel.querySelector('form[aria-busy="true"]')) {
+    announce("The review decision is still being saved. Wait for acknowledgement before closing this panel.");
+    return;
+  }
   closePanel(panel);
   announce("Review panel closed without changing the record.");
 });
@@ -270,6 +289,10 @@ document.addEventListener("submit", (event) => {
     announce("Review could not be recorded because the owning review state changed.");
     return;
   }
+  if (form.getAttribute("aria-busy") === "true" || main?.querySelector('[data-persistence-state="pending"]')) {
+    announce("A review is still being saved. Wait for canonical acknowledgement before submitting again.");
+    return;
+  }
   const data = new FormData(form);
   const reviewer = String(data.get("reviewer") ?? "").trim();
   const note = String(data.get("note") ?? "").trim();
@@ -282,7 +305,7 @@ document.addEventListener("submit", (event) => {
   form.setAttribute("aria-busy", "true");
   try {
     replayReview(config, decision, reviewer, note);
-    announce("Review decision sent to the owning workflow for durable recording.");
+    announce("Review decision submitted to the owning workflow. Durable acknowledgement is pending.");
   } catch (error) {
     form.setAttribute("aria-busy", "false");
     announce(`Review could not be recorded: ${error instanceof Error ? error.message : "Unknown review error"}`);
