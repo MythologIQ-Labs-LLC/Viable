@@ -11,7 +11,7 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 - Repository: `MythologIQ-Labs-LLC/Viable`
 - Product owner: MythologIQ Labs, LLC
 - Product lead: Kevin R. Knapp
-- `main` at review: `f2abed27ca73ac100dfbfdf7ef823311af5ef05e` (#144 merged). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
+- `main` at review: `2c1eea8765d6e6365655ec4d56632c038efa7739` (#181 native RustSec patch merged; #144 also merged). The 2026-10-07 local-dogfood QA remediation remains recorded in `docs/reviews/local-dogfood-qa-2026-10-07.md`
 - Primary runtime: local-first PWA (ADR-0010). Canonical dogfood: `npm run pwa:selfhost`, then `http://localhost:4175` in a Chromium desktop browser
 - Native Tauri runtime: capability extension for the OS credential vault and connected provider publishing only
 - Workspace authority: IndexedDB, failing closed when it cannot be opened; `viable.workspace-backup` v1 is the cross-runtime and cross-origin interchange
@@ -23,10 +23,11 @@ Implementation truth lives in [`docs/status/current-state.md`](../status/current
 
 | PR | What it is | What remains |
 |---|---|---|
-| #171 candidate branch | Acknowledged-persistence and UI-only journey hardening | Guarded mutations now cover Campaign/Studio, Video, Repository Growth, Calendar/Analytics, Publication Inventory, Product Core, Signals, Workspace destructive operations, and contextual review failure recovery. Exact-head CI/PWA/Desktop qualification and residual race evaluation remain before merge. |
+| #179 (draft, issue #171) | Acknowledged-persistence and UI-only journey hardening | Product Core/Signals, Campaign/Studio/Video, Repository Growth, Calendar/Analytics/Inventory, Workspace destructive operations, and contextual review are guarded. Exact-head CI/Chromium passed on the pre-no-op-patch head; rerun on the final head, then review the multi-tab race boundary. |
 | Dependabot #121 | Development-tooling bumps | Triage independently. #96 merged; #95 and #111 were closed. Do not raise the pinned Rust 1.88 baseline implicitly. |
 
 Recently merged convergence work:
+- #181: native RustSec advisory patch merged at `2c1eea8765d6e6365655ec4d56632c038efa7739`, with zero audit vulnerabilities, 22 native Rust tests, Tauri bundle and Debian validation. Residual 9 unmaintained and 2 unsound warnings remain open as #182. UX PR #179 was reconciled with this `main`.
 - #144: portable PWA migration across browser origins is on `main` at `f2abed27ca73ac100dfbfdf7ef823311af5ef05e`.
 - #174: #169 comparable-age cohorts and conservative advisory learning is on `main` at `0b3bbd53776ec5acf855807b3f7bf0bb4775b88a`; the exact PR head passed CI and Desktop validation.
 - #173: #168 manual-first analytics evidence, conflict-safe reconciliation, and deterministic derived metrics is on `main` at `aa6f35ff032e1b807ebf8d88e517dea625343c47`; exact-head CI, Chromium PWA journey, Rust tests, desktop bundle, and Debian validation passed.
@@ -129,7 +130,7 @@ The acceptance runbooks, deterministic seed, and current candidate record are me
 
 ## Next priorities
 
-1. Qualify #171's candidate end-to-end with deterministic tests, Chromium PWA UI-only failure/retry and destructive-action probes, and Desktop/Tauri gates. Reproduce remaining cross-tab lost-update race before proposing a revision-bound storage solution.
+1. Finish #179 / #171 exact-head validation including the cancelled Signals no-op acknowledgement fix, Chromium UI-only failure/retry, and Desktop/Tauri. Review residual multi-tab lost-update risk separately before closing #171 or claiming supported release.
 2. Preserve #79/#81 human acceptance as a release gate. The existing `ux-candidate-2026-10-07c.md` remains the frozen pre-#172 candidate; a new candidate must be recorded after product-facing #156 work stabilizes rather than pretending the old human-acceptance target covers new UI.
 3. Perform the human-owned LinkedIn live proof from current `main` using the merged #109 flow; record clean-install guidance findings and the provider receipt in #107.
 4. Progress the remaining #36 release-foundation evidence through isolated work such as #144. Leave public hosting until external distribution is justified.
