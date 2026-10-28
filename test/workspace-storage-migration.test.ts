@@ -6,6 +6,8 @@ import { LocalWorkspaceStorageError, readWorkspaceJson, writeWorkspaceJson } fro
 import {
   DurableKeyValueStorage,
   DurableStorageCommitError,
+  MIGRATION_MARKER_KEY,
+  type LegacyMigrationResult,
   type DurableStorageBackend,
   type StorageChange,
 } from "../src/runtime/durable-key-value-storage.js";
@@ -57,6 +59,15 @@ class MemoryBackend implements DurableStorageBackend {
   readonly data = new Map<string, string>();
   failNext = false;
   async loadAll(): Promise<ReadonlyMap<string, string>> { return new Map(this.data); }
+  async migrateLegacy(entries: readonly (readonly [string, string])[], migratedAt: string): Promise<LegacyMigrationResult> {
+    const existing = await this.loadAll();
+    if (existing.has(MIGRATION_MARKER_KEY)) return { snapshot: existing, migration: { status: "already_migrated" } };
+    const missing = entries.filter(([key]) => key !== MIGRATION_MARKER_KEY && !existing.has(key));
+    await this.commit([...missing.map(([key, value]) => ({ key, value })), {
+      key: MIGRATION_MARKER_KEY, value: JSON.stringify({ migratedAt, keys: missing.length }),
+    }]);
+    return { snapshot: await this.loadAll(), migration: missing.length ? { status: "migrated", keys: missing.length } : { status: "not_needed" } };
+  }
   async commit(changes: readonly StorageChange[]): Promise<void> {
     if (this.failNext) { this.failNext = false; throw new Error("QuotaExceededError"); }
     for (const { key, value } of changes) {
