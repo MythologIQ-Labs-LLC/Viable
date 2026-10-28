@@ -5,8 +5,8 @@
 | Field | Value |
 |---|---|
 | Status | Authoritative implementation-status record |
-| Last reviewed | 2026-10-11 |
-| Reviewed against | `main` through `aa6f35ff032e1b807ebf8d88e517dea625343c47` (#173 merged), plus the #169 comparable-cohort candidate on this branch and the open human/release gates listed below |
+| Last reviewed | 2026-10-28 |
+| Reviewed against | `main` through `f2abed27ca73ac100dfbfdf7ef823311af5ef05e` (#144 merged), plus the active #171 acknowledged-persistence hardening candidate and the open human/release gates listed below |
 | Product requirements | `docs/product/PRD.md` |
 | Runtime and distribution authority | `docs/adr/0010-pwa-first-distribution-and-runtime-capabilities.md` |
 | Publishing authority | `docs/adr/0009-deterministic-publishing-and-capability-routed-setup.md`, `docs/architecture/content-inventory-and-automated-publishing.md` |
@@ -45,7 +45,9 @@ npm run pwa:selfhost   # serves http://localhost:4175
 
 The native Tauri runtime is retained only where a capability earns it: the OS credential vault and connected provider publishing.
 
-**2026-10-11 productization-learning resumption:** issue #156 is decomposed into #167–#169. #167 merged through PR #172 at `82b445618e57cde337db35b45e2ff5ba972ccae8`. #168 merged through PR #173 at `aa6f35ff032e1b807ebf8d88e517dea625343c47` after exact-head CI, production Chromium PWA smoke, Rust tests, desktop bundle, and Debian validation passed. #169 is the active candidate: historical experiment-context verification, comparable-age cohort eligibility, balanced evidence thresholds, explicit exclusions, source-citing group summaries, and conservative advisory next experiments. Job Ranger implementation code is not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
+**2026-10-11 productization-learning tranche:** #167 merged through PR #172, #168 merged through PR #173, and #169 merged through PR #174 at `0b3bbd53776ec5acf855807b3f7bf0bb4775b88a`. PR #174's exact head passed CI and Desktop validation. The implemented loop now includes historical experiment-context verification, comparable-age cohort eligibility, balanced three-per-group minimums for directional guidance, explicit exclusions, source-citing group summaries, conservative confidence labels, and reversible next-experiment guidance. Job Ranger implementation code was not copied; the AGPL-3.0 / Apache-2.0 boundary remains explicit.
+
+**2026-10-28 hardening resumption:** #171 is the active reliability slice. Campaign/Studio has a candidate acknowledged-persistence gate that serializes visible mutations, exposes pending/saved/failed state, blocks navigation while canonical acknowledgement is pending, and preserves failed form intent for correction/retry. Repository Growth, Activation/Learning, Product Core, Workspace destructive operations, and contextual review remain under targeted review. See `docs/reviews/acknowledged-persistence-hardening-2026-10-28.md`.
 
 Viable is suitable for **persistent local dogfooding in a Chromium desktop browser**. It is **not** a supported end-user release: human acceptance, generalized schema migration/rollback, per-browser storage-eviction evidence, public-origin deployment trust, and operational support remain open.
 
