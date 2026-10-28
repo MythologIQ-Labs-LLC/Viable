@@ -108,7 +108,7 @@ class IndexedDbBackend implements DurableStorageBackend {
       const store = transaction.objectStore(STORE);
       let conflict: DurableStorageConflictError | undefined;
       transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
+      transaction.onerror = () => reject(conflict ?? transaction.error);
       transaction.onabort = () => reject(conflict ?? transaction.error ?? new Error("Workspace storage transaction aborted"));
       const compare = (index: number): void => {
         const expectedChange = expected[index];
