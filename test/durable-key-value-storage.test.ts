@@ -27,7 +27,7 @@ class MemoryBackend implements DurableStorageBackend {
     // change. A test fake must not hide the write-race it is testing.
     for (const { key, value } of expected) {
       if ((this.data.get(key) ?? null) !== value) {
-        throw new DurableStorageConflictError("Another window changed the saved workspace.");
+        throw new DurableStorageConflictError();
       }
     }
     await this.commit(changes);
