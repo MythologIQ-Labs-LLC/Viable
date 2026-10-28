@@ -90,7 +90,11 @@ function showPersistenceState(state: "pending" | "saved" | "failed", detail?: st
     : state === "saved"
       ? "The local repository-growth workspace acknowledged the change."
       : `${detail ?? "The operation failed."} Your entered values remain available so you can correct the problem and retry.`;
-  section.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(body)}</span>`;
+  const heading = document.createElement("strong");
+  heading.textContent = title;
+  const description = document.createElement("span");
+  description.textContent = body;
+  section.append(heading, description);
   main.prepend(section);
 }
 
