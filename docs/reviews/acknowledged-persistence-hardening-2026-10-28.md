@@ -55,6 +55,10 @@ Campaign/Studio now:
 
 This is a same-page/user-flow protection. It does **not** claim a cross-tab storage transaction or compare-and-swap guarantee.
 
+On 2026-10-28 a further adversarial review caught and corrected a real gate-ordering defect: disabling form controls before the controller snapshots `FormData` caused the submitted values to disappear. All three original shells now start the guarded controller synchronously, **then** disable its controls. The regression contract checks that exact ordering.
+
+The production PWA smoke was expanded with two more visible failure probes: invalid Repository Growth import retains its source input; Analytics rejects a nonexistent metric but retains the cohort form and accepts a corrected retry. These are test additions, not yet executed evidence.
+
 The same gate is now wired into Repository Growth (`b83919b7`) and Calendar/Analytics + Publication Inventory (`c1e747f1`). A regression contract at `26cdbd45` requires all three shells to retain the acknowledged-persistence boundary and the Campaign/Studio production-PWA failure/retry journey.
 
 ## Product-wide risk inventory
@@ -65,10 +69,10 @@ The same gate is now wired into Repository Growth (`b83919b7`) and Calendar/Anal
 | Video Production inside Studio shell | Shares Campaign shell mutation dispatch | **Covered by candidate gate at shell boundary** | Verify no Video-specific retry state is lost |
 | Repository Growth | Click/submit paths set `aria-busy`, started async controller work, rerendered on success **and failure**, and did not serialize another mutation | **Confirmed pattern; remediation candidate implemented** | Gate now blocks overlapping visible mutations/navigation, preserves failed form DOM, and adds pending/saved/failed state. Add a focused browser failure/retry probe before merge. |
 | Calendar / Activation / Analytics | Activation and Publication Inventory actions/submits shared the same async fire/rerender pattern and could overlap each other | **Confirmed pattern; remediation candidate implemented** | Shared shell gate now serializes visible Activation and Publication Inventory mutations, preserves failed form DOM, blocks click-navigation while pending, and adds `beforeunload`. Add focused browser failure/retry coverage. |
-| Product Core shell (`app.ts`) | `act()` marks busy but does not reject a second action; failures rerender. Signals actions use independent promise chains | **High-risk pattern, reproduction pending** | Test overlapping Product Core writes and failed long-form save retention |
-| Signals inline workflows | Some user prompts were already replaced by inline forms and existing browser journeys prove several recovery paths | **Partially hardened** | Check whether failed controller submit rerenders discard inline intent |
-| Workspace lifecycle | Destructive delete/replace has scope confirmation, typed DELETE, recovery-point/quarantine decisions, durable commit ordering, and focused error states | **Stronger controls already present** | Verify repeat clicks/restore/delete cannot overlap while durable commit is pending |
-| Contextual review shell | Validates reviewer/note and marks the form `aria-busy`, but dispatch to the owning workflow is synchronous from this shell and its busy state is not itself canonical acknowledgement | **Verification required** | Ensure owning async workflow prevents escape/duplicate action until durable result is known |
+| Product Core shell (`app.ts`) | `act()` only marked busy; async Product Core and Signals actions could overlap, and a failed write rerendered away local input | **Confirmed pattern; remediation candidate implemented** | Shared gate, explicit pending/failed/saved, retained failed form DOM, and Product/Signals submit/action gating. Browser failure/retry proof and regression qualification remain. |
+| Signals inline workflows | Signals submissions/actions formerly bypassed Product Core's pending-write state | **Candidate remediation implemented** | Signals routed through shared Product/Signals gate. Verify contextual review and persistent inputs through browser acceptance. |
+| Workspace lifecycle | Destructive delete/replace already had confirmation and recovery decisions, but neither was protected against repeat invocation during IndexedDB commit | **Candidate remediation implemented** | Added shared destructive-operation pending guard for delete/restore, blocked concurrent interaction and navigation, and browser same-turn double-click assertion. |
+| Contextual review shell | Review form previously stayed `aria-busy` after failed owning save; Escape/cancel could close an in-flight review | **Candidate remediation implemented** | Treat dispatch as pending, block Escape/cancel during save, clear stuck busy on owning failure, preserve reviewer/note and retry. Must verify in real browser. |
 | Progressive long-form drafts | Existing draft shell protects ordinary navigation and `beforeunload` for unsaved drafts | **Existing protection to preserve** | Ensure pending/failed acknowledgement composes with draft dirty state |
 | Human-only accessibility gates | Keyboard-only, 200% zoom, non-color comprehension, unfamiliar-user acceptance remain governed separately | **Human-only by design** | Do not convert #79/#81 into synthetic acceptance claims |
 
@@ -86,9 +90,19 @@ Before #171 can close:
 
 1. run the new acknowledged-persistence gate tests;
 2. run the production Chromium PWA journey including failed-save retention/retry;
-3. add focused browser failure/retry probes for the now-remediated Repository Growth and Activation/Learning paths;
-4. verify Workspace destructive operations against repeat invocation while pending;
-5. verify contextual-review ownership/acknowledgement behavior;
+3. execute the newly added Repository Growth and Activation/Learning failure/retry probes in production Chromium;
+4. execute Workspace destructive-action same-turn double-click browser probe and native backup/delete/restore regressions;
+5. execute contextual-review ownership/acknowledgement behavior under failure and maintain the human-only acceptance gate;
 6. reconcile status/handoff documentation;
 7. run exact-head CI and Desktop/Tauri gates;
 8. keep #79/#81 human-only acceptance explicitly open.
+
+## Candidate implementation expansion (2026-10-28)
+
+- `fa0b9b79`: Product Core and Signals use the same local acknowledged mutation gate and preserve failed forms.
+- `5c8d6bd0`: Workspace delete/restore now shares a durable pending gate; all existing scope, typed confirmation, recovery-point, and quarantine policies are preserved.
+- `74411f5a`: contextual review no longer describes dispatch as durable success, blocks dismissal during pending writes, and releases stale `aria-busy` on owning failure.
+- `bde8c436`: production browser journey exercises same-turn duplicate clicks through the actual visible Workspace delete button.
+- `fe3bdcda`: added static regression contracts for Product/Signals, Workspace, and contextual review.
+
+The candidate remains **unqualified** until TypeScript/core tests and actual PWA/Desktop gates have executed. No native install, external publishing, or human acceptance was claimed in this review.
