@@ -106,7 +106,7 @@ function mutationControlsDisabled(disabled: boolean): void {
   }
 }
 
-async function act(task: () => Promise<string | void>, success: string): Promise<void> {
+async function act(task: () => Promise<string | void>, success: string, requiresSavedResult = false): Promise<void> {
   if (persistenceGate.state === "pending") {
     announce("A change is still being saved. Wait for acknowledgement before starting another mutation.");
     return;
@@ -125,6 +125,15 @@ async function act(task: () => Promise<string | void>, success: string): Promise
       lastFailure = result.error instanceof Error ? result.error.message : "Unknown local error";
       showPersistenceState("failed", lastFailure);
       announce(`Action failed, not saved: ${lastFailure}`);
+      return;
+    }
+    // Product Core service tasks return void after real writes, while Signals
+    // controllers return undefined on cancelled reviews or unsupported actions.
+    // Do not claim a durable Signals write when its owning controller did nothing.
+    if (requiresSavedResult && result.value === undefined) {
+      persistenceGate.reset();
+      main.querySelector("[data-persistence-state]")?.remove();
+      announce("No change was recorded.");
       return;
     }
     try {
@@ -486,7 +495,7 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (button.dataset.signalAction && signalsController) {
-    void act(() => signalsController!.click(button), "Signals action saved");
+    void act(() => signalsController!.click(button), "Signals action saved", true);
     return;
   }
   const action = button.dataset.action;
@@ -529,7 +538,7 @@ document.addEventListener("submit", (event) => {
   const kind = formElement.dataset.form;
   const form = new FormData(formElement);
   if (kind?.startsWith("signals-") && signalsController) {
-    void act(() => signalsController!.submit(formElement), "Signals change saved");
+    void act(() => signalsController!.submit(formElement), "Signals change saved", true);
     return;
   }
   if (kind === "create-workspace") void act(async () => {
