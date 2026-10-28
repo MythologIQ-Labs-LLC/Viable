@@ -36,3 +36,11 @@ In `IndexedDbBackend`, a single strict-durability `readwrite` transaction reads 
 ## Qualification
 
 **Pending:** exact-head core/desktop TypeScript, deterministic tests (including the competing-window falsifiers), production Chromium PWA and portable origin migration, and Rust 1.88/Tauri/Desktop gates. Keep this #183 candidate unmerged until actual results are recorded. No hosted service or required LLM dependency is introduced.
+
+## Production Chromium two-tab acceptance candidate
+
+A real-browser acceptance section was added to `scripts/pwa-smoke.mjs` in commit `38cbad04`. It runs only in the existing **Chromium** lane of the production PWA smoke, using distinct pages in a shared browser context on the canonical loopback origin. Each scenario gets a fresh context and loads the actual `generated/apps/desktop/ui/workspace-storage.js` module, with no test-only backend or browser storage override. The independent durable-state oracle reads the real `viable-workspace/kv` IndexedDB store using a fresh readonly transaction.
+
+The four browser scenarios assert: exactly one successful same-key commit; both independent-key commits succeeding; a stale deletion refusing to erase the newer saved value; and a conflicting multi-key batch rolling back all records, including a BroadcastChannel notification arriving while local intent remains pending. A failed commit cannot announce success via its `onCommitted` listener. These are storage-level probes, **not** user-facing UI journey claims.
+
+This Chromium section is invoked by the existing CI `Build PWA and run real-browser smoke validation` step. It does not create an extra workflow or schedule. **The new browser assertions have not yet executed on a qualifying head**, so the previously passing 433/433 tests and CI/desktop run `3c981487` remain historical evidence only. Run exact-head Chromium and native qualification after this change before promoting PR #184.
