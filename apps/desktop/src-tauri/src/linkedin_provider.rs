@@ -542,4 +542,126 @@ mod tests {
         assert!(!serialized.contains("access_token"));
         assert!(!serialized.contains("Bearer"));
     }
+
+    // Loopback I/O regression tests: the production client sends real bytes
+    // through reqwest's blocking runtime and Tokio's I/O driver to a local
+    // listener, so dependency updates (e.g. Tokio, #182) are exercised on the
+    // wire without contacting LinkedIn or using a real credential.
+    mod loopback {
+        use super::*;
+        use std::io::{Read, Write};
+        use std::net::{TcpListener, TcpStream};
+        use std::sync::mpsc;
+        use std::thread;
+
+        const TEST_TOKEN: &str = "loopback-test-token";
+
+        fn read_request(stream: &mut TcpStream) -> String {
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 4096];
+            loop {
+                let read = stream.read(&mut buffer).expect("read request");
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..read]);
+                let text = String::from_utf8_lossy(&request);
+                if let Some(end) = text.find("\r\n\r\n") {
+                    let length = text[..end]
+                        .lines()
+                        .find_map(|line| {
+                            let (name, value) = line.split_once(':')?;
+                            name.eq_ignore_ascii_case("content-length")
+                                .then(|| value.trim().parse::<usize>().ok())?
+                        })
+                        .unwrap_or(0);
+                    if request.len() >= end + 4 + length {
+                        break;
+                    }
+                }
+            }
+            String::from_utf8_lossy(&request).into_owned()
+        }
+
+        /// Serves one canned response on 127.0.0.1 and reports the request.
+        fn serve_once(response: String) -> (String, mpsc::Receiver<String>) {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
+            let origin = format!("http://{}", listener.local_addr().expect("address"));
+            let (sender, receiver) = mpsc::channel();
+            thread::spawn(move || {
+                let (mut stream, _) = listener.accept().expect("accept");
+                let request = read_request(&mut stream);
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write response");
+                let _ = sender.send(request);
+            });
+            (origin, receiver)
+        }
+
+        fn post(client: &Client, url: &str) -> reqwest::Result<reqwest::blocking::Response> {
+            client
+                .post(url)
+                .bearer_auth(TEST_TOKEN)
+                .header("X-Restli-Protocol-Version", RESTLI_PROTOCOL_VERSION)
+                .json(&ugc_text_payload("urn:li:person:abc123", "Approved post"))
+                .send()
+        }
+
+        #[test]
+        fn created_receipt_round_trips_through_the_runtime_io_driver() {
+            let (origin, request) = serve_once(
+                "HTTP/1.1 201 Created\r\nX-RestLi-Id: urn:li:ugcPost:7\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".into(),
+            );
+            let client = linkedin_client().expect("client");
+            let response = post(&client, &format!("{origin}/v2/ugcPosts")).expect("loopback send");
+            assert_eq!(
+                classify_publish_response(response.status(), response.headers()),
+                publish_success("urn:li:ugcPost:7")
+            );
+            let request = request.recv().expect("request observed");
+            assert!(request.starts_with("POST /v2/ugcPosts HTTP/1.1\r\n"));
+            assert!(request.contains(&format!("authorization: Bearer {TEST_TOKEN}\r\n")));
+            assert!(request.contains("\"shareMediaCategory\":\"NONE\""));
+        }
+
+        #[test]
+        fn redirects_are_not_followed_on_the_wire_and_never_carry_authorization() {
+            let elsewhere = TcpListener::bind("127.0.0.1:0").expect("bind redirect target");
+            elsewhere.set_nonblocking(true).expect("nonblocking");
+            let target = format!("http://{}/", elsewhere.local_addr().expect("address"));
+            let (origin, request) = serve_once(format!(
+                "HTTP/1.1 302 Found\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            ));
+            let client = linkedin_client().expect("client");
+            let response = post(&client, &format!("{origin}/v2/ugcPosts")).expect("loopback send");
+            assert_eq!(response.status(), StatusCode::FOUND);
+            assert_ne!(
+                classify_publish_response(response.status(), response.headers()).kind,
+                "published"
+            );
+            request.recv().expect("request observed");
+            assert_eq!(
+                elsewhere.accept().map(|_| ()).map_err(|error| error.kind()),
+                Err(std::io::ErrorKind::WouldBlock),
+                "the redirect target must never be contacted"
+            );
+        }
+
+        #[test]
+        fn refused_connection_is_known_undispatched() {
+            let closed = TcpListener::bind("127.0.0.1:0").expect("bind");
+            let url = format!(
+                "http://{}/v2/ugcPosts",
+                closed.local_addr().expect("address")
+            );
+            drop(closed);
+            let client = linkedin_client().expect("client");
+            let error = post(&client, &url).expect_err("nothing is listening");
+            assert_eq!(
+                classify_publish_transport_error(error.is_connect()).kind,
+                "not_dispatched"
+            );
+        }
+    }
 }
