@@ -23,8 +23,10 @@ requireCondition(packageJson.scripts?.["desktop:web"]?.includes("clean:desktop")
 requireCondition(packageJson.scripts?.["pwa:serve"] === "node scripts/serve-pwa.mjs", "PWA serve command must use the checked-in stable localhost server");
 requireCondition(packageJson.scripts?.["pwa:selfhost"] === "npm run pwa:build && npm run pwa:serve", "PWA self-host command must build before serving the production shell");
 requireCondition(packageJson.scripts?.["pwa:origin-migration"] === "node scripts/pwa-origin-migration-smoke.mjs", "PWA origin migration proof must remain a named validation command");
+requireCondition(packageJson.scripts?.["pwa:keyboard"] === "node scripts/pwa-keyboard-acceptance.mjs", "PWA keyboard acceptance must remain a named validation command");
 execFileSync(process.execPath, ["--check", "scripts/serve-pwa.mjs"], { cwd: root, stdio: "pipe" });
 execFileSync(process.execPath, ["--check", "scripts/pwa-origin-migration-smoke.mjs"], { cwd: root, stdio: "pipe" });
+execFileSync(process.execPath, ["--check", "scripts/pwa-keyboard-acceptance.mjs"], { cwd: root, stdio: "pipe" });
 const localPwaServer = await read("scripts/serve-pwa.mjs");
 requireCondition(localPwaServer.includes('const HOST = "localhost";'), "PWA self-host server must use the canonical localhost hostname");
 requireCondition(localPwaServer.includes("const PORT = 4175;"), "PWA self-host server must stay on canonical port 4175");
@@ -40,6 +42,10 @@ const ciWorkflow = await read(".github/workflows/ci.yml");
 requireCondition(
   ciWorkflow.includes("npm run pwa:origin-migration") && ciWorkflow.includes("Enforce PWA origin migration result"),
   "CI must keep the portable backup migration proof between distinct browser origins",
+);
+requireCondition(
+  ciWorkflow.includes("npm run pwa:keyboard") && ciWorkflow.includes("Enforce PWA keyboard acceptance result"),
+  "CI must keep the keyboard-only operation and focus visibility gate",
 );
 
 const desktopWorkflow = await read(".github/workflows/desktop.yml");
