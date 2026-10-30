@@ -22,8 +22,8 @@ test("desktop exposes Campaigns and Studio workflows", async () => {
   assert.match(shell, /nav === "studio"/);
   assert.match(entry, /campaign-shell\.js/);
   for (const marker of [
-    "One outcome. One audience. Traceable truth.",
-    "Canonical first. Channel second.",
+    "Plan a campaign from approved claims.",
+    "Write once, adapt for each channel, review every version.",
     "Product Core prerequisite",
     "Channel comparison",
     "Create selected-channel package",

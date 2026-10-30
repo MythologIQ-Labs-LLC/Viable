@@ -151,8 +151,10 @@ function decorateProduct(): void {
   const section = document.createElement("section");
   section.id = "repository-growth-entry";
   section.className = "panel repository-entry";
-  section.innerHTML = `<div><p class="eyebrow">Public repository product surface</p><h3>Assess and launch a public repository</h3><p>Import public evidence, prioritize readiness work, and coordinate an approved release without manufacturing engagement.</p></div><button class="primary" type="button" data-repository-action="open">Open repository growth</button>`;
-  main.querySelector(".hero")?.insertAdjacentElement("afterend", section);
+  section.innerHTML = `<div><p class="eyebrow">Optional · Public repositories</p><h3>Assess and launch a public repository</h3><p>Import public evidence, prioritize readiness work, and coordinate an approved release without manufacturing engagement.</p></div><button class="primary" type="button" data-repository-action="open">Open repository growth</button>`;
+  // An optional surface: it follows the Product workflow instead of pushing
+  // Product truth below the first screen.
+  main.append(section);
 }
 
 async function open(fromHistory = false): Promise<void> {

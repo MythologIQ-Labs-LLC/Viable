@@ -87,7 +87,7 @@ test("desktop workflow preserves approval outcome and Product Core boundaries", 
     read("src/activation-learning/services/activation-learning-service.ts"),
   ]);
   for (const marker of [
-    "Timing intent, approval, and delivery evidence remain separate",
+    "Plan when reviewed work goes out, and record what happened.",
     "No publishing API is connected",
     "No credentials. No direct publishing. No delivery claim",
     "Human recorded",

@@ -5,6 +5,7 @@ import type { MarketabilityDimension, ReadinessFinding } from "../../../src/prod
 import type { ProductWorkspace } from "../../../src/product-core/domain/workspace.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { SignalsViewController } from "./signals-view.js";
+import { revealTarget } from "./reveal-target.js";
 
 const store = new LocalStorageProductWorkspaceStore();
 const service = new ProductCoreService(store);
@@ -432,9 +433,23 @@ function assessmentSection(value: ProductWorkspace): string {
     </section>`;
 }
 
+// The Product view is several screens long; these jumps let a person reach a
+// section without scrolling past every form above it.
+const productSections = [
+  ["truth-heading", "Product truth"],
+  ["evidence-heading", "Evidence"],
+  ["claims-heading", "Claims"],
+  ["icp-heading", "Audiences"],
+  ["assessment-heading", "Marketability"],
+] as const;
+
+function sectionJumps(): string {
+  return `<div class="section-jumps" role="navigation" aria-label="On this page"><span>On this page</span>${productSections.map(([id, label]) => `<button type="button" data-jump="${id}">${label}</button>`).join("")}</div>`;
+}
+
 function productView(value: ProductWorkspace): string {
-  return `<header class="hero compact"><div><p class="eyebrow">Product workflow</p><h2>Truth, ICP, readiness.</h2><p>Each conclusion remains explainable, reviewable, and local.</p></div><button type="button" class="danger" data-action="reset-workspace">Reset local workspace</button></header>
-    ${recovery()}${productTruth(value)}${evidenceSection(value)}${claimSection(value)}${icpSection(value)}${assessmentSection(value)}`;
+  return `<header class="hero compact"><div><p class="eyebrow">Product workflow</p><h2>Your product, who it is for, and whether it is ready.</h2><p>Describe what the product does, compare the audiences it could serve, and assess readiness. Every conclusion stays explainable, reviewable, and on this device.</p></div><button type="button" class="danger" data-action="reset-workspace">Reset local workspace</button></header>
+    ${sectionJumps()}${recovery()}${productTruth(value)}${evidenceSection(value)}${claimSection(value)}${icpSection(value)}${assessmentSection(value)}`;
 }
 
 function render(): void {
@@ -502,6 +517,13 @@ window.addEventListener("beforeunload", (event) => {
   if (persistenceGate.state !== "pending") return;
   event.preventDefault();
   event.returnValue = "";
+});
+
+document.addEventListener("click", (event) => {
+  const jump = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-jump]");
+  const heading = jump ? document.getElementById(jump.dataset.jump ?? "") : null;
+  const section = heading?.closest<HTMLElement>("section");
+  if (section) revealTarget(section);
 });
 
 document.addEventListener("click", (event) => {

@@ -74,6 +74,10 @@ nav button span { font-size: .68rem; text-transform: uppercase; letter-spacing: 
 .local-note strong { color: var(--text); }
 main { width: 100%; min-width: 0; max-width: 96rem; padding: 2.5rem clamp(1.25rem, 4vw, 4rem) 5rem; }
 .hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; padding-top: 1.5rem; }
+.section-jumps { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 0 0 1.25rem; }
+.section-jumps span { color: var(--muted); font-size: .85rem; font-weight: 700; margin-right: .25rem; }
+.section-jumps button { padding: .4rem .85rem; border: 1px solid var(--line); border-radius: 999px; background: rgba(16, 23, 31, .75); color: var(--text); font-size: .9rem; }
+.section-jumps button:hover { border-color: #356158; }
 .journey-steps { list-style: none; counter-reset: step; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 0 0 1.5rem; padding: 0; }
 .journey-steps li { counter-increment: step; display: grid; gap: .3rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: .75rem; background: rgba(16, 23, 31, .75); }
 .journey-steps li::before { content: counter(step); color: var(--teal); font-weight: 800; font-size: .8rem; }

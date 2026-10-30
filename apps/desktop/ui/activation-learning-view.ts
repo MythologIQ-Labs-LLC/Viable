@@ -323,7 +323,7 @@ export class ActivationLearningViewController {
     const sources = this.sourceOptions();
     const activeDestinations = workspace.destinations.filter((item) => item.status === "active");
     return `<section class="activation-workspace" aria-labelledby="calendar-heading">
-      <header class="hero compact"><div><p class="eyebrow">Calendar · Manual activation</p><h2 id="calendar-heading">Timing intent, approval, and delivery evidence remain separate.</h2><p>Schedule approved work, export it manually, and record what actually happened.</p></div>${pill("local manual loop")}</header>
+      <header class="hero compact"><div><p class="eyebrow">Calendar · Manual activation</p><h2 id="calendar-heading">Plan when reviewed work goes out, and record what happened.</h2><p>Schedule approved work, export it manually, and record what actually happened.</p></div>${pill("local manual loop")}</header>
       ${this.failureState()}
       <section class="state offline"><strong>No publishing API is connected.</strong><span>Calendar and export remain useful locally. Credentials never enter destination records or packages.</span></section>
       <section class="metrics" aria-label="Calendar status">
@@ -344,7 +344,7 @@ export class ActivationLearningViewController {
   private renderAnalytics(): string {
     const workspace = this.activation!;
     return `<section class="activation-workspace analytics-workspace" aria-labelledby="analytics-heading">
-      <header class="hero compact"><div><p class="eyebrow">Analytics · Learning</p><h2 id="analytics-heading">Missing evidence stays missing. Learning stays traceable.</h2><p>Record a baseline, import bounded performance evidence, compare compatible states, and choose one reversible next action.</p></div>${pill("manual attribution")}</header>
+      <header class="hero compact"><div><p class="eyebrow">Analytics · Learning</p><h2 id="analytics-heading">Measure what happened, and decide what to do next.</h2><p>Record a baseline, import bounded performance evidence, compare compatible states, and choose one reversible next action.</p></div>${pill("manual attribution")}</header>
       ${this.failureState()}
       <section class="state offline"><strong>Manual evidence is supported.</strong><span>Provider access is optional. Attribution always names its model and uncertainty.</span></section>
       <section class="metrics" aria-label="Analytics status">

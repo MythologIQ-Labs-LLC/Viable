@@ -1166,6 +1166,23 @@ async function run() {
         check(!(await journey.locator('[data-home-attention-open="product:evidence:evidence-4"]').count()), "rechecked evidence leaves Home's stale-evidence blockers");
 
         await go("product");
+        // #195 media pass: Product truth leads the view; the optional repository
+        // panel follows it, and each section can be reached without scrolling.
+        const productOrder = await journey.evaluate(() => {
+          const top = (selector) => document.querySelector(selector)?.getBoundingClientRect().top ?? -1;
+          return { truth: top("#truth-heading"), repository: top("#repository-growth-entry"), viewport: innerHeight };
+        });
+        check(productOrder.truth > 0 && productOrder.truth < productOrder.viewport && productOrder.repository > productOrder.truth,
+          `Product truth is on the first screen, before the optional repository panel (${JSON.stringify(productOrder)})`);
+        await journey.locator('[role="navigation"][aria-label="On this page"] button', { hasText: "Audiences" }).click();
+        // Wait for the smooth scroll to come to rest before measuring.
+        await journey.waitForFunction(() => {
+          const last = window.__jumpScroll;
+          window.__jumpScroll = scrollY;
+          return last === scrollY && document.activeElement?.id === "icp-heading";
+        }, undefined, { timeout: 5000, polling: 150 }).catch(() => undefined);
+        const jumped = await journey.evaluate(() => ({ focus: document.activeElement?.id, top: Math.round(document.getElementById("icp-heading")?.getBoundingClientRect().top ?? -1), viewport: innerHeight }));
+        check(jumped.focus === "icp-heading" && jumped.top >= -2 && jumped.top < jumped.viewport / 2, `"On this page" jumps to the Audiences section and moves focus to its heading (${JSON.stringify(jumped)})`);
         const forum = journey.locator("#main article", { hasText: "Freelancer forum thread about invoice chasing" }).first();
         const accept = forum.getByRole("button", { name: "Accept with named review" });
         await accept.click();
