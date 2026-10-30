@@ -259,6 +259,12 @@ async function focusCandidate(item: HomeAttentionItem): Promise<HTMLElement | un
       const ordered = activation.calendarEntries.slice().sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
       return indexedElement(ordered.map((entry) => entry.id), item.target.recordId, ".calendar-list > article.calendar-card");
     }
+    if (item.surface === "analytics" && item.target.recordKind === "measurement_prerequisite") {
+      // Open the plan form with the delivered entry already chosen.
+      const select = main.querySelector<HTMLSelectElement>('form[data-form="activation-measurement-plan"] select[name="calendarEntryId"]');
+      if (select && [...select.options].some((option) => option.value === item.target.recordId)) select.value = item.target.recordId ?? select.value;
+      return main.querySelector<HTMLElement>("#measurement-plan-heading")?.closest<HTMLElement>("section.panel") ?? undefined;
+    }
     if (item.surface === "analytics" && item.target.recordKind === "measurement_plan") return indexedPanelList(activation.measurementPlans.map((entry) => entry.id), item.target.recordId, "#measurement-plan-heading");
     if (item.surface === "analytics" && item.target.recordKind === "performance_import") return indexedPanelList(activation.performanceImports.slice().reverse().map((entry) => entry.id), item.target.recordId, "#performance-import-heading");
     if (item.surface === "analytics" && item.target.recordKind === "learning") return indexedPanelList(activation.learningLedger.slice().reverse().map((entry) => entry.id), item.target.recordId, "#learning-ledger-heading");

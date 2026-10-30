@@ -168,3 +168,26 @@ test("Home action labels name the task or the record, never internal workflow vo
   assert.equal(attentionStateName("prerequisite"), "needs input");
   assert.equal(attentionStateName("changes_requested"), "changes requested");
 });
+
+test("a recorded delivery without a measurement plan leads to planning the measurement", () => {
+  const delivered = {
+    ...activationWithScheduledAndLearning(),
+    deliveryOutcomes: [{
+      id: "outcome-1", workspaceId: "workspace-1", calendarEntryId: "entry-1", packageId: "package-1", status: "delivered" as const,
+      evidenceClassification: "human_recorded" as const, source: "Manual post", observedAt: "2026-09-26T15:00:00.000Z",
+      recordedAt: "2026-09-26T15:05:00.000Z", recordedBy: "Owner", evidenceReferences: ["https://example.test/post"], note: "Posted by hand",
+    }],
+  } satisfies ActivationLearningWorkspace;
+  const due = deriveHomeAttention({ activation: delivered }, now).items.find((entry) => entry.id === "analytics:entry:entry-1:measurement-plan");
+  assert.ok(due, "delivery without a plan produces a next step");
+  assert.equal(due.surface, "analytics");
+  assert.equal(due.target.recordId, "entry-1");
+  assert.equal(attentionActionLabel(due), "Plan the measurement");
+  assert.match(due.reason, /no measurement plan exists/);
+
+  const planned = {
+    ...delivered,
+    measurementPlans: [{ id: "plan-1", workspaceId: "workspace-1", calendarEntryId: "entry-1", observationStartsAt: "2026-09-26T15:00:00.000Z", observationEndsAt: "2026-10-26T15:00:00.000Z", baseline: [], createdAt: "2026-09-26T16:00:00.000Z", createdBy: "Owner" }],
+  } satisfies ActivationLearningWorkspace;
+  assert.equal(deriveHomeAttention({ activation: planned }, now).items.some((entry) => entry.id === "analytics:entry:entry-1:measurement-plan"), false);
+});

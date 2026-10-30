@@ -624,6 +624,23 @@ function addActivationAttention(items: HomeAttentionItem[], workspace: Activatio
     if (outcome.status !== "delivered") continue;
     const hasPerformance = workspace.performanceImports.some((candidate) => candidate.calendarEntryId === outcome.calendarEntryId);
     const hasRetrospective = workspace.retrospectives.some((candidate) => candidate.calendarEntryId === outcome.calendarEntryId);
+    const hasPlan = workspace.measurementPlans.some((candidate) => candidate.calendarEntryId === outcome.calendarEntryId);
+    if (!hasPerformance && !hasPlan) {
+      // Delivery without a plan leaves no baseline or window to compare results against.
+      items.push(item({
+        id: `analytics:entry:${outcome.calendarEntryId}:measurement-plan`,
+        category: "action",
+        surface: "analytics",
+        title: "Plan how to measure this delivery",
+        reason: "Delivery was recorded, but no measurement plan exists yet, so there is no baseline or observation window to compare the results against.",
+        state: "measurement plan due",
+        owner: outcome.recordedBy,
+        timestamp: outcome.recordedAt,
+        timestampLabel: "Delivery recorded",
+        evidence: outcome.evidenceReferences,
+        target: { surface: "analytics", recordKind: "measurement_prerequisite", recordId: outcome.calendarEntryId },
+      }));
+    }
     if (hasPerformance && !hasRetrospective) {
       items.push(item({
         id: `analytics:entry:${outcome.calendarEntryId}:retrospective`,
@@ -726,6 +743,7 @@ const PREREQUISITE_ACTIONS: Readonly<Record<string, string>> = {
   product_truth: "Describe your product",
   icp_prerequisite: "Work on audience profiles",
   assessment_prerequisite: "Start the marketability assessment",
+  measurement_prerequisite: "Plan the measurement",
 };
 
 const RECORD_NOUNS: Readonly<Record<string, string>> = {
