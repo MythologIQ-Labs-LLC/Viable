@@ -29,6 +29,9 @@ body { margin: 0; min-width: 20rem; min-height: 100vh; background: radial-gradie
 button, input, textarea, select { font: inherit; }
 button, summary { cursor: pointer; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible, [tabindex="0"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+/* Chromium makes the date/time picker button its own Tab stop inside the
+   input; the input is not :focus-visible there, so ring it via focus-within. */
+input:is([type="date"], [type="datetime-local"], [type="time"], [type="month"], [type="week"]):focus-within { outline: 3px solid var(--focus); outline-offset: 3px; }
 /* Records that a workflow focuses for the person (an opened destination, the
    record an action changed) show where focus landed. */
 #main [tabindex="-1"]:not(section.state):focus { outline: 2px solid var(--focus); outline-offset: 3px; }
