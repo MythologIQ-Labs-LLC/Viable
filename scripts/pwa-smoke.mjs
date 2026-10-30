@@ -1270,6 +1270,12 @@ async function run() {
         check(signalNames.every((card) => card.actions.every((action) =>
           action.label.length > 0 && action.label.includes(card.label.replace(/^Signal: /, "")))),
           "Signals action names preserve the precise owning card identity in the browser DOM");
+        const signalActionNames = signalNames.flatMap((card) => card.actions.map((action) => action.label));
+        check(new Set(signalActionNames).size === signalActionNames.length,
+          "Signals action names are unique across the seeded cards");
+        check(signalNames.every((card) => card.actions.every((action) =>
+          action.label.includes(" (record ") && action.label.endsWith(")"))),
+          "Signals action labels include stable disambiguators");
         const studios = () => journey.locator("#main article", { hasText: "Studio owners asking for receipt matching" }).first();
         await studios().locator("summary", { hasText: "Convert to proposed work" }).click();
         await studios().locator('form[data-form="signals-convert"] button[type="submit"]').click();
