@@ -1332,6 +1332,24 @@ async function run() {
         await go("home");
         await go("studio");
 
+        // #195 media pass: the reviewer of a corrected variant sees the card's
+        // content as readable context and the change request that prompted the
+        // correction, not the editing form's text run together.
+        const correction = requested.locator('form[data-ux-revision-form="variant"]');
+        await correction.locator('textarea[name="body"]').fill("Ledgerly private beta: import your bank CSV, confirm the receipt matches Ledgerly suggests, and work through a short close checklist.");
+        await correction.locator('textarea[name="rationale"]').fill("Use the approved claim wording");
+        await correction.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("correction saved"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await requested.getByRole("button", { name: "Submit for review" }).click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("submitted for named review"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await requested.getByRole("button", { name: "Approve" }).click();
+        const reviewPanelText = ((await requested.locator("[data-contextual-review]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
+        check(
+          reviewPanelText.includes("Prior feedback Previous version, changes requested by Sam Okafor") && reviewPanelText.includes("Version 2 · Constraints") && !reviewPanelText.includes("Save channel correction"),
+          `the review panel shows the corrected content and the earlier change request, without form text (${reviewPanelText.slice(0, 160)})`,
+        );
+        await requested.getByRole("button", { name: "Cancel review" }).click();
+
         // #167: composition planning and exact experiment identity must be
         // operable through visible Studio controls. The test writes no
         // Campaign state through internal APIs.

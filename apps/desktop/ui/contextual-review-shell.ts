@@ -193,19 +193,46 @@ function openReviewPanel(button: HTMLButtonElement, config: ReviewConfig): void 
 
 function reviewContext(card: HTMLElement): Readonly<{ title: string; evidence: string; priorFeedback: string }> {
   const title = card.querySelector("h4, h3, strong")?.textContent?.trim() || "Current review item";
+  // Read the card's own content, not its editing forms or revision history,
+  // and keep each term next to its value so the context stays readable.
+  const evidenceDrawer = [...card.querySelectorAll<HTMLElement>(":scope > details")].find((details) => !details.querySelector("form"));
   const evidenceParts = [
-    card.querySelector("p")?.textContent?.trim(),
-    card.querySelector("dl")?.textContent?.trim(),
-    card.querySelector("details")?.textContent?.trim(),
+    card.querySelector(":scope > p")?.textContent?.trim(),
+    card.querySelector(":scope > small")?.textContent?.trim(),
+    describedTerms(card.querySelector<HTMLElement>(":scope > dl")),
+    evidenceDrawer ? [...evidenceDrawer.querySelectorAll("p")].map((paragraph) => paragraph.textContent ?? "").join(" · ") : undefined,
   ].filter((value): value is string => Boolean(value)).map(compact).filter(Boolean);
-  const feedback = [...card.querySelectorAll<HTMLElement>(".guidance, .inline-warning")]
-    .map((element) => compact(element.textContent ?? ""))
-    .find((value) => /review|change|invalid|reject|feedback/i.test(value));
+  const recorded = card.querySelector<HTMLElement>("[data-review-feedback]");
+  const feedback = recorded
+    ? [...recorded.querySelectorAll("strong, p")].map((part) => compact(part.textContent ?? "")).filter(Boolean).join(": ")
+    : [...card.querySelectorAll<HTMLElement>(".guidance, .inline-warning")]
+      .map((element) => compact(element.textContent ?? ""))
+      .find((value) => /review|change|invalid|reject|feedback/i.test(value))
+    ?? priorVersionFeedback(card);
   return {
     title,
-    evidence: evidenceParts.slice(0, 3).join(" · ") || "The owning record is visible with this review panel.",
+    evidence: evidenceParts.slice(0, 4).join(" · ") || "The owning record is visible with this review panel.",
     priorFeedback: feedback || "No prior review feedback is recorded on this visible item.",
   };
+}
+
+// A resubmitted correction no longer carries the reviewer's note; the prior
+// version's values still do, and the reviewer should see what was asked.
+function priorVersionFeedback(card: HTMLElement): string | undefined {
+  const prior = card.querySelector<HTMLElement>("[data-ux-prior-snapshot] dl");
+  if (!prior) return undefined;
+  const value = (label: string) => [...prior.querySelectorAll("dt")].find((term) => compact(term.textContent ?? "") === label)?.nextElementSibling?.textContent;
+  const note = value("Review note");
+  if (!note) return undefined;
+  const status = compact(value("Status") ?? "").replace(/_/g, " ");
+  const reviewer = compact(value("Reviewed by") ?? "");
+  return `Previous version${status ? `, ${status}` : ""}${reviewer ? ` by ${reviewer}` : ""}: ${compact(note)}`;
+}
+
+function describedTerms(list: HTMLElement | null): string | undefined {
+  if (!list) return undefined;
+  const terms = [...list.querySelectorAll("dt")].map((term) => `${compact(term.textContent ?? "")}: ${compact(term.nextElementSibling?.textContent ?? "")}`);
+  return terms.join(" · ") || undefined;
 }
 
 function compact(value: string): string {

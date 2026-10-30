@@ -115,6 +115,12 @@ button.danger { border-color: #774047; color: var(--red); background: var(--red-
 .state.error { border-left: .35rem solid var(--red); }
 .state.offline { border-left: .35rem solid var(--teal); }
 .state.loading { margin-top: 5rem; }
+/* A review panel reads as context on the left and the decision form beside it,
+   both starting at the top, with room to type a note. */
+.state.review-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem); align-items: start; gap: 1.5rem; }
+.state.review-panel form { display: grid; gap: .75rem; }
+.state.review-panel p { color: var(--text); }
+@media (max-width: 52rem) { .state.review-panel { grid-template-columns: 1fr; } }
 .cards { display: grid; gap: .8rem; margin-top: 1rem; }
 .icp-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .record { background: var(--surface-2); border: 1px solid var(--line); border-radius: .75rem; padding: 1rem; min-width: 0; }
