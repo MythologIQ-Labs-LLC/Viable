@@ -8,7 +8,7 @@ test("Signals action names distinguish cards without changing handler identity",
   const cardEnd = source.indexOf("private requiredSignal(", cardStart);
   assert.ok(cardStart >= 0 && cardEnd > cardStart);
   const card = source.slice(cardStart, cardEnd);
-  assert.ok(card.includes('aria-label="Signal: ${escapeHtml(signal.title)} (record ${escapeHtml(signal.id)})"'));
+  assert.ok(card.includes('role="group" aria-label="Signal: ${escapeHtml(signal.title)} (record ${escapeHtml(signal.id)})"'));
   for (const [action, name] of [
     ["save", "Save signal"],
     ["tag", "Tag signal"],
