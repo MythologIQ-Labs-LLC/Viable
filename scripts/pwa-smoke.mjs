@@ -1285,6 +1285,36 @@ async function run() {
         await journey.locator('[data-repository-action="return-product"]').click();
         await settled(journey);
 
+        // #195: the person correcting a variant sees the reviewer's request on
+        // that variant, the correction form is already open, unchanged
+        // resubmission says so, and typed corrections survive a cancelled leave.
+        await go("studio");
+        const requested = journey.locator('[data-ux-variant-id="variant-2"]');
+        const feedbackText = ((await requested.locator("[data-review-feedback]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
+        const correctionOpen = await requested.locator("details[data-ux-variant-revision]").evaluate((details) => details.open).catch(() => false);
+        const resubmitLabel = ((await requested.locator('[data-campaign-action="submit-variant"]').textContent().catch(() => "")) ?? "").trim();
+        check(
+          feedbackText.includes("Changes requested by Sam Okafor") && feedbackText.includes("not supported by the approved claim") && correctionOpen && resubmitLabel === "Resubmit unchanged",
+          "a variant with requested changes shows the reviewer's note on the variant, opens its correction form, and labels unchanged resubmission honestly",
+        );
+        const typedCorrection = requested.locator('form[data-ux-revision-form="variant"] textarea[name="body"]');
+        await typedCorrection.fill("Typed correction that has not been saved");
+        const leaveDialogs = [];
+        journey.removeAllListeners("dialog");
+        journey.on("dialog", (dialog) => { leaveDialogs.push(dialog.message()); void dialog.dismiss(); });
+        await journey.click('nav button[data-nav="home"]', { noWaitAfter: true });
+        await settled(journey);
+        const stayed = await journey.evaluate(() => document.querySelector('nav [aria-current="page"]')?.getAttribute("data-nav"));
+        const kept = await typedCorrection.inputValue().catch(() => "");
+        journey.removeAllListeners("dialog");
+        journey.on("dialog", (dialog) => { journeyDialogs.push(dialog.message()); void dialog.accept(); });
+        check(
+          leaveDialogs.some((message) => message.includes("not saved")) && stayed === "studio" && kept === "Typed correction that has not been saved",
+          "leaving Studio with a typed, unsaved correction asks first; cancelling keeps the person on the variant with their text",
+        );
+        await go("home");
+        await go("studio");
+
         // #167: composition planning and exact experiment identity must be
         // operable through visible Studio controls. The test writes no
         // Campaign state through internal APIs.

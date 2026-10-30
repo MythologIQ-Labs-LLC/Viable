@@ -7,6 +7,7 @@ import { OneShotSurfaceFeedback, selectActiveReadinessAction } from "../../../sr
 import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageSignalsInboxStore } from "./local-storage-signals-inbox-store.js";
+import { revealTarget } from "./reveal-target.js";
 
 const productStore = new LocalStorageProductWorkspaceStore();
 const campaignStore = new LocalStorageCampaignWorkspaceStore();
@@ -279,9 +280,7 @@ async function focusPendingTarget(): Promise<void> {
     target = input?.closest<HTMLElement>("article.record") ?? null;
   }
   if (!target) return;
-  target.tabIndex = -1;
-  target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: "center", behavior: "smooth" });
+  revealTarget(target);
   announce(`Opened authoritative ${destinationLabel(pendingTarget.context)} record`);
   pendingTarget = undefined;
 }

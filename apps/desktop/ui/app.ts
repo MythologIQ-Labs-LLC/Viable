@@ -20,6 +20,7 @@ let workspace: ProductWorkspace | undefined;
 let page: "home" | "product" | "signals" | "market" = "home";
 let signalsController: SignalsViewController | undefined;
 let lastFailure: string | undefined;
+let pendingHomeSection: "truth-heading" | "icp-heading" | "assessment-heading" | undefined;
 // A failed reload from storage (not a failed change): nothing was changed,
 // and the previously loaded copy is not shown as if it were current.
 let loadFailure: string | undefined;
@@ -176,8 +177,14 @@ function recovery(): string {
 
 function emptyWorkspace(): string {
   return `
-    <header class="hero"><div><p class="eyebrow">Product Core</p><h2>Start with what is true.</h2>
-    <p>Create one local product workspace. You can revise it without erasing prior ICP decisions.</p></div></header>
+    <header class="hero"><div><p class="eyebrow">Welcome to Viable</p><h2>Find out who your product is for, and prove it.</h2>
+    <p>Viable helps you decide whether and how to market a product, using only claims you can back with evidence. Everything stays on this device.</p></div></header>
+    <ol class="journey-steps" aria-label="How Viable works">
+      <li><strong>Describe the product honestly</strong><span>What it does, what it does not, and who it is for today.</span></li>
+      <li><strong>Choose an audience with evidence</strong><span>Compare customer profiles and record what you observed.</span></li>
+      <li><strong>Plan reviewed marketing</strong><span>Campaigns use approved claims; a named person reviews every piece.</span></li>
+      <li><strong>Measure what happened</strong><span>Record what was actually delivered and learn from the results.</span></li>
+    </ol>
     ${recovery()}
     <section class="panel narrow" aria-labelledby="create-heading">
       <div class="section-heading"><div><p class="eyebrow">Step 1</p><h3 id="create-heading">Create a product workspace</h3></div>${statusPill("Empty state", "warning")}</div>
@@ -201,7 +208,20 @@ function homeView(value: ProductWorkspace): string {
   const stale = value.evidence.filter((item) => item.reviewStatus !== "rejected" && isStale(item.freshnessReviewAt));
   const contradictions = value.icpHypotheses.flatMap((item) => item.contradictions);
   const openActions = value.actions.filter((item) => item.status === "open" || item.status === "in_progress");
-  const next = !value.product.positioning ? "Complete product truth" : value.icpHypotheses.length < 2 ? "Create a second ICP hypothesis" : !selected ? "Review evidence and select a primary ICP" : value.assessments.length === 0 ? "Run the marketability assessment" : "Work the highest-priority readiness action";
+  // Put the user's purpose next to the action instead of a generic navigation label.
+  // Each destination remains owned by Product Core; do not imply a saved action
+  // or promise a direct record link without an authoritative destination ID.
+  const nextStep = !value.product.positioning
+    ? { title: "Complete product truth", why: "Document the product's real capabilities and limitations before planning claims.", action: "Describe your product", target: "truth-heading" }
+    : value.icpHypotheses.length < 2
+      ? { title: "Compare possible audiences", why: "Record another ICP hypothesis so audience selection has an explicit alternative.", action: "Compare customer profiles", target: "icp-heading" }
+      : !selected
+        ? { title: "Review evidence and select a primary ICP", why: "Use reviewed evidence and contradictions before choosing a target audience.", action: "Review audience evidence", target: "icp-heading" }
+        : value.assessments.length === 0
+          ? { title: "Assess marketability", why: "Identify readiness gaps before spending effort on activation.", action: "Start marketability assessment", target: "assessment-heading" }
+          : openActions.length > 0
+            ? { title: "Work an open readiness action", why: "Follow up on an existing action and record its outcome in Product Core.", action: "Review readiness actions", target: "assessment-heading" }
+            : { title: "Review readiness and next opportunities", why: "Revisit the latest assessment and identify the next evidence-backed improvement.", action: "Review product readiness", target: "assessment-heading" };
   return `
     <header class="hero"><div><p class="eyebrow">Home</p><h2>${escapeHtml(value.product.identity.name)}</h2>
       <p>${escapeHtml(value.product.identity.description)}</p></div>${statusPill("Local only", "implemented")}</header>
@@ -213,7 +233,7 @@ function homeView(value: ProductWorkspace): string {
       <article><span>Reviewed evidence</span><strong>${reviewedEvidence.length}</strong><small>${stale.length} stale</small></article>
       <article><span>Open actions</span><strong>${openActions.length}</strong><small>${value.assessments.length} assessments</small></article>
     </section>
-    <section class="panel next"><div><p class="eyebrow">Next highest-value action</p><h3>${escapeHtml(next)}</h3></div><button class="primary" type="button" data-nav="product">Open Product workflow</button></section>
+    <section class="panel next" aria-labelledby="home-next-action"><div><p class="eyebrow">Recommended next step</p><h3 id="home-next-action">${escapeHtml(nextStep.title)}</h3><p class="guidance">${escapeHtml(nextStep.why)}</p></div><button class="primary" type="button" data-nav="product" data-home-section="${nextStep.target}">${escapeHtml(nextStep.action)}</button></section>
     ${contradictions.length ? `<section class="state contradiction"><div><strong>Contradictions require review</strong><p>${contradictions.map(escapeHtml).join(" · ")}</p></div></section>` : ""}
     ${stale.length ? `<section class="state warning"><div><strong>Stale evidence</strong><p>${stale.map((item) => escapeHtml(item.title)).join(", ")} reached its freshness-review date.</p></div></section>` : ""}`;
 }
@@ -436,7 +456,20 @@ function loadFailureView(detail: string): string {
 // Reloads from storage; a failure shows the load-failure state, never the
 // previously loaded copy.
 function reload(): void {
-  void refresh().then(() => main.focus(), (error: unknown) => {
+  void refresh().then(() => {
+    const section = pendingHomeSection;
+    pendingHomeSection = undefined;
+    const heading = section ? main.querySelector<HTMLElement>("#" + section) : null;
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({ block: "start" });
+      announce("Opened " + (heading.textContent?.trim() ?? "Product workflow"));
+    } else {
+      main.focus();
+    }
+  }, (error: unknown) => {
+    pendingHomeSection = undefined;
     loadFailure = error instanceof Error ? error.message : "Unknown local storage error";
     workspace = undefined;
     signalsController = undefined;
@@ -486,6 +519,8 @@ document.addEventListener("click", (event) => {
   if (!button) return;
   const targetPage = button.dataset.nav;
   if (targetPage === "home" || targetPage === "product" || targetPage === "signals" || targetPage === "market") {
+    pendingHomeSection = targetPage === "product" && ["truth-heading", "icp-heading", "assessment-heading"].includes(button.dataset.homeSection ?? "")
+      ? button.dataset.homeSection as typeof pendingHomeSection : undefined;
     page = targetPage;
     // Reload from workspace storage: the Workspace screen can restore, replace,
     // or delete the workspace (and another tab can change it) without this

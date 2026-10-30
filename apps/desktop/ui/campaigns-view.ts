@@ -417,8 +417,8 @@ export class CampaignsViewController {
       <p>${escapeHtml(campaign.objective)}</p>
       <dl><div><dt>Primary outcome</dt><dd>${escapeHtml(campaign.primaryOutcome)}</dd></div><div><dt>Primary audience</dt><dd>${escapeHtml(campaign.primaryAudience)}</dd></div><div><dt>Channels</dt><dd>${escapeHtml(campaign.channels.map((channel) => CHANNEL_LABELS[channel]).join(" · "))}</dd></div><div><dt>Claims</dt><dd>${campaign.claimReferences.length}</dd></div><div><dt>Reviewed evidence</dt><dd>${campaign.evidenceIds.length}</dd></div><div><dt>Owner</dt><dd>${escapeHtml(campaign.owner)}</dd></div><div><dt>Updated</dt><dd>${humanDate(campaign.updatedAt)}</dd></div></dl>
       <details><summary>Traceability and message</summary><p><strong>Problem:</strong> ${escapeHtml(campaign.problem)}</p><p><strong>Trigger:</strong> ${escapeHtml(campaign.trigger)}</p><p><strong>Offer:</strong> ${escapeHtml(campaign.offer)}</p><p><strong>Message hierarchy:</strong> ${escapeHtml(campaign.messageHierarchy.join(" · "))}</p><p><strong>Claim snapshots:</strong> ${escapeHtml(campaign.claimReferences.map((item) => `${item.statement} (revision ${item.claimRevision})`).join(" · "))}</p></details>
-      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(campaign.status) ? `<button type="button" data-campaign-action="submit-campaign" data-id="${campaign.id}">Submit for review</button>` : ""}${campaign.status === "in_review" ? reviewButtons("campaign", campaign.id, campaign.version) : ""}</div>
-      ${campaign.reviewNote ? `<p class="guidance">Review: ${escapeHtml(campaign.reviewNote)} · ${escapeHtml(campaign.reviewedBy ?? "Unknown reviewer")}</p>` : ""}
+      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(campaign.status) ? `<button type="button" data-campaign-action="submit-campaign" data-id="${campaign.id}">${submitLabel(campaign.status)}</button>` : ""}${campaign.status === "in_review" ? reviewButtons("campaign", campaign.id, campaign.version) : ""}</div>
+      ${reviewFeedback(campaign)}
     </article>`;
   }
 
@@ -465,9 +465,10 @@ export class CampaignsViewController {
     return `<article class="record">
       <div class="record-top"><h4>${escapeHtml(asset.title)}</h4><div>${pill(asset.status)} ${pill(asset.origin)}</div></div>
       <p>${escapeHtml(current.body)}</p>
+      ${reviewFeedback(asset)}
       <dl><div><dt>Version</dt><dd>${current.version}</dd></div><div><dt>Audience</dt><dd>${escapeHtml(asset.audience)}</dd></div><div><dt>Rights</dt><dd>${escapeHtml(asset.rights.join(" · "))}</dd></div><div><dt>Accessibility</dt><dd>${escapeHtml(asset.accessibilityRequirements.join(" · "))}</dd></div></dl>
       <details><summary>Version history and comments</summary>${asset.versions.map((version) => `<p><strong>Version ${version.version}</strong> · ${humanDate(version.changedAt)} · ${escapeHtml(version.changedBy)}<br>${escapeHtml(version.changeNote)}</p>`).join("")}${asset.comments.map((comment) => `<p><strong>${escapeHtml(comment.author)}</strong> · ${humanDate(comment.createdAt)}<br>${escapeHtml(comment.body)}</p>`).join("") || "<p>No comments.</p>"}</details>
-      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(asset.status) ? `<button type="button" data-campaign-action="submit-asset" data-id="${asset.id}">Submit for review</button>` : ""}${asset.status === "in_review" ? reviewButtons("asset", asset.id, current.version) : ""}</div>
+      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(asset.status) ? `<button type="button" data-campaign-action="submit-asset" data-id="${asset.id}">${submitLabel(asset.status)}</button>` : ""}${asset.status === "in_review" ? reviewButtons("asset", asset.id, current.version) : ""}</div>
       <details><summary>Revise canonical asset</summary><form data-form="campaign-revise-asset"><input type="hidden" name="assetId" value="${asset.id}"><input type="hidden" name="expectedVersion" value="${current.version}"><label>Editor<input name="editor" required value="${escapeHtml(this.defaultOwner)}"></label><label>Revised body<textarea name="body" required rows="6">${escapeHtml(current.body)}</textarea></label><label>Change note<input name="note" required></label><button type="submit">Save new canonical version</button></form></details>
       <details><summary>Add review comment</summary><form data-form="campaign-comment-asset"><input type="hidden" name="assetId" value="${asset.id}"><label>Author<input name="author" required value="${escapeHtml(this.defaultOwner)}"></label><label>Comment<textarea name="body" required rows="3"></textarea></label><button type="submit">Record comment</button></form></details>
     </article>`;
@@ -485,7 +486,7 @@ export class CampaignsViewController {
   }
 
   private variantCard(variant: ChannelVariant): string {
-    return `<article class="record"><div class="record-top"><h4>${CHANNEL_LABELS[variant.channel]}</h4>${pill(variant.status)}</div><p>${escapeHtml(variant.body)}</p><small>Version ${variant.version} · Constraints: ${escapeHtml(variant.constraints.join(" · "))}</small>${discoverabilityPanel(variant)}<div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(variant.status) ? `<button type="button" data-campaign-action="submit-variant" data-id="${variant.id}">Submit for review</button>` : ""}${variant.status === "in_review" ? reviewButtons("variant", variant.id, variant.version) : ""}</div></article>`;
+    return `<article class="record"><div class="record-top"><h4>${CHANNEL_LABELS[variant.channel]}</h4>${pill(variant.status)}</div><p>${escapeHtml(variant.body)}</p>${reviewFeedback(variant)}<small>Version ${variant.version} · Constraints: ${escapeHtml(variant.constraints.join(" · "))}</small>${discoverabilityPanel(variant)}<div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(variant.status) ? `<button type="button" data-campaign-action="submit-variant" data-id="${variant.id}">${submitLabel(variant.status)}</button>` : ""}${variant.status === "in_review" ? reviewButtons("variant", variant.id, variant.version) : ""}</div></article>`;
   }
 
   private variantComparison(variants: readonly ChannelVariant[]): string {
@@ -657,6 +658,26 @@ export class CampaignsViewController {
 
 // data-version is the version this view rendered; the service refuses a
 // decision when a newer version has been saved since (e.g. in another tab).
+// Resubmitting after "changes requested" without a correction is allowed (it is
+// a human decision), but the button must say that is what it does.
+function submitLabel(status: string): string {
+  return status === "changes_requested" ? "Resubmit unchanged" : "Submit for review";
+}
+
+// The reviewer's decision and note, shown on the record itself so a person
+// correcting it sees what was asked without returning to Home.
+function reviewFeedback(record: Readonly<{ status: string; reviewNote?: string; reviewedBy?: string; reviewedAt?: string }>): string {
+  if (!record.reviewNote) return "";
+  const who = escapeHtml(record.reviewedBy ?? "Unknown reviewer");
+  const when = record.reviewedAt ? ` · ${humanDate(record.reviewedAt)}` : "";
+  const heading = record.status === "changes_requested" ? `Changes requested by ${who}`
+    : record.status === "rejected" ? `Rejected by ${who}`
+    : record.status === "approved" ? `Approved by ${who}`
+    : `Review note from ${who}`;
+  const tone = record.status === "changes_requested" || record.status === "rejected" ? "warning" : "offline";
+  return `<div class="state ${tone} review-feedback" data-review-feedback><div><strong>${heading}</strong><p>${escapeHtml(record.reviewNote)}</p><small>${record.status === "changes_requested" ? "Correct the content below, then submit it for review again." : "Recorded review"}${when}</small></div></div>`;
+}
+
 function reviewButtons(kind: "campaign" | "asset" | "variant", id: string, version: number): string {
   const attrs = `data-campaign-action="review-${kind}" data-id="${id}" data-version="${version}"`;
   return `<button type="button" ${attrs} data-decision="approved">Approve</button><button type="button" ${attrs} data-decision="changes_requested">Request changes</button><button type="button" ${attrs} data-decision="rejected">Reject</button>`;

@@ -14,8 +14,8 @@ test("desktop loads the read-only cross-workflow Home attention shell", async ()
   ]);
   assert.match(entry, /home-attention-shell\.js/);
   assert.match(shell, /deriveHomeAttention/);
-  assert.match(shell, /Home is read-only/);
-  assert.match(shell, /does not approve, mutate, publish, deliver, or invent a business-value score/i);
+  // Home must tell the person it only opens records and changes nothing.
+  assert.match(shell, /nothing is approved or changed from Home/);
   assert.doesNotMatch(shell, /\.save\(/);
   assert.doesNotMatch(shell, /approve[A-Z]|review[A-Z]|materialize[A-Z]|markExportDownloaded|recoverExport/);
 });
@@ -75,8 +75,9 @@ test("Home attention deep links use owning record identifiers across implemented
     "#retrospective-heading",
     "#learning-ledger-heading",
   ]) assert.match(shell, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(shell, /Open exact record/);
-  assert.match(shell, /Open prerequisite/);
+  // Button text names the task or the record it opens (see attentionActionLabel tests).
+  assert.match(shell, /attentionActionLabel\(top\)/);
+  assert.match(shell, /attentionActionLabel\(item\)/);
   assert.match(shell, /requested authoritative record could not be focused/i);
 });
 

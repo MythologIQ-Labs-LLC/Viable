@@ -624,6 +624,23 @@ function addActivationAttention(items: HomeAttentionItem[], workspace: Activatio
     if (outcome.status !== "delivered") continue;
     const hasPerformance = workspace.performanceImports.some((candidate) => candidate.calendarEntryId === outcome.calendarEntryId);
     const hasRetrospective = workspace.retrospectives.some((candidate) => candidate.calendarEntryId === outcome.calendarEntryId);
+    const hasPlan = workspace.measurementPlans.some((candidate) => candidate.calendarEntryId === outcome.calendarEntryId);
+    if (!hasPerformance && !hasPlan) {
+      // Delivery without a plan leaves no baseline or window to compare results against.
+      items.push(item({
+        id: `analytics:entry:${outcome.calendarEntryId}:measurement-plan`,
+        category: "action",
+        surface: "analytics",
+        title: "Plan how to measure this delivery",
+        reason: "Delivery was recorded, but no measurement plan exists yet, so there is no baseline or observation window to compare the results against.",
+        state: "measurement plan due",
+        owner: outcome.recordedBy,
+        timestamp: outcome.recordedAt,
+        timestampLabel: "Delivery recorded",
+        evidence: outcome.evidenceReferences,
+        target: { surface: "analytics", recordKind: "measurement_prerequisite", recordId: outcome.calendarEntryId },
+      }));
+    }
     if (hasPerformance && !hasRetrospective) {
       items.push(item({
         id: `analytics:entry:${outcome.calendarEntryId}:retrospective`,
@@ -707,4 +724,67 @@ function sortableTime(value?: string): number {
   if (!value) return Number.MAX_SAFE_INTEGER;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+}
+
+// Plain-language wording for Home. Users should not need Viable's internal
+// record or workflow vocabulary ("prerequisite", "exact record",
+// "repository_growth") to know where an action takes them.
+const SURFACE_NAMES: Readonly<Record<HomeAttentionSurface, string>> = {
+  product: "Product & audience",
+  signals: "Review signals",
+  campaigns: "Plan campaigns",
+  studio: "Create & review",
+  repository_growth: "Repository growth",
+  calendar: "Calendar",
+  analytics: "Analytics",
+};
+
+const PREREQUISITE_ACTIONS: Readonly<Record<string, string>> = {
+  product_truth: "Describe your product",
+  icp_prerequisite: "Work on audience profiles",
+  assessment_prerequisite: "Start the marketability assessment",
+  measurement_prerequisite: "Plan the measurement",
+};
+
+const RECORD_NOUNS: Readonly<Record<string, string>> = {
+  evidence: "evidence",
+  icp: "audience profile",
+  icp_experiment: "validation experiment",
+  readiness_action: "readiness action",
+  source_health: "signal source",
+  conversion: "signal conversion",
+  signal: "signal",
+  campaign: "campaign",
+  content_brief: "content brief",
+  canonical_asset: "canonical asset",
+  channel_variant: "channel variant",
+  repository: "repository",
+  growth_action: "growth action",
+  launch_room: "launch room",
+  video_brief: "video brief",
+  video_artifact: "imported render",
+  video_variant: "video variant",
+  calendar_entry: "calendar entry",
+  measurement_plan: "measurement plan",
+  performance_import: "performance import",
+  learning: "learning entry",
+};
+
+export function attentionSurfaceName(surface: HomeAttentionSurface): string {
+  return SURFACE_NAMES[surface];
+}
+
+/** Button text for opening an attention item: the task for a prerequisite, otherwise the record it opens. */
+export function attentionActionLabel(item: Pick<HomeAttentionItem, "target">): string {
+  const prerequisite = PREREQUISITE_ACTIONS[item.target.recordKind];
+  if (prerequisite) return prerequisite;
+  const noun = RECORD_NOUNS[item.target.recordKind];
+  if (noun && item.target.recordId) return `Open ${noun}`;
+  return `Open ${SURFACE_NAMES[item.target.surface]}`;
+}
+
+/** Readable state text; internal state words are rewritten, others are de-underscored. */
+export function attentionStateName(state: string): string {
+  if (state === "prerequisite") return "needs input";
+  return state.replaceAll("_", " ");
 }

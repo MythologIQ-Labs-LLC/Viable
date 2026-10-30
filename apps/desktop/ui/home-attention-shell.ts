@@ -1,5 +1,8 @@
 import type { CampaignWorkspace } from "../../../src/campaigns/domain/campaign.js";
 import {
+  attentionActionLabel,
+  attentionStateName,
+  attentionSurfaceName,
   deriveHomeAttention,
   type HomeAttentionItem,
   type HomeAttentionSnapshot,
@@ -7,6 +10,7 @@ import {
   type HomeAttentionSourceFailure,
 } from "../../../src/ui/home-attention.js";
 import { LocalStorageActivationLearningStore } from "./local-storage-activation-learning-store.js";
+import { revealTarget } from "./reveal-target.js";
 import { LocalStorageCampaignWorkspaceStore } from "./local-storage-campaign-workspace-store.js";
 import { LocalStorageProductWorkspaceStore } from "./local-storage-product-workspace-store.js";
 import { LocalStorageRepositoryGrowthStore } from "./local-storage-repository-growth-store.js";
@@ -123,7 +127,7 @@ function renderHomeAttention(snapshot: HomeAttentionSnapshot): void {
   if (next) {
     next.dataset.homeAttentionSummary = top?.id ?? "empty";
     next.innerHTML = top
-      ? `<div><p class="eyebrow">What should I do now?</p><h3>${escapeHtml(top.title)}</h3><p>${escapeHtml(top.reason)}</p><small>${escapeHtml(label(top.surface))} · ${escapeHtml(label(top.state))}${top.owner ? ` · Owner: ${escapeHtml(top.owner)}` : ""}</small></div><button class="primary" type="button" data-home-attention-open="${escapeHtml(top.id)}" aria-label="${escapeHtml(`${top.target.recordId ? "Open exact record" : "Open prerequisite"}: ${top.title}`)}">${top.target.recordId ? "Open exact record" : "Open prerequisite"}</button>`
+      ? `<div><p class="eyebrow">What should I do now?</p><h3>${escapeHtml(top.title)}</h3><p>${escapeHtml(top.reason)}</p><small>${escapeHtml(attentionSurfaceName(top.surface))} · ${escapeHtml(attentionStateName(top.state))}${top.owner ? ` · Owner: ${escapeHtml(top.owner)}` : ""}</small></div><button class="primary" type="button" data-home-attention-open="${escapeHtml(top.id)}" aria-label="${escapeHtml(`${attentionActionLabel(top)}: ${top.title}`)}">${escapeHtml(attentionActionLabel(top))}</button>`
       : `<div><p class="eyebrow">What should I do now?</p><h3>No recorded attention item is currently waiting.</h3><p>This means the successfully loaded Viable workflows did not expose an explicit recovery, review, blocked, active, scheduled, or learning item. It is not proof that no work exists.</p></div>`;
   }
 
@@ -141,10 +145,10 @@ function attentionMarkup(snapshot: HomeAttentionSnapshot): string {
     ? `<section class="state warning" role="status"><strong>Home is using partial local context.</strong><span>${snapshot.sourceFailures.map((failure) => `${escapeHtml(label(failure.source))}: ${escapeHtml(failure.detail)}`).join(" · ")} Recommendations below come only from workflows that loaded successfully. Missing context is not treated as success or empty work.</span></section>`
     : "";
   const cards = snapshot.items.length
-    ? snapshot.items.slice(0, 12).map((item, index) => `<article class="record" data-home-attention-item="${escapeHtml(item.id)}"><div class="record-top"><h4>${index === 0 ? "Next: " : ""}${escapeHtml(item.title)}</h4>${pill(item)}</div><p>${escapeHtml(item.reason)}</p><dl><div><dt>Workflow</dt><dd>${escapeHtml(label(item.surface))}</dd></div><div><dt>State</dt><dd>${escapeHtml(label(item.state))}</dd></div>${item.owner ? `<div><dt>Owner</dt><dd>${escapeHtml(item.owner)}</dd></div>` : ""}${item.timestamp ? `<div><dt>${escapeHtml(item.timestampLabel ?? "Recorded time")}</dt><dd>${escapeHtml(new Date(item.timestamp).toLocaleString())}</dd></div>` : ""}</dl>${item.evidence.length ? `<details><summary>Why this is here</summary><ul>${item.evidence.slice(0, 6).map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ul></details>` : ""}<button type="button" data-home-attention-open="${escapeHtml(item.id)}" aria-label="${escapeHtml(`${item.target.recordId ? "Open exact record" : "Open prerequisite"}: ${item.title}`)}">${item.target.recordId ? "Open exact record" : "Open prerequisite"}</button></article>`).join("")
+    ? snapshot.items.slice(0, 12).map((item, index) => `<article class="record" data-home-attention-item="${escapeHtml(item.id)}"><div class="record-top"><h4>${index === 0 ? "Next: " : ""}${escapeHtml(item.title)}</h4>${pill(item)}</div><p>${escapeHtml(item.reason)}</p><dl><div><dt>Where</dt><dd>${escapeHtml(attentionSurfaceName(item.surface))}</dd></div><div><dt>State</dt><dd>${escapeHtml(attentionStateName(item.state))}</dd></div>${item.owner ? `<div><dt>Owner</dt><dd>${escapeHtml(item.owner)}</dd></div>` : ""}${item.timestamp ? `<div><dt>${escapeHtml(item.timestampLabel ?? "Recorded time")}</dt><dd>${escapeHtml(new Date(item.timestamp).toLocaleString())}</dd></div>` : ""}</dl>${item.evidence.length ? `<details><summary>Why this is here</summary><ul>${item.evidence.slice(0, 6).map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ul></details>` : ""}<button type="button" data-home-attention-open="${escapeHtml(item.id)}" aria-label="${escapeHtml(`${attentionActionLabel(item)}: ${item.title}`)}">${escapeHtml(attentionActionLabel(item))}</button></article>`).join("")
     : `<div class="state empty"><strong>No cross-workflow attention is currently recorded.</strong><span>This is not evidence that no market or product work exists. It means no explicit attention state was found in the local workflows that loaded successfully.</span></div>`;
   const overflow = snapshot.items.length > 12 ? `<p class="guidance">Showing the first 12 of ${snapshot.items.length} explicit attention items in deterministic state order. Open the owning workflows for the remaining records.</p>` : "";
-  return `<div class="section-heading"><div><p class="eyebrow">Cross-workflow attention</p><h3 id="home-attention-heading">What needs attention, and why</h3></div><span class="pill neutral">${snapshot.items.length} explicit items</span></div><p class="guidance">Home is read-only. It orders existing workflow states as recovery, review, blocked/stale, owned action, scheduled follow-up, then learning. It does not approve, mutate, publish, deliver, or invent a business-value score.</p>${partial}<div class="cards">${cards}</div>${overflow}`;
+  return `<div class="section-heading"><div><p class="eyebrow">Cross-workflow attention</p><h3 id="home-attention-heading">What needs attention, and why</h3></div><span class="pill neutral">${snapshot.items.length} ${snapshot.items.length === 1 ? "item" : "items"}</span></div><p class="guidance">Recovery comes first, then reviews, blocked work, your open actions, scheduled follow-ups, and learning. Opening an item takes you to the record; nothing is approved or changed from Home.</p>${partial}<div class="cards">${cards}</div>${overflow}`;
 }
 
 function renderAttentionFailure(error: unknown): void {
@@ -255,6 +259,12 @@ async function focusCandidate(item: HomeAttentionItem): Promise<HTMLElement | un
       const ordered = activation.calendarEntries.slice().sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
       return indexedElement(ordered.map((entry) => entry.id), item.target.recordId, ".calendar-list > article.calendar-card");
     }
+    if (item.surface === "analytics" && item.target.recordKind === "measurement_prerequisite") {
+      // Open the plan form with the delivered entry already chosen.
+      const select = main.querySelector<HTMLSelectElement>('form[data-form="activation-measurement-plan"] select[name="calendarEntryId"]');
+      if (select && [...select.options].some((option) => option.value === item.target.recordId)) select.value = item.target.recordId ?? select.value;
+      return main.querySelector<HTMLElement>("#measurement-plan-heading")?.closest<HTMLElement>("section.panel") ?? undefined;
+    }
     if (item.surface === "analytics" && item.target.recordKind === "measurement_plan") return indexedPanelList(activation.measurementPlans.map((entry) => entry.id), item.target.recordId, "#measurement-plan-heading");
     if (item.surface === "analytics" && item.target.recordKind === "performance_import") return indexedPanelList(activation.performanceImports.slice().reverse().map((entry) => entry.id), item.target.recordId, "#performance-import-heading");
     if (item.surface === "analytics" && item.target.recordKind === "learning") return indexedPanelList(activation.learningLedger.slice().reverse().map((entry) => entry.id), item.target.recordId, "#learning-ledger-heading");
@@ -292,10 +302,8 @@ function indexed(ids: readonly string[], id: string | undefined, elements: reado
 }
 
 function focusElement(target: HTMLElement, item: HomeAttentionItem): void {
-  target.tabIndex = -1;
-  target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: "center", behavior: "smooth" });
-  announce(`Opened ${label(item.surface)}: ${item.title}`);
+  revealTarget(target);
+  announce(`Opened ${attentionSurfaceName(item.surface)}: ${item.title}`);
 }
 
 function cssEscape(value: string): string {

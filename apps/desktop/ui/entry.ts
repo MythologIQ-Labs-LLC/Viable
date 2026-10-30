@@ -28,6 +28,7 @@ import "./revision-completion-shell.js";
 import "./revision-history-shell.js";
 import "./authority-revalidation-shell.js";
 import "./progressive-draft-shell.js";
+import "./unsaved-form-guard.js";
 import "./stale-draft-evidence-shell.js";
 import "./draft-step-continuity-shell.js";
 import "./interaction-accessibility-shell.js";
