@@ -1266,7 +1266,7 @@ async function run() {
           })),
         );
         check(signalNames.length >= 2, "Signals acceptance seed contains multiple distinguishable signal cards");
-        check(signalNames.every((card) => card.group === "group" && /^Signal: .+ \\(record .+\\)$/.test(card.label)), "Signals cards expose explicit named groups with stable record disambiguators");
+        check(signalNames.every((card) => card.group === "group" && card.label.startsWith("Signal: ") && card.label.includes(" (record ") && card.label.endsWith(")")), "Signals cards expose explicit named groups with stable record disambiguators");
         check(signalNames.every((card) => card.actions.every((action) =>
           action.label.length > 0 && action.label.includes(card.label.replace(/^Signal: /, "")))),
           "Signals action names preserve the precise owning card identity in the browser DOM");
