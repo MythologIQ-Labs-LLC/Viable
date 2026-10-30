@@ -618,7 +618,7 @@ ${escapeHtml(signal.summary)}</textarea></label>
 
   private signalCard(signal: SignalRecord, readonly = false): string {
     const reviewed = signal.evidenceState === "reviewed";
-    return `<article class="record signal-card" aria-label="Signal: ${escapeHtml(signal.title)} (record ${escapeHtml(signal.id)})">
+    return `<article class="record signal-card" role="group" aria-label="Signal: ${escapeHtml(signal.title)} (record ${escapeHtml(signal.id)})">
       <div class="record-top"><h4>${escapeHtml(signal.title)}</h4><div>${pill(signal.kind)} ${pill(signal.status)} ${pill(signal.evidenceState)}</div></div>
       <p>${escapeHtml(signal.summary)}</p>
       <dl><div><dt>Source</dt><dd>${escapeHtml(this.sourceName(signal.sourceId))}</dd></div><div><dt>Retrieved</dt><dd>${humanDate(signal.provenance.retrievedAt)}</dd></div><div><dt>Freshness review</dt><dd>${humanDate(signal.freshnessReviewAt)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(signal.confidence)}</dd></div></dl>
