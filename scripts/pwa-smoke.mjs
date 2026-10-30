@@ -1255,6 +1255,21 @@ async function run() {
         await go("signals");
         const signalsText = (await journey.locator("#main").textContent()) ?? "";
         check(!signalsText.includes("manual:ledgerly-community-notes-2026-09") && signalsText.includes("Manual JSON import ("), "Signals names sources instead of showing internal source IDs");
+        const signalNames = await journey.locator("#main article.signal-card").evaluateAll((cards) =>
+          cards.map((card) => ({
+            group: card.getAttribute("role"),
+            label: card.getAttribute("aria-label") ?? "",
+            actions: [...card.querySelectorAll('button[data-signal-action]')].map((button) => ({
+              action: button.getAttribute("data-signal-action"),
+              label: button.getAttribute("aria-label") ?? "",
+            })),
+          })),
+        );
+        check(signalNames.length >= 2, "Signals acceptance seed contains multiple distinguishable signal cards");
+        check(signalNames.every((card) => card.group === "group" && /^Signal: .+ \\(record .+\\)$/.test(card.label)), "Signals cards expose explicit named groups with stable record disambiguators");
+        check(signalNames.every((card) => card.actions.every((action) =>
+          action.label.length > 0 && action.label.includes(card.label.replace(/^Signal: /, "")))),
+          "Signals action names preserve the precise owning card identity in the browser DOM");
         const studios = () => journey.locator("#main article", { hasText: "Studio owners asking for receipt matching" }).first();
         await studios().locator("summary", { hasText: "Convert to proposed work" }).click();
         await studios().locator('form[data-form="signals-convert"] button[type="submit"]').click();
