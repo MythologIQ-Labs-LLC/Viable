@@ -1236,6 +1236,9 @@ async function run() {
         // A two-field inline form must answer the controller's prompts in
         // order: reviewer, then note (#147).
         await go("calendar");
+        const launchPills = await journey.locator('[data-calendar-entry-id="calendar-1"] .status-stack .pill').allTextContents();
+        check(launchPills.length === 2 && launchPills[0].startsWith("Schedule:") && launchPills[1].startsWith("Activation:"),
+          `a calendar entry names its schedule and activation states separately (${launchPills.join(" | ")})`);
         const fillRequired = async (form) => {
           for (const field of await form.locator("input[required], textarea[required]").all()) {
             if (await field.inputValue()) continue;

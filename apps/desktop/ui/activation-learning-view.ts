@@ -30,6 +30,9 @@ const tone = (value: string): string =>
     : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected", "insufficient", "emerging"].includes(value) ? "warning"
       : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable", "conflict"].includes(value) ? "error" : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
+// A calendar entry carries two independent states; naming each keeps
+// "scheduled" and "delivered" from reading as a contradiction.
+const labelledPill = (name: string, value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(name)}: ${escapeHtml(label(value))}</span>`;
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
 const toIso = (value: FormDataEntryValue | null, name: string): string => {
   const date = new Date(String(value ?? ""));
@@ -424,7 +427,7 @@ export class ActivationLearningViewController {
       if (entry.scheduleStatus === "scheduled" && !packageRecord) actions.push(`<button class="primary" type="button" data-activation-action="create-package" data-id="${entry.id}">Create manual activation package</button>`);
       if (!['cancelled'].includes(entry.scheduleStatus) && entry.activationStatus !== "delivered") actions.push(`<button type="button" data-activation-action="cancel-entry" data-id="${entry.id}">Cancel</button>`);
     }
-    return `<article class="calendar-card" data-calendar-entry-id="${escapeHtml(entry.id)}"><div class="card-heading"><div><h4>${escapeHtml(entry.title)}</h4><p>${humanDate(entry.startsAt)} · ${escapeHtml(entry.timezone)}</p></div><div class="status-stack">${pill(entry.scheduleStatus)}${pill(entry.activationStatus)}</div></div>
+    return `<article class="calendar-card" data-calendar-entry-id="${escapeHtml(entry.id)}"><div class="card-heading"><div><h4>${escapeHtml(entry.title)}</h4><p>${humanDate(entry.startsAt)} · ${escapeHtml(entry.timezone)}</p></div><div class="status-stack">${labelledPill("Schedule", entry.scheduleStatus)}${labelledPill("Activation", entry.activationStatus)}</div></div>
       <p>${escapeHtml(entry.notes || "No notes")}</p>
       <div class="calendar-meta"><span><strong>Kind</strong>${escapeHtml(label(entry.kind))}</span><span><strong>Owner</strong>${escapeHtml(entry.owner)}</span><span><strong>Source</strong>${entry.source ? escapeHtml(`${label(entry.source.kind)} · ${entry.source.title}`) : "Internal planning"}</span><span><strong>Review</strong>${entry.reviewedBy ? escapeHtml(`${entry.reviewedBy} · ${humanDate(entry.reviewedAt)}`) : "Not required or not reviewed"}</span></div>
       ${actions.length ? `<div class="actions">${actions.join("")}</div>` : ""}</article>`;
