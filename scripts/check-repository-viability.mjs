@@ -54,6 +54,9 @@ for (const requiredPath of ['- "src/**"', '- "tsconfig.json"', '- "scripts/clean
   requireCondition(count >= 2, `Desktop workflow must cover ${requiredPath.slice(2)} for pull requests and main pushes`);
 }
 requireCondition(desktopWorkflow.includes('toolchain: "1.88.0"'), "Desktop CI must validate the declared Rust minimum version");
+requireCondition(desktopWorkflow.includes("runs-on: windows-latest") && desktopWorkflow.includes("workflow_dispatch:"), "Desktop CI must keep a dispatchable native Windows qualification job");
+// tauri-build embeds a Windows resource from icons/icon.ico; without it no Windows build can succeed.
+requireCondition((tauriConfig.bundle?.icon ?? []).includes("icons/icon.ico") && await exists(resolve(root, "apps/desktop/src-tauri/icons/icon.ico")), "Tauri bundle must ship the Windows icon (icons/icon.ico)");
 requireCondition(await exists(resolve(root, ".github/dependabot.yml")), "Dependabot must cover dependency and workflow update proposals");
 
 for (const path of gitFiles(".github/workflows/*.yml", ".github/workflows/*.yaml")) {
