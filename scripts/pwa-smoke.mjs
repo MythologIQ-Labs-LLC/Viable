@@ -1235,7 +1235,13 @@ async function run() {
 
         // A two-field inline form must answer the controller's prompts in
         // order: reviewer, then note (#147).
+        // #195 media pass: a newly opened view starts at its top, not at the
+        // previous view's scroll offset.
+        await go("studio");
+        const leftAt = await journey.evaluate(() => { scrollTo({ top: 2500, behavior: "instant" }); return scrollY; });
         await go("calendar");
+        const openedAt = await journey.evaluate(() => scrollY);
+        check(leftAt > 1000 && openedAt === 0, `opening Calendar from far down Studio starts at the top (left at ${leftAt}, opened at ${openedAt})`);
         const launchPills = await journey.locator('[data-calendar-entry-id="calendar-1"] .status-stack .pill').allTextContents();
         check(launchPills.length === 2 && launchPills[0].startsWith("Schedule:") && launchPills[1].startsWith("Activation:"),
           `a calendar entry names its schedule and activation states separately (${launchPills.join(" | ")})`);
