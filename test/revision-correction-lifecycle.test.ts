@@ -295,3 +295,88 @@ test("selected ICP correction invalidates approved campaigns that depended on th
   assert.equal(workspace.campaigns.find((candidate) => candidate.id === campaignId)?.status, "approval_invalidated");
   assert.match(workspace.campaigns[0]!.reviewNote ?? "", /selected ICP authority changed|Product Core/);
 });
+
+// Stale-view guard: a review decision or correction carries the version the
+// acting view rendered, so another tab's newer saved version is never
+// approved or overwritten under a reviewer's name.
+async function approvedAssetFixture() {
+  const value = await approvedCampaignFixture();
+  let workspace = await value.campaignCore.createCanonicalAsset("workspace-1", {
+    campaignId: value.campaignId, title: "Canonical", body: "Canonical meaning", owner: "Writer", origin: "human",
+    rights: ["Owned"], accessibilityRequirements: ["Plain language"], disclosureRequirements: [],
+  });
+  const assetId = workspace.assets[0]!.id;
+  await value.campaignCore.submitAsset("workspace-1", assetId);
+  workspace = await value.campaignCore.reviewAsset("workspace-1", assetId, "Asset reviewer", "approved", "Approved", 1);
+  return { ...value, workspace, assetId };
+}
+
+test("a reviewer cannot approve a variant version that changed after their view rendered it", async () => {
+  const { campaignCore, campaignRevision, campaigns, assetId } = await approvedAssetFixture();
+  let workspace = await campaignCore.createVariant("workspace-1", assetId, "linkedin", "Supported copy you confirm each match", ["Keep concise"]);
+  const variantId = workspace.variants[0]!.id;
+  await campaignCore.submitVariant("workspace-1", variantId);
+  // Tab A renders version 1 in review. Tab B then requests changes, saves an
+  // unsupported correction (version 2) and resubmits it.
+  await campaignCore.reviewVariant("workspace-1", variantId, "Pat Lee", "changes_requested", "Tweak", 1);
+  await campaignRevision.reviseVariant("workspace-1", variantId, {
+    expectedVersion: 1, editor: "Pat Lee", rationale: "Swap", body: "Zero manual entry and guaranteed tax savings", constraints: ["Keep concise"],
+  });
+  await campaignCore.submitVariant("workspace-1", variantId);
+
+  await assert.rejects(
+    () => campaignCore.reviewVariant("workspace-1", variantId, "Sam Okafor", "approved", "Matches the approved claim", 1),
+    /changed after it was opened here: this view shows version 1, but version 2 is now saved/,
+  );
+  const stored = campaigns.value!.variants[0]!;
+  assert.equal(stored.status, "in_review");
+  assert.equal(stored.version, 2);
+  assert.notEqual(stored.reviewedBy, "Sam Okafor");
+
+  workspace = await campaignCore.reviewVariant("workspace-1", variantId, "Sam Okafor", "changes_requested", "Unsupported claim", 2);
+  assert.equal(workspace.variants[0]!.status, "changes_requested");
+  assert.equal(workspace.variants[0]!.reviewedBy, "Sam Okafor");
+});
+
+test("stale campaign and canonical asset review decisions are refused without changing the record", async () => {
+  const { campaignCore, campaignRevision, campaigns, campaignId, assetId } = await approvedAssetFixture();
+  await campaignCore.reviseCanonicalAsset("workspace-1", assetId, "Writer", "Canonical meaning, revised", "Clarify", 1);
+  await campaignCore.submitAsset("workspace-1", assetId);
+  await assert.rejects(() => campaignCore.reviewAsset("workspace-1", assetId, "Reviewer", "approved", "Fine", 1), /version 2 is now saved/);
+  assert.equal(campaigns.value!.assets[0]!.status, "in_review");
+  await campaignCore.reviewAsset("workspace-1", assetId, "Reviewer", "approved", "Fine", 2);
+  assert.equal(campaigns.value!.assets[0]!.status, "approved");
+
+  await campaignRevision.reviseCampaign("workspace-1", campaignId, {
+    ...campaignInput, expectedVersion: 1, editor: "Owner", rationale: "Sharpen offer", offer: "30-day internal pilot",
+  });
+  await campaignCore.submitCampaign("workspace-1", campaignId);
+  await assert.rejects(() => campaignCore.reviewCampaign("workspace-1", campaignId, "Reviewer", "approved", "Fine", 1), /version 2 is now saved/);
+  assert.equal(campaigns.value!.campaigns[0]!.status, "in_review");
+  await assert.rejects(() => campaignCore.reviewCampaign("workspace-1", campaignId, "Reviewer", "approved", "Fine", Number.NaN), /changed after it was opened/);
+});
+
+test("a correction made from a stale view never overwrites a newer saved correction", async () => {
+  const { campaignCore, campaignRevision, campaigns, campaignId, assetId } = await approvedAssetFixture();
+  const workspace = await campaignCore.createVariant("workspace-1", assetId, "website", "Original body", ["Preserve meaning"]);
+  const variantId = workspace.variants[0]!.id;
+  // Both tabs render version 1; tab B saves first.
+  await campaignRevision.reviseVariant("workspace-1", variantId, { expectedVersion: 1, editor: "B", rationale: "B fix", body: "Tab B correction", constraints: ["Preserve meaning"] });
+  await assert.rejects(
+    () => campaignRevision.reviseVariant("workspace-1", variantId, { expectedVersion: 1, editor: "A", rationale: "A fix", body: "Tab A correction", constraints: ["Preserve meaning"] }),
+    /version 2 is now saved/,
+  );
+  assert.equal(campaigns.value!.variants[0]!.body, "Tab B correction");
+  assert.equal(campaigns.value!.variants[0]!.version, 2);
+
+  await campaignCore.reviseCanonicalAsset("workspace-1", assetId, "B", "Asset by B", "B note", 1);
+  await assert.rejects(() => campaignCore.reviseCanonicalAsset("workspace-1", assetId, "A", "Asset by A", "A note", 1), /version 2 is now saved/);
+  assert.equal(campaigns.value!.assets[0]!.versions.at(-1)!.body, "Asset by B");
+
+  await campaignRevision.reviseCampaign("workspace-1", campaignId, { ...campaignInput, expectedVersion: 1, editor: "B", rationale: "B", offer: "Offer by B" });
+  await assert.rejects(
+    () => campaignRevision.reviseCampaign("workspace-1", campaignId, { ...campaignInput, expectedVersion: 1, editor: "A", rationale: "A", offer: "Offer by A" }),
+    /version 2 is now saved/,
+  );
+  assert.equal(campaigns.value!.campaigns[0]!.offer, "Offer by B");
+});

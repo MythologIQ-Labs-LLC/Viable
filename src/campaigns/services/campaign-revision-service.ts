@@ -1,3 +1,4 @@
+import { requireCurrentVersion } from "./current-version.js";
 import { isReviewedEvidence } from "../../product-core/domain/evidence.js";
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
@@ -22,6 +23,8 @@ type DescendantState = Readonly<{
 }>;
 
 type CampaignCorrectionInput = Readonly<{
+  /** Version the correcting view rendered; a newer saved version rejects the correction. */
+  expectedVersion?: number | undefined;
   editor: string;
   rationale: string;
   title: string;
@@ -46,6 +49,8 @@ type CampaignCorrectionInput = Readonly<{
 }>;
 
 export type ContentBriefCorrectionInput = Readonly<{
+  /** Version the correcting view rendered; a newer saved version rejects the correction. */
+  expectedVersion?: number | undefined;
   editor: string;
   rationale: string;
   title: string;
@@ -58,6 +63,8 @@ export type ContentBriefCorrectionInput = Readonly<{
 }>;
 
 export type ChannelVariantCorrectionInput = Readonly<{
+  /** Version the correcting view rendered; a newer saved version rejects the correction. */
+  expectedVersion?: number | undefined;
   editor: string;
   rationale: string;
   body: string;
@@ -80,6 +87,7 @@ export class CampaignRevisionService {
     const [workspace, product] = await Promise.all([this.load(workspaceId), this.requiredProduct(workspaceId)]);
     const current = required(workspace.campaigns, campaignId, "Campaign");
     if (current.status === "in_review") throw new Error("A campaign in review must receive a review decision before it can be revised");
+    requireCurrentVersion("campaign", current.version, input.expectedVersion);
     this.validateAudience(product, input.audienceKind, input.icpHypothesisId);
     const claimReferences = this.claimReferences(product, input.claimIds, input.evidenceIds, input.channels);
     const changedFields = campaignChangedFields(current, input, claimReferences);
@@ -130,6 +138,7 @@ export class CampaignRevisionService {
     const workspace = await this.load(workspaceId);
     const current = required(workspace.contentBriefs ?? [], briefId, "Content brief");
     if (current.status === "in_review") throw new Error("A content brief in review must receive a review decision before it can be revised");
+    requireCurrentVersion("content brief", current.version ?? 1, input.expectedVersion);
     required(workspace.campaigns, current.campaignId, "Campaign");
     const changedFields = contentBriefChangedFields(current, input);
     if (changedFields.length === 0) throw new Error("Change at least one content brief field before saving a revision");
@@ -166,6 +175,7 @@ export class CampaignRevisionService {
     const workspace = await this.load(workspaceId);
     const current = required(workspace.variants, variantId, "Channel variant");
     if (current.status === "in_review") throw new Error("A channel variant in review must receive a review decision before it can be revised");
+    requireCurrentVersion("channel variant", current.version, input.expectedVersion);
     const discoverability = input.discoverability === undefined
       ? current.discoverability
       : input.discoverability === null ? undefined : normalizeDiscoverabilityBrief(input.discoverability);

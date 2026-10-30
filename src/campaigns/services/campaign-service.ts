@@ -1,3 +1,4 @@
+import { currentAssetVersion, requireCurrentVersion } from "./current-version.js";
 import type { ProductWorkspace } from "../../product-core/domain/workspace.js";
 import { isReviewedEvidence } from "../../product-core/domain/evidence.js";
 import type { ProductWorkspaceStore } from "../../product-core/ports/product-workspace-store.js";
@@ -85,12 +86,13 @@ export class CampaignService {
     });
   }
 
-  async reviewCampaign(workspaceId: string, campaignId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
+  async reviewCampaign(workspaceId: string, campaignId: string, reviewer: string, decision: ReviewDecision, note: string, expectedVersion?: number): Promise<CampaignWorkspace> {
     requireText(reviewer, "Named campaign reviewer");
     requireText(note, "Campaign review note");
     const product = decision === "approved" ? await this.requiredProduct(workspaceId) : undefined;
     return this.changeCampaign(workspaceId, campaignId, (campaign) => {
       if (campaign.status !== "in_review") throw new Error("Campaign must be in review");
+      requireCurrentVersion("campaign", campaign.version, expectedVersion);
       if (product) this.validateCampaignAuthority(product, campaign);
       const now = this.clock().toISOString();
       return { ...campaign, status: decision, reviewedBy: reviewer.trim(), reviewedAt: now, reviewNote: note.trim(), updatedAt: now };
@@ -173,9 +175,11 @@ export class CampaignService {
     return this.persist({ ...workspace, assets: [...workspace.assets, asset], updatedAt: now });
   }
 
-  async reviseCanonicalAsset(workspaceId: string, assetId: string, editor: string, body: string, note: string): Promise<CampaignWorkspace> {
+  async reviseCanonicalAsset(workspaceId: string, assetId: string, editor: string, body: string, note: string, expectedVersion?: number): Promise<CampaignWorkspace> {
     requireText(editor, "Named asset editor"); requireText(body, "Canonical asset body"); requireText(note, "Asset change note");
     const workspace = await this.load(workspaceId);
+    const existing = workspace.assets.find((asset) => asset.id === assetId);
+    if (existing) requireCurrentVersion("canonical asset", currentAssetVersion(existing), expectedVersion);
     const now = this.clock().toISOString();
     const assets = workspace.assets.map((asset) => {
       if (asset.id !== assetId) return asset;
@@ -204,11 +208,12 @@ export class CampaignService {
     });
   }
 
-  async reviewAsset(workspaceId: string, assetId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
+  async reviewAsset(workspaceId: string, assetId: string, reviewer: string, decision: ReviewDecision, note: string, expectedVersion?: number): Promise<CampaignWorkspace> {
     requireText(reviewer, "Named asset reviewer"); requireText(note, "Asset review note");
     const workspace = await this.load(workspaceId);
     const asset = required(workspace.assets, assetId, "Canonical asset");
     if (asset.status !== "in_review") throw new Error("Asset must be in review");
+    requireCurrentVersion("canonical asset", currentAssetVersion(asset), expectedVersion);
     if (decision === "approved") {
       const product = await this.requiredProduct(workspaceId);
       const campaign = required(workspace.campaigns, asset.campaignId, "Campaign");
@@ -257,11 +262,12 @@ export class CampaignService {
     });
   }
 
-  async reviewVariant(workspaceId: string, variantId: string, reviewer: string, decision: ReviewDecision, note: string): Promise<CampaignWorkspace> {
+  async reviewVariant(workspaceId: string, variantId: string, reviewer: string, decision: ReviewDecision, note: string, expectedVersion?: number): Promise<CampaignWorkspace> {
     requireText(reviewer, "Named variant reviewer"); requireText(note, "Variant review note");
     const workspace = await this.load(workspaceId);
     const variant = required(workspace.variants, variantId, "Channel variant");
     if (variant.status !== "in_review") throw new Error("Variant must be in review");
+    requireCurrentVersion("channel variant", variant.version, expectedVersion);
     if (decision === "approved") {
       const product = await this.requiredProduct(workspaceId);
       const asset = required(workspace.assets, variant.canonicalAssetId, "Canonical asset");
