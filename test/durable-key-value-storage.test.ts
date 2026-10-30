@@ -383,3 +383,39 @@ test("migration ignores a forged legacy marker and preserves existing authoritat
   assert.equal(result.storage.getItem("viable.signals-inbox.ws"), "candidate");
   assert.notEqual(result.storage.getItem(MIGRATION_MARKER_KEY), "forged legacy marker");
 });
+
+test("a write built from an earlier read cannot absorb another tab's change that arrived in between", async () => {
+  const backend = new MemoryBackend();
+  backend.data.set(MIGRATION_MARKER_KEY, "{}");
+  backend.data.set("viable.video-production.w1", JSON.stringify({ variants: ["seen-by-a"] }));
+  const { storage: tabA } = await DurableKeyValueStorage.open(backend);
+  const { storage: tabB } = await DurableKeyValueStorage.open(backend);
+  // Tab A's service loads, then awaits other work before saving.
+  const loadedByA = JSON.parse(tabA.getItem("viable.video-production.w1")!) as { variants: string[] };
+  // Meanwhile tab B commits an unrelated addition and the broadcast reaches tab A.
+  tabB.setItem("viable.video-production.w1", JSON.stringify({ variants: ["seen-by-a", "added-by-b"] }));
+  await tabB.commit();
+  tabA.applyExternal([{ key: "viable.video-production.w1", value: backend.data.get("viable.video-production.w1")! }]);
+  tabA.setItem("viable.video-production.w1", JSON.stringify({ variants: loadedByA.variants, reviewed: true }));
+  await assert.rejects(() => tabA.commit(), DurableStorageConflictError);
+  assert.match(backend.data.get("viable.video-production.w1")!, /added-by-b/);
+  // Re-reading (what a reload or the next service call does) makes the write current again.
+  const fresh = JSON.parse(tabA.getItem("viable.video-production.w1")!) as { variants: string[] };
+  tabA.setItem("viable.video-production.w1", JSON.stringify({ variants: fresh.variants, reviewed: true }));
+  await tabA.commit();
+  assert.deepEqual(JSON.parse(backend.data.get("viable.video-production.w1")!), { variants: ["seen-by-a", "added-by-b"], reviewed: true });
+});
+
+test("a failed commit leaves the next write based on the committed value, not the unsaved one", async () => {
+  const backend = new MemoryBackend();
+  backend.data.set(MIGRATION_MARKER_KEY, "{}");
+  backend.data.set("viable.key", "committed");
+  const { storage } = await DurableKeyValueStorage.open(backend);
+  storage.getItem("viable.key");
+  storage.setItem("viable.key", "attempt-1");
+  backend.failNext = true;
+  await assert.rejects(() => storage.commit(), DurableStorageCommitError);
+  storage.setItem("viable.key", "attempt-2");
+  await storage.commit();
+  assert.equal(backend.data.get("viable.key"), "attempt-2");
+});

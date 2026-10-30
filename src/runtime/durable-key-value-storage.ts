@@ -69,6 +69,12 @@ export class DurableKeyValueStorage {
   // Snapshot the previously observed value at first edit, not at commit time:
   // an external notification cannot reauthorize a stale whole-workspace edit.
   private readonly pendingExpected = new Map<string, string | null>();
+  // The value this tab last read (or wrote) for each key. A write is based on
+  // what the tab read, so that is what it must still find in storage. Using
+  // the current snapshot instead would let a cross-tab notification arriving
+  // between a service's load and save "reauthorize" a write built from older
+  // data, silently discarding the other tab's committed change.
+  private readonly lastRead = new Map<string, string | null>();
   private readonly inFlightKeys = new Set<string>();
   private commitChain: Promise<void> = Promise.resolve();
   private readonly listeners = new Set<(changes: readonly StorageChange[]) => void>();
@@ -109,19 +115,27 @@ export class DurableKeyValueStorage {
   }
 
   getItem(key: string): string | null {
-    return this.snapshot.get(key) ?? null;
+    const value = this.snapshot.get(key) ?? null;
+    this.lastRead.set(key, value);
+    return value;
   }
 
   setItem(key: string, value: string): void {
-    if (!this.pending.has(key)) this.pendingExpected.set(key, this.snapshot.get(key) ?? null);
+    if (!this.pending.has(key)) this.pendingExpected.set(key, this.baseline(key));
     this.snapshot.set(key, String(value));
     this.pending.set(key, String(value));
+    this.lastRead.set(key, String(value));
   }
 
   removeItem(key: string): void {
-    if (!this.pending.has(key)) this.pendingExpected.set(key, this.snapshot.get(key) ?? null);
+    if (!this.pending.has(key)) this.pendingExpected.set(key, this.baseline(key));
     this.snapshot.delete(key);
     this.pending.set(key, null);
+    this.lastRead.set(key, null);
+  }
+
+  private baseline(key: string): string | null {
+    return this.lastRead.has(key) ? this.lastRead.get(key) ?? null : this.snapshot.get(key) ?? null;
   }
 
   hasPendingChanges(): boolean {
@@ -170,6 +184,8 @@ export class DurableKeyValueStorage {
         if (this.pending.has(key)) continue;
         const previous = this.committed.get(key);
         if (previous === undefined) this.snapshot.delete(key); else this.snapshot.set(key, previous);
+        // The unsaved value was never stored; a retry is based on what is committed here.
+        this.lastRead.set(key, previous ?? null);
       }
       if (error instanceof DurableStorageConflictError) throw error;
       throw new DurableStorageCommitError(
