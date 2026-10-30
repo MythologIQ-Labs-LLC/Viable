@@ -54,7 +54,9 @@ function restore(form: HTMLFormElement, value: FormSnapshot): void {
   const grouped = new Map<string, string[]>();
   for (const [name, entry] of value.entries) grouped.set(name, [...(grouped.get(name) ?? []), entry]);
 
-  for (const control of form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input[name], textarea[name], select[name]")) {
+  // Hidden fields are rendered authority (record IDs, the version a form was
+  // built from), not user input: restoring an old one would pin a stale version.
+  for (const control of form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input[name]:not([type=hidden]), textarea[name], select[name]")) {
     if (control instanceof HTMLInputElement && (control.type === "checkbox" || control.type === "radio")) {
       control.checked = (grouped.get(control.name) ?? []).includes(control.value);
       continue;

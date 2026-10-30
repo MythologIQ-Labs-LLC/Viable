@@ -14,6 +14,7 @@ import type {
   ManualExportPackage,
 } from "../../../src/campaigns/domain/campaign.js";
 import { CampaignService } from "../../../src/campaigns/services/campaign-service.js";
+import { renderedVersion } from "../../../src/campaigns/services/current-version.js";
 import {
   CompositionExperimentService,
   type CompositionAssessment,
@@ -214,6 +215,7 @@ export class CampaignsViewController {
           String(form.get("editor")),
           String(form.get("body")),
           String(form.get("note")),
+          renderedVersion(form.get("expectedVersion")),
         );
         return "Canonical asset revision saved and prior approval invalidated when required";
       }
@@ -279,21 +281,21 @@ export class CampaignsViewController {
         return "Campaign submitted for named review";
       }
       if (action === "review-campaign" && id) {
-        return await this.reviewCampaign(id, button.dataset.decision);
+        return await this.reviewCampaign(id, button.dataset.decision, renderedVersion(button.dataset.version));
       }
       if (action === "submit-asset" && id) {
         this.campaigns = await this.campaignService.submitAsset(this.workspaceId, id);
         return "Canonical asset submitted for named review";
       }
       if (action === "review-asset" && id) {
-        return await this.reviewAsset(id, button.dataset.decision);
+        return await this.reviewAsset(id, button.dataset.decision, renderedVersion(button.dataset.version));
       }
       if (action === "submit-variant" && id) {
         this.campaigns = await this.campaignService.submitVariant(this.workspaceId, id);
         return "Channel variant submitted for named review";
       }
       if (action === "review-variant" && id) {
-        return await this.reviewVariant(id, button.dataset.decision);
+        return await this.reviewVariant(id, button.dataset.decision, renderedVersion(button.dataset.version));
       }
       if (action === "detect-claim-impact") {
         this.campaigns = await this.campaignService.detectClaimImpact(this.workspaceId);
@@ -314,33 +316,33 @@ export class CampaignsViewController {
     }
   }
 
-  private async reviewCampaign(id: string, value?: string): Promise<string | undefined> {
+  private async reviewCampaign(id: string, value: string | undefined, expectedVersion: number | undefined): Promise<string | undefined> {
     const decision = asDecision(value);
     const reviewer = prompt("Named campaign reviewer");
     if (!reviewer) return undefined;
     const note = prompt("Campaign review note");
     if (!note) return undefined;
-    this.campaigns = await this.campaignService.reviewCampaign(this.workspaceId, id, reviewer, decision, note);
+    this.campaigns = await this.campaignService.reviewCampaign(this.workspaceId, id, reviewer, decision, note, expectedVersion);
     return `Campaign review recorded: ${label(decision)}`;
   }
 
-  private async reviewAsset(id: string, value?: string): Promise<string | undefined> {
+  private async reviewAsset(id: string, value: string | undefined, expectedVersion: number | undefined): Promise<string | undefined> {
     const decision = asDecision(value);
     const reviewer = prompt("Named canonical asset reviewer");
     if (!reviewer) return undefined;
     const note = prompt("Canonical asset review note");
     if (!note) return undefined;
-    this.campaigns = await this.campaignService.reviewAsset(this.workspaceId, id, reviewer, decision, note);
+    this.campaigns = await this.campaignService.reviewAsset(this.workspaceId, id, reviewer, decision, note, expectedVersion);
     return `Canonical asset review recorded: ${label(decision)}`;
   }
 
-  private async reviewVariant(id: string, value?: string): Promise<string | undefined> {
+  private async reviewVariant(id: string, value: string | undefined, expectedVersion: number | undefined): Promise<string | undefined> {
     const decision = asDecision(value);
     const reviewer = prompt("Named channel variant reviewer");
     if (!reviewer) return undefined;
     const note = prompt("Channel variant review note");
     if (!note) return undefined;
-    this.campaigns = await this.campaignService.reviewVariant(this.workspaceId, id, reviewer, decision, note);
+    this.campaigns = await this.campaignService.reviewVariant(this.workspaceId, id, reviewer, decision, note, expectedVersion);
     return `Channel variant review recorded: ${label(decision)}`;
   }
 
@@ -415,7 +417,7 @@ export class CampaignsViewController {
       <p>${escapeHtml(campaign.objective)}</p>
       <dl><div><dt>Primary outcome</dt><dd>${escapeHtml(campaign.primaryOutcome)}</dd></div><div><dt>Primary audience</dt><dd>${escapeHtml(campaign.primaryAudience)}</dd></div><div><dt>Channels</dt><dd>${escapeHtml(campaign.channels.map((channel) => CHANNEL_LABELS[channel]).join(" · "))}</dd></div><div><dt>Claims</dt><dd>${campaign.claimReferences.length}</dd></div><div><dt>Reviewed evidence</dt><dd>${campaign.evidenceIds.length}</dd></div><div><dt>Owner</dt><dd>${escapeHtml(campaign.owner)}</dd></div><div><dt>Updated</dt><dd>${humanDate(campaign.updatedAt)}</dd></div></dl>
       <details><summary>Traceability and message</summary><p><strong>Problem:</strong> ${escapeHtml(campaign.problem)}</p><p><strong>Trigger:</strong> ${escapeHtml(campaign.trigger)}</p><p><strong>Offer:</strong> ${escapeHtml(campaign.offer)}</p><p><strong>Message hierarchy:</strong> ${escapeHtml(campaign.messageHierarchy.join(" · "))}</p><p><strong>Claim snapshots:</strong> ${escapeHtml(campaign.claimReferences.map((item) => `${item.statement} (revision ${item.claimRevision})`).join(" · "))}</p></details>
-      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(campaign.status) ? `<button type="button" data-campaign-action="submit-campaign" data-id="${campaign.id}">Submit for review</button>` : ""}${campaign.status === "in_review" ? reviewButtons("campaign", campaign.id) : ""}</div>
+      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(campaign.status) ? `<button type="button" data-campaign-action="submit-campaign" data-id="${campaign.id}">Submit for review</button>` : ""}${campaign.status === "in_review" ? reviewButtons("campaign", campaign.id, campaign.version) : ""}</div>
       ${campaign.reviewNote ? `<p class="guidance">Review: ${escapeHtml(campaign.reviewNote)} · ${escapeHtml(campaign.reviewedBy ?? "Unknown reviewer")}</p>` : ""}
     </article>`;
   }
@@ -465,8 +467,8 @@ export class CampaignsViewController {
       <p>${escapeHtml(current.body)}</p>
       <dl><div><dt>Version</dt><dd>${current.version}</dd></div><div><dt>Audience</dt><dd>${escapeHtml(asset.audience)}</dd></div><div><dt>Rights</dt><dd>${escapeHtml(asset.rights.join(" · "))}</dd></div><div><dt>Accessibility</dt><dd>${escapeHtml(asset.accessibilityRequirements.join(" · "))}</dd></div></dl>
       <details><summary>Version history and comments</summary>${asset.versions.map((version) => `<p><strong>Version ${version.version}</strong> · ${humanDate(version.changedAt)} · ${escapeHtml(version.changedBy)}<br>${escapeHtml(version.changeNote)}</p>`).join("")}${asset.comments.map((comment) => `<p><strong>${escapeHtml(comment.author)}</strong> · ${humanDate(comment.createdAt)}<br>${escapeHtml(comment.body)}</p>`).join("") || "<p>No comments.</p>"}</details>
-      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(asset.status) ? `<button type="button" data-campaign-action="submit-asset" data-id="${asset.id}">Submit for review</button>` : ""}${asset.status === "in_review" ? reviewButtons("asset", asset.id) : ""}</div>
-      <details><summary>Revise canonical asset</summary><form data-form="campaign-revise-asset"><input type="hidden" name="assetId" value="${asset.id}"><label>Editor<input name="editor" required value="${escapeHtml(this.defaultOwner)}"></label><label>Revised body<textarea name="body" required rows="6">${escapeHtml(current.body)}</textarea></label><label>Change note<input name="note" required></label><button type="submit">Save new canonical version</button></form></details>
+      <div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(asset.status) ? `<button type="button" data-campaign-action="submit-asset" data-id="${asset.id}">Submit for review</button>` : ""}${asset.status === "in_review" ? reviewButtons("asset", asset.id, current.version) : ""}</div>
+      <details><summary>Revise canonical asset</summary><form data-form="campaign-revise-asset"><input type="hidden" name="assetId" value="${asset.id}"><input type="hidden" name="expectedVersion" value="${current.version}"><label>Editor<input name="editor" required value="${escapeHtml(this.defaultOwner)}"></label><label>Revised body<textarea name="body" required rows="6">${escapeHtml(current.body)}</textarea></label><label>Change note<input name="note" required></label><button type="submit">Save new canonical version</button></form></details>
       <details><summary>Add review comment</summary><form data-form="campaign-comment-asset"><input type="hidden" name="assetId" value="${asset.id}"><label>Author<input name="author" required value="${escapeHtml(this.defaultOwner)}"></label><label>Comment<textarea name="body" required rows="3"></textarea></label><button type="submit">Record comment</button></form></details>
     </article>`;
   }
@@ -483,7 +485,7 @@ export class CampaignsViewController {
   }
 
   private variantCard(variant: ChannelVariant): string {
-    return `<article class="record"><div class="record-top"><h4>${CHANNEL_LABELS[variant.channel]}</h4>${pill(variant.status)}</div><p>${escapeHtml(variant.body)}</p><small>Version ${variant.version} · Constraints: ${escapeHtml(variant.constraints.join(" · "))}</small>${discoverabilityPanel(variant)}<div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(variant.status) ? `<button type="button" data-campaign-action="submit-variant" data-id="${variant.id}">Submit for review</button>` : ""}${variant.status === "in_review" ? reviewButtons("variant", variant.id) : ""}</div></article>`;
+    return `<article class="record"><div class="record-top"><h4>${CHANNEL_LABELS[variant.channel]}</h4>${pill(variant.status)}</div><p>${escapeHtml(variant.body)}</p><small>Version ${variant.version} · Constraints: ${escapeHtml(variant.constraints.join(" · "))}</small>${discoverabilityPanel(variant)}<div class="actions">${["draft", "changes_requested", "approval_invalidated"].includes(variant.status) ? `<button type="button" data-campaign-action="submit-variant" data-id="${variant.id}">Submit for review</button>` : ""}${variant.status === "in_review" ? reviewButtons("variant", variant.id, variant.version) : ""}</div></article>`;
   }
 
   private variantComparison(variants: readonly ChannelVariant[]): string {
@@ -653,8 +655,11 @@ export class CampaignsViewController {
   }
 }
 
-function reviewButtons(kind: "campaign" | "asset" | "variant", id: string): string {
-  return `<button type="button" data-campaign-action="review-${kind}" data-id="${id}" data-decision="approved">Approve</button><button type="button" data-campaign-action="review-${kind}" data-id="${id}" data-decision="changes_requested">Request changes</button><button type="button" data-campaign-action="review-${kind}" data-id="${id}" data-decision="rejected">Reject</button>`;
+// data-version is the version this view rendered; the service refuses a
+// decision when a newer version has been saved since (e.g. in another tab).
+function reviewButtons(kind: "campaign" | "asset" | "variant", id: string, version: number): string {
+  const attrs = `data-campaign-action="review-${kind}" data-id="${id}" data-version="${version}"`;
+  return `<button type="button" ${attrs} data-decision="approved">Approve</button><button type="button" ${attrs} data-decision="changes_requested">Request changes</button><button type="button" ${attrs} data-decision="rejected">Reject</button>`;
 }
 
 function asDecision(value?: string): "approved" | "rejected" | "changes_requested" {
