@@ -23,8 +23,10 @@ requireCondition(packageJson.scripts?.["desktop:web"]?.includes("clean:desktop")
 requireCondition(packageJson.scripts?.["pwa:serve"] === "node scripts/serve-pwa.mjs", "PWA serve command must use the checked-in stable localhost server");
 requireCondition(packageJson.scripts?.["pwa:selfhost"] === "npm run pwa:build && npm run pwa:serve", "PWA self-host command must build before serving the production shell");
 requireCondition(packageJson.scripts?.["pwa:origin-migration"] === "node scripts/pwa-origin-migration-smoke.mjs", "PWA origin migration proof must remain a named validation command");
+requireCondition(packageJson.scripts?.["pwa:keyboard"] === "node scripts/pwa-keyboard-acceptance.mjs", "PWA keyboard acceptance must remain a named validation command");
 execFileSync(process.execPath, ["--check", "scripts/serve-pwa.mjs"], { cwd: root, stdio: "pipe" });
 execFileSync(process.execPath, ["--check", "scripts/pwa-origin-migration-smoke.mjs"], { cwd: root, stdio: "pipe" });
+execFileSync(process.execPath, ["--check", "scripts/pwa-keyboard-acceptance.mjs"], { cwd: root, stdio: "pipe" });
 const localPwaServer = await read("scripts/serve-pwa.mjs");
 requireCondition(localPwaServer.includes('const HOST = "localhost";'), "PWA self-host server must use the canonical localhost hostname");
 requireCondition(localPwaServer.includes("const PORT = 4175;"), "PWA self-host server must stay on canonical port 4175");
@@ -41,6 +43,10 @@ requireCondition(
   ciWorkflow.includes("npm run pwa:origin-migration") && ciWorkflow.includes("Enforce PWA origin migration result"),
   "CI must keep the portable backup migration proof between distinct browser origins",
 );
+requireCondition(
+  ciWorkflow.includes("npm run pwa:keyboard") && ciWorkflow.includes("Enforce PWA keyboard acceptance result"),
+  "CI must keep the keyboard-only operation and focus visibility gate",
+);
 
 const desktopWorkflow = await read(".github/workflows/desktop.yml");
 for (const requiredPath of ['- "src/**"', '- "tsconfig.json"', '- "scripts/clean-build.mjs"']) {
@@ -48,6 +54,9 @@ for (const requiredPath of ['- "src/**"', '- "tsconfig.json"', '- "scripts/clean
   requireCondition(count >= 2, `Desktop workflow must cover ${requiredPath.slice(2)} for pull requests and main pushes`);
 }
 requireCondition(desktopWorkflow.includes('toolchain: "1.88.0"'), "Desktop CI must validate the declared Rust minimum version");
+requireCondition(desktopWorkflow.includes("runs-on: windows-latest") && desktopWorkflow.includes("workflow_dispatch:"), "Desktop CI must keep a dispatchable native Windows qualification job");
+// tauri-build embeds a Windows resource from icons/icon.ico; without it no Windows build can succeed.
+requireCondition((tauriConfig.bundle?.icon ?? []).includes("icons/icon.ico") && await exists(resolve(root, "apps/desktop/src-tauri/icons/icon.ico")), "Tauri bundle must ship the Windows icon (icons/icon.ico)");
 requireCondition(await exists(resolve(root, ".github/dependabot.yml")), "Dependabot must cover dependency and workflow update proposals");
 
 for (const path of gitFiles(".github/workflows/*.yml", ".github/workflows/*.yaml")) {
