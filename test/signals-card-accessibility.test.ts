@@ -8,7 +8,7 @@ test("Signals action names distinguish cards without changing handler identity",
   const cardEnd = source.indexOf("private requiredSignal(", cardStart);
   assert.ok(cardStart >= 0 && cardEnd > cardStart);
   const card = source.slice(cardStart, cardEnd);
-  assert.match(card, /aria-label="Signal: \$\{escapeHtml\(signal\.title\)\}"/);
+  assert.ok(card.includes('aria-label="Signal: ${escapeHtml(signal.title)} (record ${escapeHtml(signal.id)})"'));
   for (const [action, name] of [
     ["save", "Save signal"],
     ["tag", "Tag signal"],
@@ -17,11 +17,11 @@ test("Signals action names distinguish cards without changing handler identity",
     ["dismiss", "Dismiss signal"],
   ]) {
     assert.ok(card.includes('data-signal-action="' + action + '"'), action + " action preserved");
-    assert.ok(card.includes('aria-label="' + name + ': \u0024{escapeHtml(signal.title)}"'), action + " card-specific accessible name");
+    assert.ok(card.includes('aria-label="' + name + ': \u0024{escapeHtml(signal.title)} (record \u0024{escapeHtml(signal.id)})"'), action + " card-specific accessible name");
   }
   for (const phrase of ["Connect evidence for signal", "Convert signal to proposed work", "Create proposed work from signal"]) {
-    assert.ok(card.includes(phrase + ': \u0024{escapeHtml(signal.title)}'), phrase);
+    assert.ok(card.includes(phrase + ': \u0024{escapeHtml(signal.title)} (record \u0024{escapeHtml(signal.id)})'), phrase);
   }
-  assert.match(card, /aria-label="Connect evidence for signal: \$\{escapeHtml\(signal\.title\)\}">Connect signal/);
+  assert.ok(card.includes('aria-label="Connect evidence for signal: ${escapeHtml(signal.title)} (record ${escapeHtml(signal.id)})">Connect signal'));
   assert.match(card, /escapeHtml\(signal\.title\)/);
 });
