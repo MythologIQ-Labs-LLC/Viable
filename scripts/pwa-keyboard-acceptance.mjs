@@ -205,6 +205,30 @@ async function keyboardCreateWorkspace(page) {
   check(await page.inputValue('#main input[name="name"]').catch(() => "") === "Keyboard Ledger", "the created workspace holds the typed product name");
 }
 
+// Home's primary action must land where the person can see it: focus on
+// screen at the destination's heading or record, not mid-way down a long form.
+async function homePrimaryAction(page, label, expectedLabel, expectedView) {
+  await page.focus('nav button[data-nav="home"]');
+  await page.keyboard.press("Enter");
+  const primary = page.locator("section.panel.next button.primary");
+  await primary.waitFor({ timeout: 10_000 });
+  const text = (await primary.textContent())?.trim() ?? "";
+  check(!expectedLabel || text === expectedLabel, `${label}: Home's primary action names the task ("${text}")`);
+  await primary.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction((view) => document.querySelector(`nav button[data-nav="${view}"]`)?.getAttribute("aria-current") === "page", expectedView, { timeout: 10_000 });
+  await page.waitForFunction(() => document.activeElement && document.activeElement !== document.body && document.activeElement.id !== "main" && document.activeElement.closest("#main"), undefined, { timeout: 10_000 }).catch(() => undefined);
+  await page.waitForTimeout(800);
+  const landed = await page.evaluate(() => {
+    const element = document.activeElement;
+    if (!element || element === document.body) return { none: true };
+    const rect = element.getBoundingClientRect();
+    return { none: false, tag: element.tagName.toLowerCase(), text: (element.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 50), top: Math.round(rect.top), visible: rect.top >= 0 && rect.top < innerHeight - 20 };
+  });
+  check(!landed.none && landed.visible, `${label}: Enter on Home's primary action opens ${expectedView} with focus visible on screen (${landed.none ? "focus lost" : `${landed.tag} "${landed.text}" at ${landed.top}px`})`);
+  return landed;
+}
+
 async function restoreSeed(page) {
   await page.goto(`${ORIGIN}/`);
   await page.waitForFunction(() => document.querySelectorAll("nav button[data-nav]").length > 0, undefined, { timeout: 15_000 });
@@ -278,10 +302,14 @@ async function main() {
       return page;
     };
 
-    await keyboardCreateWorkspace(await newPage("create"));
+    const created = await newPage("create");
+    await keyboardCreateWorkspace(created);
+    const fresh = await homePrimaryAction(created, "new workspace", "Describe your product", "product");
+    check(fresh.tag === "h3" && fresh.text === "Verify product truth", `new workspace: focus lands on the Product truth heading (${fresh.tag} "${fresh.text}")`);
 
     const seeded = await newPage("seeded");
     await restoreSeed(seeded);
+    await homePrimaryAction(seeded, "seeded workspace", "", "signals");
     const enabled = await seeded.$$eval("nav button[data-nav]", (buttons) => buttons.filter((button) => !button.disabled).map((button) => button.dataset.nav));
     check(enabled.length >= 9, `the primary navigation offers every workflow view (${enabled.join(", ")})`);
     for (const viewport of VIEWPORTS) {

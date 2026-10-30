@@ -5,7 +5,7 @@ import type { CampaignWorkspace } from "../src/campaigns/domain/campaign.js";
 import type { ProductWorkspace } from "../src/product-core/domain/workspace.js";
 import type { RepositoryGrowthWorkspace } from "../src/repository-growth/domain/repository-growth.js";
 import type { SignalsInbox } from "../src/signals/domain/signal.js";
-import { deriveHomeAttention } from "../src/ui/home-attention.js";
+import { attentionActionLabel, attentionStateName, attentionSurfaceName, deriveHomeAttention } from "../src/ui/home-attention.js";
 import type { VideoProductionWorkspace } from "../src/video-production/domain/video-production.js";
 
 const now = new Date("2026-09-25T12:00:00.000Z");
@@ -153,4 +153,18 @@ test("review, correction, and invalidation remain distinct from completion", () 
   assert.equal(snapshot.items.find((entry) => entry.target.recordId === "content-1")?.category, "blocked");
   assert.match(snapshot.items.find((entry) => entry.target.recordId === "campaign-1")?.reason ?? "", /requested changes/i);
   assert.match(snapshot.items.find((entry) => entry.target.recordId === "content-1")?.reason ?? "", /invalidated/i);
+});
+
+test("Home action labels name the task or the record, never internal workflow vocabulary", () => {
+  assert.equal(attentionActionLabel({ target: { surface: "product", recordKind: "product_truth" } }), "Describe your product");
+  assert.equal(attentionActionLabel({ target: { surface: "product", recordKind: "icp_prerequisite" } }), "Work on audience profiles");
+  assert.equal(attentionActionLabel({ target: { surface: "product", recordKind: "assessment_prerequisite" } }), "Start the marketability assessment");
+  assert.equal(attentionActionLabel({ target: { surface: "campaigns", recordKind: "channel_variant", recordId: "v1" } }), "Open channel variant");
+  assert.equal(attentionActionLabel({ target: { surface: "calendar", recordKind: "calendar_entry", recordId: "c1" } }), "Open calendar entry");
+  // A record kind without a resolvable record falls back to the area, not "exact record".
+  assert.equal(attentionActionLabel({ target: { surface: "calendar", recordKind: "calendar_entry" } }), "Open Calendar");
+  assert.equal(attentionSurfaceName("repository_growth"), "Repository growth");
+  assert.equal(attentionSurfaceName("studio"), "Create & review");
+  assert.equal(attentionStateName("prerequisite"), "needs input");
+  assert.equal(attentionStateName("changes_requested"), "changes requested");
 });

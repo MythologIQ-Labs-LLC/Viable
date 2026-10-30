@@ -61,7 +61,8 @@ p { line-height: 1.6; }
 .tagline { font-size: .875rem; margin: 0 0 2rem; }
 .eyebrow { color: var(--teal); font-size: .7rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 nav { display: grid; gap: .35rem; }
-nav button { border: 1px solid transparent; border-radius: .55rem; color: var(--muted); background: transparent; padding: .7rem .8rem; text-align: left; display: flex; align-items: center; gap: .5rem; justify-content: space-between; min-height: 2.75rem; }\nnav button:not(:disabled):hover { color: var(--text); background: rgba(167, 182, 192, .09); }
+nav button { border: 1px solid transparent; border-radius: .55rem; color: var(--muted); background: transparent; padding: .7rem .8rem; text-align: left; display: flex; align-items: center; gap: .5rem; justify-content: space-between; min-height: 2.75rem; }
+nav button:not(:disabled):hover { color: var(--text); background: rgba(167, 182, 192, .09); }
 nav button[aria-current="page"] { color: #f4fffd; border-color: #356158; background: #122b28; }
 nav button:disabled { opacity: .62; cursor: not-allowed; }
 nav button span { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; }
