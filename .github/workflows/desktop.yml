@@ -20,6 +20,8 @@ on:
       - "tsconfig.json"
       - "scripts/clean-build.mjs"
       - ".github/workflows/desktop.yml"
+  # Manual runs (any branch) add native Windows qualification below.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -65,3 +67,33 @@ jobs:
           test -n "$package"
           dpkg-deb --info "$package"
           dpkg-deb --contents "$package"
+
+  windows:
+    # Native Windows (MSVC) qualification. Linux desktop CI cannot prove a
+    # Windows build, and Windows runners cost more, so this runs only on
+    # manual dispatch for exact-head release or dependency qualification.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: "1.88.0"
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+      - run: npm ci
+      - run: npm run desktop:web
+      - name: Build the native Windows application
+        run: npx tauri build --config apps/desktop/src-tauri/tauri.conf.json --no-bundle
+      - name: Verify the Windows executable was produced
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem apps/desktop/src-tauri/target/release -Filter *.exe -File | Select-Object -First 1
+          if (-not $exe) { throw "No Windows executable was produced" }
+          "{0} {1} bytes" -f $exe.Name, $exe.Length
