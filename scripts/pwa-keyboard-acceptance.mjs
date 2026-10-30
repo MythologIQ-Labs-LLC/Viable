@@ -113,6 +113,29 @@ function focusState(page) {
     if (!element || element === document.body || element === document.documentElement) return { none: true };
     const style = getComputedStyle(element);
     const outlined = style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0;
+    // The indicator must come from focus, not from an always-on outline or
+    // shadow (e.g. [aria-invalid] outlines, panel shadows): either the
+    // browser's own focus ring or an applying :focus* author rule.
+    const focusRuleApplies = (rules) => [...rules].some((rule) => {
+      if (rule instanceof CSSMediaRule) return matchMedia(rule.media.mediaText).matches && focusRuleApplies(rule.cssRules);
+      if (!(rule instanceof CSSStyleRule) || !rule.selectorText.includes(":focus")) return false;
+      // Shorthands using var() leave their longhands empty in the CSSOM.
+      const outline = rule.style.getPropertyValue("outline") || rule.style.outlineStyle;
+      const shadow = rule.style.getPropertyValue("box-shadow");
+      const draws = (outline && !/^(none|0)\b/.test(outline)) || (shadow && shadow !== "none");
+      try {
+        return draws && element.matches(rule.selectorText);
+      } catch {
+        return false;
+      }
+    });
+    const fromFocus = style.outlineStyle === "auto" || [...document.styleSheets].some((sheet) => {
+      try {
+        return focusRuleApplies(sheet.cssRules);
+      } catch {
+        return false;
+      }
+    });
     const rect = element.getBoundingClientRect();
     const x = Math.min(Math.max(rect.left + Math.min(rect.width / 2, 8), 0), innerWidth - 1);
     const y = Math.min(Math.max(rect.top + Math.min(rect.height / 2, 8), 0), innerHeight - 1);
@@ -126,7 +149,7 @@ function focusState(page) {
       inMain: Boolean(element.closest("#main")),
       isMain: element.id === "main",
       label: `${element.tagName.toLowerCase()}${element.type ? `[${element.type}]` : ""} "${name}"`,
-      indicator: outlined || style.boxShadow !== "none",
+      indicator: (outlined || style.boxShadow !== "none") && fromFocus,
       zeroSize: rect.width === 0 || rect.height === 0,
       offscreen: rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth,
       coveredBy: covered ? `${hit.tagName.toLowerCase()}${hit.id ? `#${hit.id}` : ""}` : "",
