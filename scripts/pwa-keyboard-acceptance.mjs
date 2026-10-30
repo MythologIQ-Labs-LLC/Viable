@@ -223,7 +223,7 @@ async function homePrimaryAction(page, label, expectedLabel, expectedView) {
     const element = document.activeElement;
     if (!element || element === document.body) return { none: true };
     const rect = element.getBoundingClientRect();
-    return { none: false, tag: element.tagName.toLowerCase(), text: (element.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 50), top: Math.round(rect.top), visible: rect.top >= 0 && rect.top < innerHeight - 20 };
+    return { none: false, tag: element.tagName.toLowerCase(), text: (element.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 50), top: Math.round(rect.top * 10) / 10, visible: rect.top >= -2 && rect.top < innerHeight - 20 }; // sub-pixel tolerance for a target aligned to the top edge
   });
   check(!landed.none && landed.visible, `${label}: Enter on Home's primary action opens ${expectedView} with focus visible on screen (${landed.none ? "focus lost" : `${landed.tag} "${landed.text}" at ${landed.top}px`})`);
   return landed;

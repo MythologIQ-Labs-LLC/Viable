@@ -43,6 +43,7 @@ function enhance(): void {
 
 function reframeNavigation(): void {
   if (!sidebar) return;
+  keepCurrentNavigationVisible();
   for (const button of sidebar.querySelectorAll<HTMLButtonElement>("nav button[data-nav]")) {
     const target = button.dataset.nav ?? "";
     const text = taskLabels[target];
@@ -154,3 +155,13 @@ function panelFor(selector: string): HTMLElement | undefined {
 new MutationObserver(queueEnhance).observe(main ?? document.body, { childList: true, subtree: true });
 new MutationObserver(queueEnhance).observe(sidebar ?? document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-current"] });
 queueEnhance();
+
+// On narrow layouts the navigation is a horizontally scrolling row; keep the
+// current page's item in view inside that row (no page scroll).
+function keepCurrentNavigationVisible(): void {
+  const nav = sidebar?.querySelector<HTMLElement>("nav");
+  const current = nav?.querySelector<HTMLElement>('button[aria-current="page"]');
+  if (!nav || !current || nav.scrollWidth <= nav.clientWidth) return;
+  const left = current.offsetLeft - nav.offsetLeft;
+  if (left < nav.scrollLeft || left + current.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = Math.max(0, left - 16);
+}

@@ -47,13 +47,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 input:is([type="date"], [type="datetime-local"], [type="time"], [type="month"], [type="week"]):focus-within { outline: 3px solid var(--focus); outline-offset: 3px; }
 /* Records that a workflow focuses for the person (an opened destination, the
    record an action changed) show where focus landed. */
+/* <main> receives focus after navigation so screen readers start at the new
+   content; a full-viewport white browser ring is noise, a subtle inset cue is enough. */
+#main:focus { outline: none; }
+#main:focus-visible { outline: 2px solid rgba(158, 233, 255, .28); outline-offset: -2px; }
 #main [tabindex="-1"]:not(section.state):focus { outline: 2px solid var(--focus); outline-offset: 3px; }
 .skip-link { position: fixed; z-index: 20; left: 1rem; top: -5rem; background: #fff; color: #111; padding: .75rem 1rem; border-radius: .5rem; }
 .skip-link:focus { top: 1rem; }
 .shell { display: grid; grid-template-columns: 16.5rem minmax(0, 1fr); min-height: 100vh; }
 aside { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--line); padding: 1.8rem 1.35rem; background: rgba(9, 14, 20, .97); box-shadow: 8px 0 28px rgba(0, 0, 0, .13); }
 h1 { font-size: 2rem; margin: .2rem 0; letter-spacing: -.04em; }
-h2 { font-size: clamp(2.25rem, 5vw, 4.8rem); line-height: .98; letter-spacing: -.055em; max-width: 58rem; margin: .55rem 0 1.1rem; }
+h2 { font-size: clamp(1.9rem, 1rem + 2.6vw, 3.4rem); line-height: 1.02; letter-spacing: -.055em; max-width: 58rem; margin: .55rem 0 1.1rem; }
 h3 { font-size: 1.45rem; margin: .2rem 0; }
 h4 { font-size: 1.05rem; margin: 0; }
 p { line-height: 1.6; }
@@ -69,9 +73,14 @@ nav button span { font-size: .68rem; text-transform: uppercase; letter-spacing: 
 .local-note { position: absolute; bottom: 1.5rem; left: 1.35rem; right: 1.35rem; padding: .8rem; border: 1px solid var(--line); border-radius: .6rem; display: grid; gap: .2rem; font-size: .75rem; color: var(--muted); }
 .local-note strong { color: var(--text); }
 main { width: 100%; min-width: 0; max-width: 96rem; padding: 2.5rem clamp(1.25rem, 4vw, 4rem) 5rem; }
-.hero { min-height: 18rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; padding-top: 1.5rem; }
+.hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; padding-top: 1.5rem; }
+.journey-steps { list-style: none; counter-reset: step; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 0 0 1.5rem; padding: 0; }
+.journey-steps li { counter-increment: step; display: grid; gap: .3rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: .75rem; background: rgba(16, 23, 31, .75); }
+.journey-steps li::before { content: counter(step); color: var(--teal); font-weight: 800; font-size: .8rem; }
+.journey-steps span { color: var(--muted); font-size: .9rem; line-height: 1.45; }
+@media (max-width: 72rem) { .journey-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 40rem) { .journey-steps { grid-template-columns: 1fr; } }
 .hero > div > p:last-child { max-width: 48rem; color: var(--muted); font-size: 1.05rem; }
-.hero.compact { min-height: 13rem; }
 .panel { background: rgba(16, 23, 31, .9); border: 1px solid var(--line); border-radius: 1rem; padding: clamp(1.15rem, 3vw, 2rem); margin: 1rem 0 1.5rem; box-shadow: 0 1.5rem 4rem rgba(0,0,0,.14); }
 .panel.narrow { max-width: 54rem; }
 .panel.next { display: flex; align-items: center; justify-content: space-between; gap: 2rem; }
@@ -136,9 +145,13 @@ td span, td small { display: block; margin-top: .35rem; color: var(--muted); lin
 @media (max-width: 72rem) { .metrics { grid-template-columns: repeat(2, 1fr); } .icp-cards, .dimension-list { grid-template-columns: 1fr; } }
 @media (max-width: 52rem) {
   .shell { grid-template-columns: minmax(0, 1fr); }
-  aside { position: static; height: auto; padding: 1rem; }
-  aside .tagline, .local-note { display: none; }
-  nav { grid-template-columns: repeat(2, 1fr); }
+  /* Narrow and ~200% zoom: navigation is one scrollable row, so the work
+     starts on the first screen instead of below a stacked menu. */
+  aside { position: static; height: auto; padding: .75rem 1rem .5rem; box-shadow: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  aside .tagline, aside > .eyebrow, .local-note { display: none; }
+  aside h1 { font-size: 1.35rem; margin: 0 0 .4rem; }
+  nav { display: flex; gap: .25rem; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: .35rem; }
+  nav button { flex: 0 0 auto; white-space: nowrap; padding: .5rem .75rem; }
   main { padding: 1.25rem; }
   .hero, .panel.next, .state { min-height: 0; flex-direction: column; }
   .two, .three, .metrics { grid-template-columns: 1fr; }

@@ -177,8 +177,14 @@ function recovery(): string {
 
 function emptyWorkspace(): string {
   return `
-    <header class="hero"><div><p class="eyebrow">Product Core</p><h2>Start with what is true.</h2>
-    <p>Create one local product workspace. You can revise it without erasing prior ICP decisions.</p></div></header>
+    <header class="hero"><div><p class="eyebrow">Welcome to Viable</p><h2>Find out who your product is for, and prove it.</h2>
+    <p>Viable helps you decide whether and how to market a product, using only claims you can back with evidence. Everything stays on this device.</p></div></header>
+    <ol class="journey-steps" aria-label="How Viable works">
+      <li><strong>Describe the product honestly</strong><span>What it does, what it does not, and who it is for today.</span></li>
+      <li><strong>Choose an audience with evidence</strong><span>Compare customer profiles and record what you observed.</span></li>
+      <li><strong>Plan reviewed marketing</strong><span>Campaigns use approved claims; a named person reviews every piece.</span></li>
+      <li><strong>Measure what happened</strong><span>Record what was actually delivered and learn from the results.</span></li>
+    </ol>
     ${recovery()}
     <section class="panel narrow" aria-labelledby="create-heading">
       <div class="section-heading"><div><p class="eyebrow">Step 1</p><h3 id="create-heading">Create a product workspace</h3></div>${statusPill("Empty state", "warning")}</div>
