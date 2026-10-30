@@ -988,6 +988,9 @@ export class ActivationLearningService implements PublicationSourceAuthorityPort
         } : entry);
       }
     }
+    // Nothing invalidated: no write, so the automatic recheck after every
+    // authority change neither churns storage nor races other tabs.
+    if (invalidated.size === 0) return workspace;
     const packages = workspace.packages.map((item) => invalidated.has(item.calendarEntryId) && item.status === "manual_export_ready"
       ? { ...item, status: "authority_invalidated" as const }
       : item);

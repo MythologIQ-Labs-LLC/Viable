@@ -1317,6 +1317,25 @@ test("authority changes invalidate scheduled work and its package", async () => 
   assert.equal(workspace.packages[0]!.status, "authority_invalidated");
 });
 
+test("a variant losing approval makes its scheduled entry not ready; an unchanged recheck writes nothing", async () => {
+  const { service, activation, campaignStore } = fixture();
+  await packageReady(service);
+  let saves = 0;
+  const save = activation.save.bind(activation);
+  activation.save = async (value) => { saves += 1; await save(value); };
+  const unchanged = await service.detectAuthorityImpact("workspace-1");
+  assert.equal(saves, 0);
+  assert.equal(unchanged.calendarEntries[0]!.scheduleStatus, "scheduled");
+
+  // A material correction in Studio invalidates the approved variant.
+  campaignStore.value = { ...campaignStore.value!, variants: campaignStore.value!.variants.map((variant) => ({ ...variant, status: "approval_invalidated" as const, version: variant.version + 1 })) };
+  const workspace = await service.detectAuthorityImpact("workspace-1");
+  assert.equal(saves, 1);
+  assert.equal(workspace.calendarEntries[0]!.scheduleStatus, "approval_invalidated");
+  assert.equal(workspace.calendarEntries[0]!.activationStatus, "not_ready");
+  assert.equal(workspace.packages[0]!.status, "authority_invalidated");
+});
+
 test("repository launch and video variants resolve through their own authority", async () => {
   const { service } = fixture();
   let workspace = await service.createDestination("workspace-1", {
