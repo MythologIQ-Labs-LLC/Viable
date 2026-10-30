@@ -201,7 +201,20 @@ function homeView(value: ProductWorkspace): string {
   const stale = value.evidence.filter((item) => item.reviewStatus !== "rejected" && isStale(item.freshnessReviewAt));
   const contradictions = value.icpHypotheses.flatMap((item) => item.contradictions);
   const openActions = value.actions.filter((item) => item.status === "open" || item.status === "in_progress");
-  const next = !value.product.positioning ? "Complete product truth" : value.icpHypotheses.length < 2 ? "Create a second ICP hypothesis" : !selected ? "Review evidence and select a primary ICP" : value.assessments.length === 0 ? "Run the marketability assessment" : "Work the highest-priority readiness action";
+  // Put the user's purpose next to the action instead of a generic navigation label.
+  // Each destination remains owned by Product Core; do not imply a saved action
+  // or promise a direct record link without an authoritative destination ID.
+  const nextStep = !value.product.positioning
+    ? { title: "Complete product truth", why: "Document the product's real capabilities and limitations before planning claims.", action: "Describe your product" }
+    : value.icpHypotheses.length < 2
+      ? { title: "Compare possible audiences", why: "Record another ICP hypothesis so audience selection has an explicit alternative.", action: "Compare customer profiles" }
+      : !selected
+        ? { title: "Review evidence and select a primary ICP", why: "Use reviewed evidence and contradictions before choosing a target audience.", action: "Review audience evidence" }
+        : value.assessments.length === 0
+          ? { title: "Assess marketability", why: "Identify readiness gaps before spending effort on activation.", action: "Start marketability assessment" }
+          : openActions.length > 0
+            ? { title: "Work an open readiness action", why: "Follow up on an existing action and record its outcome in Product Core.", action: "Open readiness actions" }
+            : { title: "Review readiness and next opportunities", why: "Revisit the latest assessment and identify the next evidence-backed improvement.", action: "Review product readiness" };
   return `
     <header class="hero"><div><p class="eyebrow">Home</p><h2>${escapeHtml(value.product.identity.name)}</h2>
       <p>${escapeHtml(value.product.identity.description)}</p></div>${statusPill("Local only", "implemented")}</header>
@@ -213,7 +226,7 @@ function homeView(value: ProductWorkspace): string {
       <article><span>Reviewed evidence</span><strong>${reviewedEvidence.length}</strong><small>${stale.length} stale</small></article>
       <article><span>Open actions</span><strong>${openActions.length}</strong><small>${value.assessments.length} assessments</small></article>
     </section>
-    <section class="panel next"><div><p class="eyebrow">Next highest-value action</p><h3>${escapeHtml(next)}</h3></div><button class="primary" type="button" data-nav="product">Open Product workflow</button></section>
+    <section class="panel next" aria-labelledby="home-next-action"><div><p class="eyebrow">Recommended next step</p><h3 id="home-next-action">${escapeHtml(nextStep.title)}</h3><p class="guidance">${escapeHtml(nextStep.why)}</p></div><button class="primary" type="button" data-nav="product">${escapeHtml(nextStep.action)}</button></section>
     ${contradictions.length ? `<section class="state contradiction"><div><strong>Contradictions require review</strong><p>${contradictions.map(escapeHtml).join(" · ")}</p></div></section>` : ""}
     ${stale.length ? `<section class="state warning"><div><strong>Stale evidence</strong><p>${stale.map((item) => escapeHtml(item.title)).join(", ")} reached its freshness-review date.</p></div></section>` : ""}`;
 }
