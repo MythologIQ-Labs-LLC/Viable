@@ -222,6 +222,30 @@ jobs:
       - name: Enforce PWA origin migration result
         if: steps.pwa_origin_migration.outputs.status != '0'
         run: exit 1
+      - name: Validate keyboard-only operation and focus visibility
+        id: pwa_keyboard
+        shell: bash
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          set +e
+          npm run pwa:keyboard 2>&1 | tee pwa-keyboard-acceptance.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload PWA keyboard acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pwa-keyboard-acceptance
+          path: |
+            pwa-keyboard-acceptance-report.json
+            pwa-keyboard-acceptance.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Enforce PWA keyboard acceptance result
+        if: steps.pwa_keyboard.outputs.status != '0'
+        run: exit 1
       - name: Upload chromium capability report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
