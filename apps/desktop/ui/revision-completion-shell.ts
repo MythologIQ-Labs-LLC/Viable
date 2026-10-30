@@ -98,7 +98,7 @@ function enhanceProductTruth(workspace: ProductWorkspace): void {
   const p = workspace.product;
   const wrapper = document.createElement("div");
   wrapper.dataset.uxProductTruthRevision = "true";
-  wrapper.innerHTML = `<div class="state"><strong>Revision-aware Product Truth editor</strong><span>Every modeled user-controlled field is editable here. Saving records who changed what and why without rewriting prior authority.</span></div>
+  wrapper.innerHTML = `<div class="state"><strong>Every save is a new revision.</strong><span>Edit any field below. Viable records who changed what and why, and keeps earlier revisions intact.</span></div>
     <form data-ux-revision-form="product-truth">
       <div data-ux-revision-error aria-live="polite"></div>
       <div class="two"><label>Product name<input name="name" required value="${escapeHtml(p.identity.name)}"></label><label>Named editor<input name="editor" required value="${escapeHtml(p.updatedBy || workspace.createdBy)}"></label></div>

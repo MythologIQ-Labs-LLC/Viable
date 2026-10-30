@@ -1166,6 +1166,23 @@ async function run() {
         check(!(await journey.locator('[data-home-attention-open="product:evidence:evidence-4"]').count()), "rechecked evidence leaves Home's stale-evidence blockers");
 
         await go("product");
+        // #195 media pass: Product truth leads the view; the optional repository
+        // panel follows it, and each section can be reached without scrolling.
+        const productOrder = await journey.evaluate(() => {
+          const top = (selector) => document.querySelector(selector)?.getBoundingClientRect().top ?? -1;
+          return { truth: top("#truth-heading"), repository: top("#repository-growth-entry"), viewport: innerHeight };
+        });
+        check(productOrder.truth > 0 && productOrder.truth < productOrder.viewport && productOrder.repository > productOrder.truth,
+          `Product truth is on the first screen, before the optional repository panel (${JSON.stringify(productOrder)})`);
+        await journey.locator('[role="navigation"][aria-label="On this page"] button', { hasText: "Audiences" }).click();
+        // Wait for the smooth scroll to come to rest before measuring.
+        await journey.waitForFunction(() => {
+          const last = window.__jumpScroll;
+          window.__jumpScroll = scrollY;
+          return last === scrollY && document.activeElement?.id === "icp-heading";
+        }, undefined, { timeout: 5000, polling: 150 }).catch(() => undefined);
+        const jumped = await journey.evaluate(() => ({ focus: document.activeElement?.id, top: Math.round(document.getElementById("icp-heading")?.getBoundingClientRect().top ?? -1), viewport: innerHeight }));
+        check(jumped.focus === "icp-heading" && jumped.top >= -2 && jumped.top < jumped.viewport / 2, `"On this page" jumps to the Audiences section and moves focus to its heading (${JSON.stringify(jumped)})`);
         const forum = journey.locator("#main article", { hasText: "Freelancer forum thread about invoice chasing" }).first();
         const accept = forum.getByRole("button", { name: "Accept with named review" });
         await accept.click();
@@ -1218,7 +1235,16 @@ async function run() {
 
         // A two-field inline form must answer the controller's prompts in
         // order: reviewer, then note (#147).
+        // #195 media pass: a newly opened view starts at its top, not at the
+        // previous view's scroll offset.
+        await go("studio");
+        const leftAt = await journey.evaluate(() => { scrollTo({ top: 2500, behavior: "instant" }); return scrollY; });
         await go("calendar");
+        const openedAt = await journey.evaluate(() => scrollY);
+        check(leftAt > 1000 && openedAt === 0, `opening Calendar from far down Studio starts at the top (left at ${leftAt}, opened at ${openedAt})`);
+        const launchPills = await journey.locator('[data-calendar-entry-id="calendar-1"] .status-stack .pill').allTextContents();
+        check(launchPills.length === 2 && launchPills[0].startsWith("Schedule:") && launchPills[1].startsWith("Activation:"),
+          `a calendar entry names its schedule and activation states separately (${launchPills.join(" | ")})`);
         const fillRequired = async (form) => {
           for (const field of await form.locator("input[required], textarea[required]").all()) {
             if (await field.inputValue()) continue;
@@ -1314,6 +1340,24 @@ async function run() {
         );
         await go("home");
         await go("studio");
+
+        // #195 media pass: the reviewer of a corrected variant sees the card's
+        // content as readable context and the change request that prompted the
+        // correction, not the editing form's text run together.
+        const correction = requested.locator('form[data-ux-revision-form="variant"]');
+        await correction.locator('textarea[name="body"]').fill("Ledgerly private beta: import your bank CSV, confirm the receipt matches Ledgerly suggests, and work through a short close checklist.");
+        await correction.locator('textarea[name="rationale"]').fill("Use the approved claim wording");
+        await correction.locator('button[type="submit"]').click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("correction saved"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await requested.getByRole("button", { name: "Submit for review" }).click();
+        await journey.waitForFunction(() => document.querySelector("#live-region")?.textContent?.includes("submitted for named review"), undefined, { timeout: 10000 }).catch(() => undefined);
+        await requested.getByRole("button", { name: "Approve" }).click();
+        const reviewPanelText = ((await requested.locator("[data-contextual-review]").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ");
+        check(
+          reviewPanelText.includes("Prior feedback Previous version, changes requested by Sam Okafor") && reviewPanelText.includes("Version 2 · Constraints") && !reviewPanelText.includes("Save channel correction"),
+          `the review panel shows the corrected content and the earlier change request, without form text (${reviewPanelText.slice(0, 160)})`,
+        );
+        await requested.getByRole("button", { name: "Cancel review" }).click();
 
         // #167: composition planning and exact experiment identity must be
         // operable through visible Studio controls. The test writes no

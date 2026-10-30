@@ -354,7 +354,7 @@ export class CampaignsViewController {
     const selectedIcp = product.icpHypotheses.find((item) => item.status === "selected" && item.reviewStatus === "reviewed");
     const blocked = reviewedEvidence.length === 0 || approvedClaims.length === 0;
     return `
-      <header class="hero compact"><div><p class="eyebrow">Campaigns</p><h2>One outcome. One audience. Traceable truth.</h2>
+      <header class="hero compact"><div><p class="eyebrow">Campaigns</p><h2>Plan a campaign from approved claims.</h2>
         <p>Create a focused campaign brief from reviewed evidence and approved Product Core claims. Campaign approval remains separate from publishing or delivery.</p></div>${pill("local only")}</header>
       ${this.failureState("campaigns")}
       <section class="state offline"><strong>Offline-ready campaign authority.</strong><span>This workflow uses local Product Core records and manual export. No destination, account, credential, or publishing adapter is involved.</span></section>
@@ -427,7 +427,7 @@ export class CampaignsViewController {
     const approvedCampaigns = workspace.campaigns.filter((item) => item.status === "approved");
     const approvedAssets = workspace.assets.filter((item) => item.status === "approved");
     return `
-      <header class="hero compact"><div><p class="eyebrow">Studio</p><h2>Canonical first. Channel second.</h2>
+      <header class="hero compact"><div><p class="eyebrow">Studio</p><h2>Write once, adapt for each channel, review every version.</h2>
         <p>Create one governed asset, adapt it into channel variants, compare constraints, review each version, and export manually without granting publishing authority.</p></div>${pill("human reviewed")}</header>
       ${this.failureState("studio")}
       <section class="state offline"><strong>Manual production remains first-class.</strong><span>Export packages are local artifacts. They are not scheduled, published, delivered, or provider-verified.</span></section>

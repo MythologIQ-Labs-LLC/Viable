@@ -8,6 +8,7 @@ export function revealTarget(target: HTMLElement): HTMLElement {
   focusable.tabIndex = -1;
   focusable.focus({ preventScroll: true });
   const tall = target.getBoundingClientRect().height > window.innerHeight * 0.6;
-  target.scrollIntoView({ block: tall ? "start" : "center", behavior: "smooth" });
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ block: tall ? "start" : "center", behavior: reduceMotion ? "auto" : "smooth" });
   return focusable;
 }

@@ -32,6 +32,7 @@ import "./unsaved-form-guard.js";
 import "./stale-draft-evidence-shell.js";
 import "./draft-step-continuity-shell.js";
 import "./interaction-accessibility-shell.js";
+import "./view-scroll-reset.js";
 import "./navigation-history-shell.js";
 import "./workspace-history-bridge.js";
 import "./workspace-lifecycle-shell.js";

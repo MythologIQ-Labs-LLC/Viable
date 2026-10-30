@@ -1,0 +1,184 @@
+{
+  "format": "mythologiq.media-manifest",
+  "version": 1,
+  "product": "Viable",
+  "issue": "https://github.com/MythologIQ-Labs-LLC/Viable/issues/185",
+  "status": "approved by the owner on 2026-10-30: screenshots v1 and walkthrough v2",
+  "storage": {
+    "repository": "Binaries committed at the owner's request on 2026-10-30 and approved for use the same day.",
+    "ownerReviewPage": "https://claude.ai/artifact/PGgvhBoMK3ht8D3cefMFB8"
+  },
+  "sourceRepository": "MythologIQ-Labs-LLC/Viable",
+  "sourceBranch": "ux/media-refinement-20261030",
+  "sourceCommit": "66c2091865844c3e68d93038500b64997eded06f",
+  "build": {
+    "product": "Viable PWA",
+    "version": "0.1.0",
+    "buildId": "264de25077f767f5f9623af835dece11e518456b03f61ac44cba45fb6704bc3c",
+    "csp": "production headers (scripts/pwa-security-headers.mjs), served locally over http://localhost"
+  },
+  "operatingSystem": "Ubuntu 24.04.4 LTS, Linux 6.18.44",
+  "browser": "Chromium 141.0.7390.37 (headless, Playwright 1.56.1)",
+  "captureDate": "2026-10-30",
+  "rights": "Original capture of MythologIQ Labs software; no third-party media or audio",
+  "approval": "approved by the owner (Knapp-Kevin) on 2026-10-30; UI candidate #196 and #200 signed off",
+  "assets": [
+    {
+      "file": "screenshots/viable-01-home.png",
+      "kind": "screenshot",
+      "sha256": "17771cf7afd33ded610dfb9e52366c536001f69626153ba058a4e011c9b3e93b",
+      "pixels": "3200x1800",
+      "viewport": "1600x900 CSS px at deviceScaleFactor 2",
+      "title": "Home: what to do next",
+      "caption": "Home summarises the product's evidence and names the single next step.",
+      "altText": "Viable Home for the fictional product Ledgerly: a one-line product description, counts for product truth revision, two audience hypotheses, three reviewed evidence items and one open action, and a 'What should I do now?' panel recommending a named review of a competitor signal, with an Open signal button.",
+      "limitations": "Seed state.",
+      "proposedPlacement": "Website: product overview / hero",
+      "purpose": "product screenshot candidate",
+      "repositoryPath": "docs/marketing/viable-media/screenshots/viable-01-home.png"
+    },
+    {
+      "file": "screenshots/viable-02-audience-comparison.png",
+      "kind": "screenshot",
+      "sha256": "033ae2bcc113774a3f3e01eaddde237958c235ff28aa22b5e0596b893524f9f2",
+      "pixels": "3200x1800",
+      "viewport": "1600x900 CSS px at deviceScaleFactor 2",
+      "title": "Audience comparison",
+      "caption": "Two audience hypotheses are compared dimension by dimension, each rating with its evidence and confidence.",
+      "altText": "Candidate comparison table for two audiences, Independent design studios (3-15 people) and Solo freelance creatives. Each row (problem intensity, urgency, product fit, time to value, reachable access, available proof) shows a rating out of 4, the evidence behind it and a confidence level. A note reads: No unexplained composite score is calculated.",
+      "limitations": "Seed state, Product & audience view scrolled to the comparison.",
+      "proposedPlacement": "Website: 'evidence before action' feature",
+      "purpose": "product screenshot candidate",
+      "repositoryPath": "docs/marketing/viable-media/screenshots/viable-02-audience-comparison.png"
+    },
+    {
+      "file": "screenshots/viable-03-signal-review.png",
+      "kind": "screenshot",
+      "sha256": "95f86e2d35dd9df6fc2d4c07311345588b5b57dbbd505cf828afa860b55b18c6",
+      "pixels": "3200x1800",
+      "viewport": "1600x900 CSS px at deviceScaleFactor 2",
+      "title": "Named review of market evidence",
+      "caption": "An imported signal stays a suggestion until a named person accepts or dismisses it.",
+      "altText": "Signals inbox with two suggested signals. On the competitor announcement card a Named human review panel is open: it repeats the signal's summary, source, retrieval date, confidence and limitations, has the reviewer name Morgan Reyes entered, and offers Accept evidence or Dismiss evidence.",
+      "limitations": "Review panel opened through the UI; the decision was not submitted for this frame. The evidence drawer text includes an empty 'Facts: {}' field.",
+      "proposedPlacement": "Website: governance feature",
+      "purpose": "product screenshot candidate",
+      "repositoryPath": "docs/marketing/viable-media/screenshots/viable-03-signal-review.png"
+    },
+    {
+      "file": "screenshots/viable-04-studio-review-feedback.png",
+      "kind": "screenshot",
+      "sha256": "1723749a44f032772af8b3d03d6ef4afda21e066f1c85d6c3a0af2a156fe054b",
+      "pixels": "3200x1800",
+      "viewport": "1600x900 CSS px at deviceScaleFactor 2",
+      "title": "Review feedback where the correction happens",
+      "caption": "Reviewer decisions and notes appear on the content itself, with the correction form ready.",
+      "altText": "Studio channel variants. The LinkedIn variant is marked Approved, with the note 'Approved by Sam Okafor: Matches the canonical asset and states private beta.' The Website variant is marked Changes requested, with Sam Okafor's note that 'zero manual entry' and 'reconciles everything' are not supported by the approved claim, and the correction form open below.",
+      "limitations": "Seed state; the review decisions shown are synthetic seed records.",
+      "proposedPlacement": "Website: human review feature",
+      "purpose": "product screenshot candidate",
+      "repositoryPath": "docs/marketing/viable-media/screenshots/viable-04-studio-review-feedback.png"
+    },
+    {
+      "file": "screenshots/viable-05-calendar-activation.png",
+      "kind": "screenshot",
+      "sha256": "b1736af89c65b923519f4ca1a92330be0d4e947d332335724dc3670b48b2f8b6",
+      "pixels": "3200x1800",
+      "viewport": "1600x900 CSS px at deviceScaleFactor 2",
+      "title": "Manual activation, recorded by a person",
+      "caption": "Approved work is scheduled and posted by hand; the delivery shown is a synthetic, human-recorded entry.",
+      "altText": "Calendar records. The entry 'LinkedIn launch post: month-end close' shows Schedule: scheduled and Activation: delivered, owner Morgan Reyes, source the approved campaign variant, reviewed by Sam Okafor. Below it a follow-up entry, and a Manual activation packages section titled Export without claiming delivery.",
+      "limitations": "The delivery outcome was recorded through the Calendar form as human_recorded with the synthetic publication id 'synthetic-demo-post-1'. No provider confirmation exists.",
+      "proposedPlacement": "Website: activation and learning feature",
+      "purpose": "product screenshot candidate",
+      "repositoryPath": "docs/marketing/viable-media/screenshots/viable-05-calendar-activation.png"
+    },
+    {
+      "file": "screenshots/viable-06-analytics-baseline.png",
+      "kind": "screenshot",
+      "sha256": "d8fc9a022a746fdad0a44a6aead84b138ef72ffc14aeee4d051e9ef391816544",
+      "pixels": "3200x1800",
+      "viewport": "1600x900 CSS px at deviceScaleFactor 2",
+      "title": "Alternate: measurement baseline",
+      "caption": "Missing data is marked unavailable, not zero.",
+      "altText": "Analytics baseline for the LinkedIn launch post: waitlist sign-ups observed at 6, demo requests from studios verified zero, and LinkedIn post impressions unavailable, with the note: This is missing, not zero. Form fields above show capture-time default dates.",
+      "limitations": "Alternate only. Raw metric keys (waitlist_sign_ups) are shown; form defaults reflect the capture date.",
+      "proposedPlacement": "Optional",
+      "purpose": "alternate",
+      "repositoryPath": "docs/marketing/viable-media/screenshots/viable-06-analytics-baseline.png"
+    },
+    {
+      "file": "video/viable-walkthrough-candidate-v2.mp4",
+      "repositoryPath": "docs/marketing/viable-media/video/viable-walkthrough-candidate-v2.mp4",
+      "kind": "video",
+      "sha256": "392a1a6f1441a769befdbbf5f9038c755a5fb54bced89547b6c7b459ad927d89",
+      "format": "MP4, H.264 High, yuv420p, 1600x900, 30 fps, no audio, embedded mov_text English captions, faststart",
+      "durationSeconds": 85.93,
+      "viewport": "1600x900 CSS px at deviceScaleFactor 1",
+      "fixture": "ledgerly-media-demo-v1",
+      "purpose": "walkthrough candidate v2 (master): is the product worth building, and who is it for",
+      "limitations": "3.5 s opening and 2 s closing text slates are the only edits. The white pointer dot is a page overlay that follows the real mouse events. No narration audio. Twelve of thirteen assessment dimensions were entered beforehand through the UI and saved as a draft (see fixture); Proof is entered and the assessment completed on camera.",
+      "proposedPlacement": "Website: Viable product page, below the hero"
+    },
+    {
+      "file": "video/viable-walkthrough-candidate-v2-open-captions.mp4",
+      "repositoryPath": "docs/marketing/viable-media/video/viable-walkthrough-candidate-v2-open-captions.mp4",
+      "kind": "video",
+      "sha256": "3976b846df204d2b0772e497711894dc7ccafc329668e75f2f39fe74a55cfd7e",
+      "format": "MP4, H.264, 1600x900, 30 fps, captions burned in",
+      "durationSeconds": 85.93,
+      "purpose": "muted-autoplay variant",
+      "limitations": "Same recording as the master with captions rendered into the picture."
+    },
+    {
+      "file": "video/viable-walkthrough-candidate-v2-poster.png",
+      "repositoryPath": "docs/marketing/viable-media/video/viable-walkthrough-candidate-v2-poster.png",
+      "kind": "poster",
+      "sha256": "bafd2a0c09098072f7487ca0fad8b3dadb7366131c4e3411e8dfb0aede7752ea",
+      "pixels": "1600x900",
+      "purpose": "poster frame (completed marketability assessment, 70.6 s)",
+      "altText": "Viable's completed marketability assessment for the fictional product Ledgerly: product truth, ICP clarity and audience clarity rated 3 of 4; urgency and positioning 2 of 4; offer 1 of 4; each with its rationale, confidence and recommended next step."
+    },
+    {
+      "file": "video/viable-walkthrough-candidate-v2.en.vtt",
+      "repositoryPath": "docs/marketing/viable-media/video/viable-walkthrough-candidate-v2.en.vtt",
+      "kind": "captions",
+      "sha256": "d158977adadb4743eb63c896f847cc62c6771128735a96f0d822e2b83c861d3c"
+    },
+    {
+      "file": "video/viable-walkthrough-candidate-v2.transcript.md",
+      "repositoryPath": "docs/marketing/viable-media/video/viable-walkthrough-candidate-v2.transcript.md",
+      "kind": "transcript",
+      "sha256": "f0ea14f377fa758cf966f9c731af38b3e26360b304aa79c0466e8a9690c4479e"
+    },
+    {
+      "file": "fixture/ledgerly-media-demo-v1.json",
+      "repositoryPath": "docs/marketing/viable-media/fixture/ledgerly-media-demo-v1.json",
+      "kind": "fixture",
+      "sha256": "eb13a0eb5d5b7945d047f44a27867282d828591008b96a21e6b12dabc62a2201",
+      "purpose": "workspace backup used by the walkthrough",
+      "limitations": "Seed ux-acceptance-seed-v2 restored through Workspace import, plus a saved marketability assessment draft with twelve synthetic findings entered through the UI, exported with the app's own Workspace backup. Contains only fictional data."
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "ledgerly-ux-acceptance-seed-v2",
+      "path": "docs/acceptance/seed/ux-acceptance-seed-v2.json",
+      "sha256": "d3dbed27d15a4db78435675b8fa5350713b3c018c72aa0081a26d81a9bfd9fcb",
+      "classification": "synthetic; all people, products and records fictional"
+    },
+    {
+      "id": "ledgerly-media-demo-v1",
+      "path": "docs/marketing/viable-media/fixture/ledgerly-media-demo-v1.json",
+      "sha256": "eb13a0eb5d5b7945d047f44a27867282d828591008b96a21e6b12dabc62a2201",
+      "usedBy": "walkthrough v2"
+    }
+  ],
+  "superseded": [
+    {
+      "asset": "viable-walkthrough-candidate-v1.mp4",
+      "sha256": "8003cf4be0f3524d7b0b45c94839c15f71b3c676ba1678d9d195af35a4a89f7b",
+      "reason": "Owner feedback: the narrative centred publishing to LinkedIn instead of Viable's purpose (is the product worth building, and for whom). Not committed."
+    }
+  ]
+}

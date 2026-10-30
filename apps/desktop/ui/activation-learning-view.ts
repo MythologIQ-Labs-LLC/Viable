@@ -30,6 +30,9 @@ const tone = (value: string): string =>
     : ["draft", "in_review", "ready_for_manual_activation", "partial", "estimated", "delayed", "interrupted", "outcome_unknown", "unknown", "not_collected", "insufficient", "emerging"].includes(value) ? "warning"
       : ["rejected", "failed", "cancelled", "approval_invalidated", "unavailable", "conflict"].includes(value) ? "error" : "neutral";
 const pill = (value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(label(value))}</span>`;
+// A calendar entry carries two independent states; naming each keeps
+// "scheduled" and "delivered" from reading as a contradiction.
+const labelledPill = (name: string, value: string): string => `<span class="pill ${tone(value)}">${escapeHtml(name)}: ${escapeHtml(label(value))}</span>`;
 const humanDate = (value?: string): string => value ? new Date(value).toLocaleString() : "Not recorded";
 const toIso = (value: FormDataEntryValue | null, name: string): string => {
   const date = new Date(String(value ?? ""));
@@ -323,7 +326,7 @@ export class ActivationLearningViewController {
     const sources = this.sourceOptions();
     const activeDestinations = workspace.destinations.filter((item) => item.status === "active");
     return `<section class="activation-workspace" aria-labelledby="calendar-heading">
-      <header class="hero compact"><div><p class="eyebrow">Calendar · Manual activation</p><h2 id="calendar-heading">Timing intent, approval, and delivery evidence remain separate.</h2><p>Schedule approved work, export it manually, and record what actually happened.</p></div>${pill("local manual loop")}</header>
+      <header class="hero compact"><div><p class="eyebrow">Calendar · Manual activation</p><h2 id="calendar-heading">Plan when reviewed work goes out, and record what happened.</h2><p>Schedule approved work, export it manually, and record what actually happened.</p></div>${pill("local manual loop")}</header>
       ${this.failureState()}
       <section class="state offline"><strong>No publishing API is connected.</strong><span>Calendar and export remain useful locally. Credentials never enter destination records or packages.</span></section>
       <section class="metrics" aria-label="Calendar status">
@@ -344,7 +347,7 @@ export class ActivationLearningViewController {
   private renderAnalytics(): string {
     const workspace = this.activation!;
     return `<section class="activation-workspace analytics-workspace" aria-labelledby="analytics-heading">
-      <header class="hero compact"><div><p class="eyebrow">Analytics · Learning</p><h2 id="analytics-heading">Missing evidence stays missing. Learning stays traceable.</h2><p>Record a baseline, import bounded performance evidence, compare compatible states, and choose one reversible next action.</p></div>${pill("manual attribution")}</header>
+      <header class="hero compact"><div><p class="eyebrow">Analytics · Learning</p><h2 id="analytics-heading">Measure what happened, and decide what to do next.</h2><p>Record a baseline, import bounded performance evidence, compare compatible states, and choose one reversible next action.</p></div>${pill("manual attribution")}</header>
       ${this.failureState()}
       <section class="state offline"><strong>Manual evidence is supported.</strong><span>Provider access is optional. Attribution always names its model and uncertainty.</span></section>
       <section class="metrics" aria-label="Analytics status">
@@ -424,7 +427,7 @@ export class ActivationLearningViewController {
       if (entry.scheduleStatus === "scheduled" && !packageRecord) actions.push(`<button class="primary" type="button" data-activation-action="create-package" data-id="${entry.id}">Create manual activation package</button>`);
       if (!['cancelled'].includes(entry.scheduleStatus) && entry.activationStatus !== "delivered") actions.push(`<button type="button" data-activation-action="cancel-entry" data-id="${entry.id}">Cancel</button>`);
     }
-    return `<article class="calendar-card" data-calendar-entry-id="${escapeHtml(entry.id)}"><div class="card-heading"><div><h4>${escapeHtml(entry.title)}</h4><p>${humanDate(entry.startsAt)} · ${escapeHtml(entry.timezone)}</p></div><div class="status-stack">${pill(entry.scheduleStatus)}${pill(entry.activationStatus)}</div></div>
+    return `<article class="calendar-card" data-calendar-entry-id="${escapeHtml(entry.id)}"><div class="card-heading"><div><h4>${escapeHtml(entry.title)}</h4><p>${humanDate(entry.startsAt)} · ${escapeHtml(entry.timezone)}</p></div><div class="status-stack">${labelledPill("Schedule", entry.scheduleStatus)}${labelledPill("Activation", entry.activationStatus)}</div></div>
       <p>${escapeHtml(entry.notes || "No notes")}</p>
       <div class="calendar-meta"><span><strong>Kind</strong>${escapeHtml(label(entry.kind))}</span><span><strong>Owner</strong>${escapeHtml(entry.owner)}</span><span><strong>Source</strong>${entry.source ? escapeHtml(`${label(entry.source.kind)} · ${entry.source.title}`) : "Internal planning"}</span><span><strong>Review</strong>${entry.reviewedBy ? escapeHtml(`${entry.reviewedBy} · ${humanDate(entry.reviewedAt)}`) : "Not required or not reviewed"}</span></div>
       ${actions.length ? `<div class="actions">${actions.join("")}</div>` : ""}</article>`;
