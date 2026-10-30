@@ -44,6 +44,24 @@ Establish product truth
 
 Viable began with event-intelligence roots, but events are now deliberately one signal source inside a larger system. The product model already anticipates website, search, social, community, repository, competitor, customer, support, and sales evidence without allowing any one integration to become the product center.
 
+## See it working
+
+These screens come from a real, locally running build with a fictional product, "Ledgerly". Every record is synthetic. The [85-second walkthrough](docs/marketing/viable-media/video/viable-walkthrough-candidate-v2.mp4) follows a founder deciding whether the product is worth building and who it is for. It has [captions](docs/marketing/viable-media/video/viable-walkthrough-candidate-v2.en.vtt) and a [transcript](docs/marketing/viable-media/video/viable-walkthrough-candidate-v2.transcript.md).
+
+<p align="center">
+  <img src="docs/marketing/viable-media/screenshots/viable-01-home.png" width="32%" alt="Viable Home for the fictional product Ledgerly: product truth revision, two audience hypotheses, three reviewed evidence items, and a 'What should I do now?' panel recommending a named review of a competitor signal.">
+  <img src="docs/marketing/viable-media/screenshots/viable-02-audience-comparison.png" width="32%" alt="A comparison of two audiences, independent design studios and solo freelance creatives: each dimension is rated out of 4 with the evidence behind it and a confidence level, and no composite score is calculated.">
+  <img src="docs/marketing/viable-media/screenshots/viable-03-signal-review.png" width="32%" alt="The Signals inbox with a named human review panel open on a competitor announcement, showing its source, retrieval date, confidence and limitations, with Accept evidence and Dismiss evidence decisions.">
+</p>
+
+Left to right:
+
+1. Home names the next step.
+2. Audiences are compared dimension by dimension, each rating with its evidence.
+3. Imported signals stay suggestions until a named person reviews them.
+
+More screens, provenance and checksums are in [`docs/marketing/viable-media`](docs/marketing/viable-media/README.md).
+
 ## Why it exists
 
 Small teams routinely split marketability work across product notes, spreadsheets, analytics tools, social schedulers, repository dashboards, design tools, event feeds, website monitors, CRMs, and half-finished campaign drafts. The predictable result is authority drift:

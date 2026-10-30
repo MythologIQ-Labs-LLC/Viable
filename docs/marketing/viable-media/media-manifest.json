@@ -3,9 +3,9 @@
   "version": 1,
   "product": "Viable",
   "issue": "https://github.com/MythologIQ-Labs-LLC/Viable/issues/185",
-  "status": "candidate v2 (video) and v1 (screenshots), pending owner approval",
+  "status": "approved by the owner on 2026-10-30: screenshots v1 and walkthrough v2",
   "storage": {
-    "repository": "Binaries are committed here at the owner's request (2026-10-30), marked pending approval. Not for public use until approved.",
+    "repository": "Binaries committed at the owner's request on 2026-10-30 and approved for use the same day.",
     "ownerReviewPage": "https://claude.ai/artifact/PGgvhBoMK3ht8D3cefMFB8"
   },
   "sourceRepository": "MythologIQ-Labs-LLC/Viable",
@@ -21,7 +21,7 @@
   "browser": "Chromium 141.0.7390.37 (headless, Playwright 1.56.1)",
   "captureDate": "2026-10-30",
   "rights": "Original capture of MythologIQ Labs software; no third-party media or audio",
-  "approval": "pending owner approval; not for public use",
+  "approval": "approved by the owner (Knapp-Kevin) on 2026-10-30; UI candidate #196 and #200 signed off",
   "assets": [
     {
       "file": "screenshots/viable-01-home.png",

@@ -1,6 +1,6 @@
 # Viable media candidates
 
-**Status: pending owner approval. Not for public use.** Tracked in [#185](https://github.com/MythologIQ-Labs-LLC/Viable/issues/185).
+**Status: approved by the owner on 2026-10-30** (screenshots v1 and walkthrough v2). Tracked in [#185](https://github.com/MythologIQ-Labs-LLC/Viable/issues/185).
 
 These are real captures of the Viable interface, recorded from a local production build. Every person, product and record in them is fictional.
 
@@ -12,7 +12,7 @@ These are real captures of the Viable interface, recorded from a local productio
 | Machine-readable manifest (SHA-256, provenance, alt text, limitations, placement) | [`media-manifest.json`](media-manifest.json) |
 | Private owner-review page | https://claude.ai/artifact/PGgvhBoMK3ht8D3cefMFB8 |
 
-The owner asked on 2026-10-30 for the binaries to be committed to GitHub. They are still candidates: nothing here is approved for the website or the README gallery until the checklist at the end is signed off.
+The owner asked on 2026-10-30 for the binaries to be committed to GitHub, and approved them the same day, together with the UI they show (#196 and #200).
 
 ## Provenance
 
@@ -120,10 +120,13 @@ Walkthrough candidate v1 told a publishing story: a LinkedIn post was approved, 
 - Screenshot 3's evidence drawer shows an empty `Facts: {}` field. Screenshot 6 shows raw metric keys.
 - The assessment card in the walkthrough is a long list with no summary line at the top.
 
-## Approval checklist (owner)
+## Approval (owner)
 
-- [ ] Screenshots accepted (owner noted on 2026-10-30 that they look good), or replacements requested.
-- [ ] Walkthrough v2 accepted, or changes requested.
-- [ ] Captions, transcript and text alternative accepted.
-- [ ] Website description accepted.
-- [ ] UI candidate (#196 and #200) visually signed off and merged before the media are used publicly.
+Approved on 2026-10-30, when the owner reviewed the screenshots, walkthrough v2 and the UI candidate and said "Ship it":
+
+- [x] Screenshots 1–5 and the alternate accepted.
+- [x] Walkthrough v2 accepted, with its captions, transcript and text alternative.
+- [x] Website description accepted.
+- [x] UI candidate (#196 and #200) signed off and merged.
+
+Approval of the media does not close the person-run accessibility (#79) or unfamiliar-user (#81) gates, and is not a product release.
