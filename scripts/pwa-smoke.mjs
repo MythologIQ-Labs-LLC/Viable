@@ -1270,6 +1270,11 @@ async function run() {
         check(signalNames.every((card) => card.actions.every((action) =>
           action.label.length > 0 && action.label.includes(card.label.replace(/^Signal: /, "")))),
           "Signals action names preserve the precise owning card identity in the browser DOM");
+        const signalCardLabels = signalNames.map((card) => card.label);
+        check(new Set(signalCardLabels).size === signalCardLabels.length,
+          "Signals named groups are unique across the seeded workspace");
+        check(signalNames.every((card) => card.actions.some((action) => action.action === "save")),
+          "Each seeded signal retains its owning Save action after accessible-name changes");
         const signalActionNames = signalNames.flatMap((card) => card.actions.map((action) => action.label));
         check(new Set(signalActionNames).size === signalActionNames.length,
           "Signals action names are unique across the seeded cards");
