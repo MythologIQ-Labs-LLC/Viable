@@ -1222,7 +1222,7 @@ async function run() {
         // Actions that ask for a value use inline, labelled forms (#147).
         const dialogsBefore = journeyDialogs.length;
         const competitor = journey.locator("#main article", { hasText: "Competitor announces automatic receipt capture" }).first();
-        await competitor.getByRole("button", { name: "Tag", exact: true }).click();
+        await competitor.locator('button[data-signal-action="tag"]').click();
         const tagPanel = journey.locator("[data-inline-input]");
         const tagField = tagPanel.locator('input[name="tags"]');
         const fieldFocused = await tagField.evaluate((input) => input === document.activeElement).catch(() => false);
@@ -1281,6 +1281,32 @@ async function run() {
         await go("signals");
         const signalsText = (await journey.locator("#main").textContent()) ?? "";
         check(!signalsText.includes("manual:ledgerly-community-notes-2026-09") && signalsText.includes("Manual JSON import ("), "Signals names sources instead of showing internal source IDs");
+        const signalNames = await journey.locator("#main article.signal-card").evaluateAll((cards) =>
+          cards.map((card) => ({
+            group: card.getAttribute("role"),
+            label: card.getAttribute("aria-label") ?? "",
+            actions: [...card.querySelectorAll('button[data-signal-action]')].map((button) => ({
+              action: button.getAttribute("data-signal-action"),
+              label: button.getAttribute("aria-label") ?? "",
+            })),
+          })),
+        );
+        check(signalNames.length >= 2, "Signals acceptance seed contains multiple distinguishable signal cards");
+        check(signalNames.every((card) => card.group === "group" && card.label.startsWith("Signal: ") && card.label.includes(" (record ") && card.label.endsWith(")")), "Signals cards expose explicit named groups with stable record disambiguators");
+        check(signalNames.every((card) => card.actions.every((action) =>
+          action.label.length > 0 && action.label.includes(card.label.replace(/^Signal: /, "")))),
+          "Signals action names preserve the precise owning card identity in the browser DOM");
+        const signalCardLabels = signalNames.map((card) => card.label);
+        check(new Set(signalCardLabels).size === signalCardLabels.length,
+          "Signals named groups are unique across the seeded workspace");
+        check(signalNames.every((card) => card.actions.some((action) => action.action === "save")),
+          "Each seeded signal retains its owning Save action after accessible-name changes");
+        const signalActionNames = signalNames.flatMap((card) => card.actions.map((action) => action.label));
+        check(new Set(signalActionNames).size === signalActionNames.length,
+          "Signals action names are unique across the seeded cards");
+        check(signalNames.every((card) => card.actions.every((action) =>
+          action.label.includes(" (record ") && action.label.endsWith(")"))),
+          "Signals action labels include stable disambiguators");
         const studios = () => journey.locator("#main article", { hasText: "Studio owners asking for receipt matching" }).first();
         await studios().locator("summary", { hasText: "Convert to proposed work" }).click();
         await studios().locator('form[data-form="signals-convert"] button[type="submit"]').click();
