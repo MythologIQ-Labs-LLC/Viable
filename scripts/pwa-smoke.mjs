@@ -1205,7 +1205,7 @@ async function run() {
         // Actions that ask for a value use inline, labelled forms (#147).
         const dialogsBefore = journeyDialogs.length;
         const competitor = journey.locator("#main article", { hasText: "Competitor announces automatic receipt capture" }).first();
-        await competitor.getByRole("button", { name: "Tag", exact: true }).click();
+        await competitor.locator('button[data-signal-action="tag"]').click();
         const tagPanel = journey.locator("[data-inline-input]");
         const tagField = tagPanel.locator('input[name="tags"]');
         const fieldFocused = await tagField.evaluate((input) => input === document.activeElement).catch(() => false);
