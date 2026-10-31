@@ -1,9 +1,9 @@
 # ADR-0008: Public source licensing and release boundary
 
-- Status: Accepted
+- Status: Accepted; license choice superseded
 - Date: 2026-09-23
 - Supersedes: None
-- Superseded by: None
+- Superseded by: ADR-0012, for the choice of source license only (now AGPL-3.0-only). The other boundaries below still apply.
 
 ## Context
 

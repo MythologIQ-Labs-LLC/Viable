@@ -78,11 +78,11 @@ The migration fails closed. Unreviewed or ambiguous content is excluded.
 
 ## Licensing posture
 
-ADR-0008 proposes licensing Viable-owned source code and documentation under the Apache License, Version 2.0 as part of the repository's public-readiness work.
+ADR-0012 licenses Viable-owned source code and documentation under the GNU Affero General Public License, version 3 only (AGPL-3.0-only). It supersedes the Apache-2.0 choice in ADR-0008; ADR-0008's other boundaries still apply.
 
 Under that posture:
 
-- individuals and organizations may use, modify, redistribute, and commercially use Viable-owned source subject to Apache-2.0;
+- individuals and organizations may use, modify, redistribute, and commercially use Viable-owned source subject to AGPL-3.0-only, including its requirement to offer source to users of a modified version, also over a network;
 - MythologIQ Labs retains Viable product ownership, branding, release-policy, and support authority;
 - public repository visibility is separate from supported end-user release status;
 - `package.json` remains `private: true` until npm publication is separately approved;
@@ -90,7 +90,7 @@ Under that posture:
 - supported binary distribution requires review of the transitive dependency licenses actually present in that artifact;
 - contributions intentionally submitted for inclusion are accepted under the repository license unless a separate agreement states otherwise.
 
-The licensing change is not authoritative until the public-readiness pull request and ADR-0008 are approved and merged.
+MythologIQ Labs, as the copyright holder, may also offer Viable under separate terms.
 
 ## Third-party software
 

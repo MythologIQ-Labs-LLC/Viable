@@ -37,7 +37,7 @@ The curated GitHub Wiki content is source-controlled under [`docs/wiki/`](wiki/R
 
 ## Public source, license, and contribution boundaries
 
-- Viable-owned source and documentation are licensed under [Apache License 2.0](../LICENSE) as accepted in [ADR-0008](adr/0008-public-source-licensing-and-release-boundary.md).
+- Viable-owned source and documentation are licensed under the [GNU Affero General Public License, version 3 only](../LICENSE) as decided in [ADR-0012](adr/0012-agpl-source-license.md), which supersedes the license choice in [ADR-0008](adr/0008-public-source-licensing-and-release-boundary.md).
 - [NOTICE](../NOTICE.md) records product ownership and source-provenance boundaries.
 - [Third-party notices](../THIRD_PARTY_NOTICES.md) record deliberately reviewed third-party source and compatibility targets.
 - [Contributing](../CONTRIBUTING.md) defines contribution, testing, provenance, and contribution-license expectations.

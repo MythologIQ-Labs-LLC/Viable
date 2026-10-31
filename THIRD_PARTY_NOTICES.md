@@ -1,8 +1,8 @@
 # Third-Party Notices
 
-Viable-owned source code and documentation are licensed under the Apache License, Version 2.0 unless a file or notice states otherwise.
+Viable-owned source code and documentation are licensed under the GNU Affero General Public License, version 3 only (AGPL-3.0-only), unless a file or notice states otherwise.
 
-Third-party software, source material, compatibility targets, and dependencies retain their own copyright, license, attribution, trademark, and service terms. The Apache-2.0 license for Viable does not replace or expand those third-party rights.
+Third-party software, source material, compatibility targets, and dependencies retain their own copyright, license, attribution, trademark, and service terms. Viable's AGPL-3.0 license does not replace or expand those third-party rights.
 
 This document records third-party source that Viable has deliberately reviewed, adapted, or targeted closely enough to require durable provenance and notice. Ordinary package dependencies remain subject to the licenses distributed by their respective projects and package ecosystems.
 
