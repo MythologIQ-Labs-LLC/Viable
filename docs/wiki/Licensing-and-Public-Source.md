@@ -1,8 +1,8 @@
 # Licensing and Public Source
 
-Viable-owned source code and documentation are intended to be available under the Apache License, Version 2.0 once the public-readiness licensing decision is accepted and merged.
+Viable-owned source code and documentation are licensed under the GNU Affero General Public License, version 3 only (AGPL-3.0-only).
 
-## What Apache-2.0 allows
+## What the AGPL allows
 
 Subject to the license terms, users may:
 
@@ -11,11 +11,15 @@ Subject to the license terms, users may:
 - redistribute source or binaries;
 - create derivative works.
 
-Apache-2.0 also includes an express contributor patent grant.
+## What it requires
+
+- Anyone who distributes Viable or a modified version must make the corresponding source available under the same license.
+- Anyone who lets people use a modified Viable over a network, for example as a hosted service, must offer those users the corresponding source (AGPL-3.0 section 13).
+- Copyright and license notices must be kept.
 
 ## What it does not grant
 
-The license does not grant general rights to MythologIQ Labs or Viable trademarks, logos, product branding, or trade names beyond reasonable origin attribution.
+The license does not grant rights to MythologIQ Labs or Viable trademarks, logos, product branding, or trade names beyond reasonable origin attribution.
 
 Third-party dependencies and reviewed source retain their own licenses and notice requirements. See [THIRD_PARTY_NOTICES.md](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/THIRD_PARTY_NOTICES.md).
 
@@ -23,8 +27,8 @@ Third-party dependencies and reviewed source retain their own licenses and notic
 
 Repository visibility, source licensing, npm publication, binary distribution, and supported end-user release are separate decisions.
 
-The root npm package intentionally remains `private: true` to prevent accidental registry publication. That setting does not make Apache-licensed source proprietary.
+The root npm package intentionally remains `private: true` to prevent accidental registry publication. That setting does not change the source license.
 
 Supported binary releases require their own transitive dependency-license inventory and release validation.
 
-See [ADR-0008](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/docs/adr/0008-public-source-licensing-and-release-boundary.md) for the governing decision record.
+See [ADR-0012](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/docs/adr/0012-agpl-source-license.md) for the license decision and [ADR-0008](https://github.com/MythologIQ-Labs-LLC/Viable/blob/main/docs/adr/0008-public-source-licensing-and-release-boundary.md) for the release boundary.

@@ -9,7 +9,7 @@
 
 ### A local-first marketability operating system for products, public repositories, founders, maintainers, and small teams
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-0b7285)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0--only-0b7285)](LICENSE)
 [![Approach: Local first](https://img.shields.io/badge/Approach-local_first-8957e5)](#product-principles)
 [![Evidence: Explicit state](https://img.shields.io/badge/Evidence-explicit_state-0b7285)](docs/adr/0004-evidence-provenance-and-partial-failure.md)
 [![Approval: Named human](https://img.shields.io/badge/Approval-named_human-b42335)](docs/adr/0005-human-approval-for-external-action.md)
@@ -264,7 +264,7 @@ Contributions are governed by [`CONTRIBUTING.md`](CONTRIBUTING.md). In particula
 - do not submit secrets, customer data, private operational material, or content you do not have the right to license;
 - keep generated suggestions distinct from reviewed evidence;
 - run the required validation for the scope you change;
-- contributions intentionally submitted for inclusion are accepted under Apache-2.0 unless explicitly agreed otherwise.
+- contributions intentionally submitted for inclusion are accepted under AGPL-3.0-only unless explicitly agreed otherwise.
 
 ## Security and support
 
@@ -275,9 +275,9 @@ Viable is pre-release. Public source visibility does not create a production sup
 
 ## License
 
-Viable-owned source code and documentation are available under the [Apache License 2.0](LICENSE), as accepted in [ADR-0008](docs/adr/0008-public-source-licensing-and-release-boundary.md).
+Viable-owned source code and documentation are available under the [GNU Affero General Public License, version 3 only](LICENSE) (AGPL-3.0-only), as decided in [ADR-0012](docs/adr/0012-agpl-source-license.md).
 
-Apache-2.0 permits use, modification, redistribution, and commercial use under its terms. It also includes an express contributor patent grant and does not grant rights to MythologIQ Labs or Viable trademarks and branding beyond reasonable origin attribution.
+You may use, modify and redistribute Viable, including commercially, under the AGPL's terms. If you distribute Viable or a modified version, or let people use a modified version over a network, you must make the corresponding source available to them under the same license. The license does not grant rights to MythologIQ Labs or Viable trademarks and branding beyond reasonable origin attribution.
 
 Third-party projects and dependencies retain their own licenses. See [`NOTICE.md`](NOTICE.md) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 

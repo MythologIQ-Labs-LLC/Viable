@@ -25,10 +25,11 @@ ADRs answer **why a boundary exists**. The PRD defines required outcomes, the ar
 | [ADR-0005](0005-human-approval-for-external-action.md) | Named human approval is required for externally consequential action | Accepted |
 | [ADR-0006](0006-marketability-loop-and-event-boundary.md) | The marketability loop is the top-level product model; Event Intelligence is a bounded signal subsystem | Accepted |
 | [ADR-0007](0007-icp-hypothesis-and-validation-authority.md) | ICP hypotheses and validation belong to Product Core and cannot be silently rewritten downstream | Accepted |
-| [ADR-0008](0008-public-source-licensing-and-release-boundary.md) | Public source licensing and repository visibility remain distinct from supported product release | Proposed |
+| [ADR-0008](0008-public-source-licensing-and-release-boundary.md) | Public source licensing and repository visibility remain distinct from supported product release | Accepted; license choice superseded by ADR-0012 |
 | [ADR-0009](0009-deterministic-publishing-and-capability-routed-setup.md) | Automated publishing is deterministic and provider-specific setup is evidence-gated | Proposed |
 | [ADR-0010](0010-pwa-first-distribution-and-runtime-capabilities.md) | The PWA is the primary mainstream runtime; native runtime is a capability extension; no code-signing prerequisite | Accepted |
 | [ADR-0011](0011-productization-publishing-analytics-learning.md) | Publishing analytics belong to the productization learning loop; overlapping social capabilities do not merge Viable with personal-brand systems | Accepted |
+| [ADR-0012](0012-agpl-source-license.md) | Viable-owned source and documentation are licensed AGPL-3.0-only | Accepted |
 
 ## Required ADR sections
 

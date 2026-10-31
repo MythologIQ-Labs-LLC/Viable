@@ -49,4 +49,4 @@ Do not use a public support issue for a suspected vulnerability, secret, credent
 
 ## Commercial support
 
-The Apache-2.0 source license does not require MythologIQ Labs to provide support, hosting, warranties, or managed services. MythologIQ Labs may choose to offer commercial support, hosting, customization, packaged distributions, or other services in the future under separately stated terms.
+The AGPL-3.0 source license does not require MythologIQ Labs to provide support, hosting, warranties, or managed services. MythologIQ Labs may choose to offer commercial support, hosting, customization, packaged distributions, or other services in the future under separately stated terms.
