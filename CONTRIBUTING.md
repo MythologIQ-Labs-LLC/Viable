@@ -61,7 +61,7 @@ Synthetic fixtures must be clearly non-operational.
 
 Viable-owned source and documentation are licensed under the GNU Affero General Public License, version 3 only (AGPL-3.0-only), as decided in ADR-0012.
 
-Unless you explicitly state otherwise before submission, a contribution intentionally submitted for inclusion in Viable is offered under AGPL-3.0-only. Maintainers may ask outside contributors to agree to a contributor license agreement before a contribution is merged.
+Outside contributions require agreement to the [Viable Contributor License Agreement](CLA.md). It lets MythologIQ Labs, LLC distribute your contribution under AGPL-3.0-only and under commercial license terms, while you keep ownership. Agree by adding the statement from section 6 of the CLA to your pull request description. Pull requests without it will not be merged.
 
 By submitting a contribution, you represent that you have the right to license the material you submit. Identify copied, adapted, or generated material whose provenance or license is not obvious. Do not submit code, documentation, images, datasets, or other assets whose rights are uncertain.
 

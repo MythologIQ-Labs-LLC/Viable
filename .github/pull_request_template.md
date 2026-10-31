@@ -21,6 +21,12 @@ Describe the user, product, maintenance, or governance outcome this change is in
 - [ ] New external action preserves destination identity, named approval, execution evidence, failure state, and recovery boundaries where applicable.
 - [ ] This change does not silently redefine Product Core, evidence, approval, or other bounded-context authority.
 
+## Contributor License Agreement
+
+Outside contributors only. Keep this line, or delete it if you work for or under contract to MythologIQ Labs, LLC:
+
+> I have read the Viable Contributor License Agreement (CLA.md, version 1.0) and agree to its terms.
+
 Explain any checked-item exception or material security/provenance change:
 
 ## Validation

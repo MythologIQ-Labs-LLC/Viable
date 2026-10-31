@@ -264,7 +264,7 @@ Contributions are governed by [`CONTRIBUTING.md`](CONTRIBUTING.md). In particula
 - do not submit secrets, customer data, private operational material, or content you do not have the right to license;
 - keep generated suggestions distinct from reviewed evidence;
 - run the required validation for the scope you change;
-- contributions intentionally submitted for inclusion are accepted under AGPL-3.0-only unless explicitly agreed otherwise.
+- outside contributions require agreement to the [Contributor License Agreement](CLA.md), which covers distribution under AGPL-3.0-only and commercial license terms.
 
 ## Security and support
 
